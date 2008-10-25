@@ -1,0 +1,110 @@
+//----------------------------------------------------------------------------------------------------
+// SiOPM operator parameters
+//  Copyright (c) 2008 keim All rights reserved.
+//  Distributed under BSD-style license (see org.si.license.txt).
+//----------------------------------------------------------------------------------------------------
+
+
+
+
+package org.si.sound.module {
+    /** OPM Parameters */
+    public class SiOPMOperatorParam
+    {
+    // valiables 15 parameters
+    //--------------------------------------------------
+        /** Attack rate [0,63] */
+        public var ar:int;
+        /** Decay rate [0,63] */
+        public var dr:int;
+        /** Sustain rate [0,63] */
+        public var sr:int;
+        /** Release rate [0,63] */
+        public var rr:int;
+        /** Sustain level [0,15] */
+        public var sl:int;
+        /** [extension] Total level [0,127] */
+        public var tl:int;
+        /** Key scaling rate [0,3] */
+        public var ks:int;
+        /** [extension] Key scaling level [0,3] */
+        public var ksl:int;
+        /** [extension] Fine multiple [0,...] */
+        public var fmul:int;
+        /** dt1 [0,7]  */
+        public var dt1:int;
+        /** detune */
+        public var detune:int;
+        /** Amp modulation shift [0-3] */
+        public var ams:int;
+        /** SSG type envelop control */
+        public var ssgec:int;
+        /** [extension] Pulse generator type [0,1023] */
+        public var pgType:int;
+        /** [extension] Pitch table type [0,7] */
+        public var ptType:int;
+        /** [extension] Initiail phase [0,255] */
+        public var phase:int;
+        /** [extension] Fixed pitch. 0 means pitch is not fixed. */
+        public var fixedPitch:int;
+        /** [extension] Frequency modulation level [0,7]. 5 is standard modulation. */
+        public var modLevel:int;
+        
+        
+        /** multiple [0,15] */
+        public function set mul(m:int) : void { fmul = (m) ? (m<<7) : 64; }
+        
+        
+        function SiOPMOperatorParam()
+        {
+            initialize();
+        }
+        
+        
+        public function initialize() : void
+        {
+            ar = 63;
+            dr = 0;
+            sr = 0;
+            rr = 63;
+            sl = 0;
+            tl = 0;
+            ks = 1;
+            ksl = 0;
+            fmul = 128;
+            dt1 = 0;
+            detune = 0;
+            ams = 0;
+            ssgec = 0;
+            pgType = SiOPMTable.PG_SINE;
+            ptType = SiOPMTable.PT_DEFAULT;
+            phase = 0;
+            fixedPitch = 0;
+            modLevel = 5;
+        }
+        
+        
+        public function toString() : String
+        {
+            var str:String = "SiOPMOperatorParam : "
+            str += String(pgType) + "/";
+            str += String(ar) + "/";
+            str += String(dr) + "/";
+            str += String(sr) + "/";
+            str += String(rr) + "/";
+            str += String(sl) + "/";
+            str += String(tl) + "/";
+            str += String(ks) + "/";
+            str += String(ksl) + "/";
+            str += String(fmul) + "/";
+            str += String(dt1) + "/";
+            str += String(detune) + "/";
+            str += String(ams) + "/";
+            str += String(ssgec) + "/";
+            str += String(phase)  + "/";
+            str += String(fixedPitch);
+            return str;
+        }
+    }
+}
+
