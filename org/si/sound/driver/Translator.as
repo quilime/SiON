@@ -34,7 +34,8 @@ package org.si.sound.driver {
             var charCodeG:int = "g".charCodeAt(0);
             var charCodeR:int = "r".charCodeAt(0);
             var hex:String = "0123456789abcdef";
-            var p0:int, p1:int, p2:int, p3:int, p4:int, reql8:Boolean;
+            var p0:int, p1:int, p2:int, p3:int, p4:int, reql8:Boolean, octave:int, revOct:Boolean, 
+                loopOct:int, loopMacro:Boolean, loopMMLBefore:String, loopMMLContent:String;
 
             rex  = new RegExp("(;|(/:|:/|ml|mp|na|ns|nt|ph|@kr|@ks|@ml|@ns|@apn|@[fkimopqsv]?|[klopqrstvx$%<>(){}[\\]|_~^/&*]|[a-g][#+\\-]?)\\s*([\\-\\d]*)[,\\s]*([\\-\\d]+)?[,\\s]*([\\-\\d]+)?[,\\s]*([\\-\\d]+)?[,\\s]*([\\-\\d]+)?)|#(FM|[A-Z]+)=?\\s*([^;]*)|([A-Z])(\\(([a-g])([\\-+#]?)\\))?|.", "gms");
             rex_sys = /\s*([0-9]*)[,=<\s]*([^>]*)/ms;
@@ -44,6 +45,12 @@ package org.si.sound.driver {
             volDw = ")";
             mml = "";
             reql8 = true;
+            octave = 5;
+            revOct = false;
+            loopOct = -1;
+            loopMacro = false;
+            loopMMLBefore = undefined;
+            loopMMLContent = undefined;
             res = rex.exec(tsscpMML);
             while (res) {
                 if (res[1] != undefined) {
@@ -63,9 +70,6 @@ package org.si.sound.driver {
                                 case '/:':  { mml += "[" + res[3]; }break;
                                 case ':/':  { mml += "]"; }break;
                                 case '/':   { mml += "|"; }break;
-                                case '[':   { mml += "![" + res[3]; }break;
-                                case ']':   { mml += "!]"; }break;
-                                case '|':   { mml += "!|"; }break;
                                 case '~':   { mml += volUp + res[3]; }break;
                                 case '_':   { mml += volDw + res[3]; }break;
                                 case 'q':   { mml += "q" + String((int(res[3])+1)>>1); }break;
@@ -81,9 +85,11 @@ package org.si.sound.driver {
                                 case '@kr': { p0 = Number(res[3]) * 0.768; mml += "!@kr" + String(p0); }break;
                                 case '@ks': { mml += "@,,,,,,," + String(int(res[3]) >> 5); }break;
                                 case 'na':  { mml += "!" + res[0]; }break;
-                                case '%':   {
-                                    mml += (res[3] == '6') ? '%4' : res[0];
-                                }break;
+                                case 'o':   { mml += res[0]; octave = int(res[3]); }break;
+                                case '<':   { mml += res[0]; octave += (revOct) ? -1 :  1; }break;
+                                case '>':   { mml += res[0]; octave += (revOct) ?  1 : -1; }break;
+                                case '%':   { mml += (res[3] == '6') ? '%4' : res[0]; }break;
+                                
                                 case '@ml': { 
                                     p0 = int(res[3])>>7;
                                     p1 = int(res[3]) - (p0<<7);
@@ -138,7 +144,7 @@ package org.si.sound.driver {
                                     rex_com.lastIndex = p0;
                                     do {
                                         res = rex_com.exec(tsscpMML);
-                                        if (res == null) throw errorTranslation("too many {s");
+                                            if (res == null) throw errorTranslation("{{...} ?");
                                         if (res[0] == '{') i++;
                                         else if (res[0] == '}') --i;
                                     } while (i);
@@ -146,8 +152,34 @@ package org.si.sound.driver {
                                     rex.lastIndex = res.index + 1;
                                 }break;
                                     
+                                case '[': { 
+                                    if (loopMMLBefore) errorTranslation("[[...] ?");
+                                    loopMacro = false;
+                                    loopMMLBefore = mml;
+                                    loopMMLContent = undefined;
+                                    mml = res[3];
+                                    loopOct = octave;
+                                }break;
+                                case '|': {
+                                    if (!loopMMLBefore) errorTranslation("'|' can be only in '[...]'");
+                                    loopMMLContent = mml; 
+                                    mml = "";
+                                }break;
+                                case ']': {
+                                    if (!loopMMLBefore) errorTranslation("[...]] ?");
+                                    if (!loopMacro && loopOct==octave) {
+                                        if (loopMMLContent)  mml = loopMMLBefore + "[" + loopMMLContent + "|" + mml + "]";
+                                        else                 mml = loopMMLBefore + "[" + mml + "]";
+                                    } else {
+                                        if (loopMMLContent)  mml = loopMMLBefore + "![" + loopMMLContent + "!|" + mml + "!]";
+                                        else                 mml = loopMMLBefore + "![" + mml + "!]";
+                                    }
+                                    loopMMLBefore = undefined;
+                                    loopMMLContent = undefined;
+                                }break;
+
                                 case '}': 
-                                    throw errorTranslation("too many }s");
+                                    throw errorTranslation("{...}} ?");
                                 case '@apn': case 'x':
                                     break;
                                 
@@ -159,24 +191,47 @@ package org.si.sound.driver {
                     }
                 } else 
                 
+                if (res[10] != undefined) {
+                    // macro expansion
+                    if (reql8) mml += "l8" + res[10];
+                    else       mml += res[10];
+                    reql8 = false;
+                    loopMacro = true;
+                    if (res[11] != undefined) {
+                        // note shift
+                        i = noteShift[noteLetters.indexOf(res[12])];
+                        if (res[13] == '+' || res[13] == '#') i++;
+                        else if (res[13] == '-') i--;
+                        mml += "(" + String(i) + ")";
+                    }
+                } else 
+                
                 if (res[8] != undefined) {
-                    // macro definition
+                    // system command
                     str1 = res[8];
                     switch (str1) {
                         case 'END':    { mml += "#END"; }break;
-                        case 'OCTAVE': { if (res[9] == 'REVERSE') mml += "#REVo"; }break;
-                        case 'OCTAVEREVERSE': { mml += "#REVo"; }break;
+                        case 'OCTAVE': { 
+                            if (res[9] == 'REVERSE') {
+                                mml += "#REV{octave}"; 
+                                revOct = true;
+                            }
+                        }break;
+                        case 'OCTAVEREVERSE': { 
+                            mml += "#REV{octave}"; 
+                            revOct = true;
+                        }break;
                         case 'VOLUME': {
                             if (res[9] == 'REVERSE') {
                                 volUp = ")";
                                 volDw = "(";
-                                mml += "#REVv";
+                                mml += "#REV{volume}";
                             }
                         }break;
                         case 'VOLUMEREVERSE': {
                             volUp = ")";
                             volDw = "(";
-                            mml += "#REVv";
+                            mml += "#REV{volume}";
                         }break;
                         
                         case 'TABLE': {
@@ -197,13 +252,13 @@ package org.si.sound.driver {
                         }break;
                         
                         case 'FM': {
-                            mml += "#FM" + String(res[9]).replace(/([A-Z])([0-9])?(\()?/g, 
+                            mml += "#FM{" + String(res[9]).replace(/([A-Z])([0-9])?(\()?/g, 
                                 function() : String {
                                     var num:int = (arguments[2]) ? (int(arguments[2])) : 3;
                                     var str:String = (arguments[3]) ? (String(num) + "(") : "";
                                     return String(arguments[1]).toLowerCase() + str;
                                 }
-                            );//))
+                            ) + "}" ;//))
                         }break;
                         
                         case 'FINENESS':
@@ -227,19 +282,6 @@ package org.si.sound.driver {
                     }
                 } else 
                 
-                if (res[10] != undefined) {
-                    // macro expansion
-                    if (reql8) mml += "l8" + res[10];
-                    else       mml += res[10];
-                    reql8 = false;
-                    if (res[11] != undefined) {
-                        // note shift
-                        i = noteShift[noteLetters.indexOf(res[12])];
-                        if (res[13] == '+' || res[13] == '#') i++;
-                        else if (res[13] == '-') i--;
-                        mml += "(" + String(i) + ")";
-                    }
-                } else 
                 {
                     mml += res[0];
                 }

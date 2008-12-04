@@ -19,12 +19,26 @@ package org.si.sound.driver {
     /** SiOPM channel setting */
     public class SiMMLChannelSetting
     {
+    // constants
+    //--------------------------------------------------
+        static public const SELECT_TONE_NOP   :int = 0;
+        static public const SELECT_TONE_NORMAL:int = 1;
+        static public const SELECT_TONE_FM    :int = 2;
+        
+        
+        
+        
+    // variables
+    //--------------------------------------------------
         public   var type:int;
+        internal var _selectToneType:int;
         internal var _pgTypeList:Vector.<int>;
         internal var _ptTypeList:Vector.<int>;
         internal var _initIndex:int;
         internal var _channelIndex:Vector.<int>;
         internal var _channelType:int;
+        
+        
         
         
     // constructor
@@ -44,6 +58,7 @@ package org.si.sound.driver {
             this._initIndex = 0;
             this.type = type;
             _channelType = SiOPMChannelManager.CT_CHANNEL_FM;
+            _selectToneType = SELECT_TONE_NORMAL;
         }
 
         
@@ -54,26 +69,24 @@ package org.si.sound.driver {
         /** initialize tone by channel number. */
         public function initializeTone(track:SiMMLSequencerTrack, chNum:int) : int
         {
-            // change channel
             if (track.channel == null) {
-                track.channel = SiOPMChannelManager.newChannel(_channelType);
+                // create new channel
+                track.channel = SiOPMChannelManager.newChannel(_channelType, null);
                 track._updateStereoVolume();
             } else 
             if (track.channel.channelType != _channelType) {
-                SiOPMChannelManager.deleteChannel(track.channel);
-                track.channel = SiOPMChannelManager.newChannel(_channelType);
+                // change channel type
+                var prev:SiOPMChannelBase = track.channel;
+                track.channel = SiOPMChannelManager.newChannel(_channelType, prev);
+                SiOPMChannelManager.deleteChannel(prev);
                 track._updateStereoVolume();
             }
 
-            if (chNum<0 || chNum>=_channelIndex.length) {
-                track.channel.setType(_pgTypeList[_initIndex], _ptTypeList[_initIndex]);
-                return _initIndex;
-            } else {
-                var i:int = _channelIndex[chNum];
-                track.channel.setType(_pgTypeList[i], _ptTypeList[i]);
-                track.channel.setAlgorism(1, 0);
-                return i;
-            }
+            // initialize
+            var channelIndex:int = (chNum<0 || chNum>=_channelIndex.length) ? _initIndex : _channelIndex[chNum];
+            track.channel.setType(_pgTypeList[channelIndex], _ptTypeList[channelIndex]);
+            track.channel.setAlgorism(1, 0);
+            return channelIndex;
         }
         
         
@@ -82,15 +95,17 @@ package org.si.sound.driver {
         {
             var param:SiOPMChannelParam;
             
-            switch (type) {
-            case SiMMLTable.MT_FM:
+            switch (_selectToneType) {
+            case SELECT_TONE_NORMAL:
+                if (toneIndex <0 || toneIndex >=_pgTypeList.length) toneIndex = _initIndex;
+                track.channel.setType(_pgTypeList[toneIndex], _ptTypeList[toneIndex]);
+                break;
+            case SELECT_TONE_FM:
                 if (toneIndex<0 || toneIndex>=256) toneIndex=0;
                 param = SiMMLTable.getSiOPMChannelParam(toneIndex);
                 track.channel.setSiOPMChannelParam(param, false);
                 return (param.initSequence.isEmpty()) ? null : param.initSequence;
             default:
-                if (toneIndex <0 || toneIndex >=_pgTypeList.length) toneIndex = _initIndex;
-                track.channel.setType(_pgTypeList[toneIndex], _ptTypeList[toneIndex]);
                 break;
             }
             return null;

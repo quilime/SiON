@@ -8,6 +8,7 @@
 
 
 package org.si.sound.mml {
+    /** MML event. */
     public class MMLEvent
     {
     // constants

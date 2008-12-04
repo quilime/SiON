@@ -10,12 +10,15 @@
 package org.si.sound.mml {
     /**
      *  MMLSequencer is the basic class of a bridges between MMLEvents, sound modules and sound systems. 
-     *  Usage is as below. You should follow this in your inherited classes. <br/>
-     *  1) Register the event listeners by setMMLEventListener()/newMMLEventListener().<br/>
-     *  2) Call initialize() to initialize.<br/>
-     *  3) Call parse() to translate MML-String.<br/>
-     *  4) Call process() to process audio from inherited class.<br/>
-     *  5) The processTrack() calls back the virtual function onProcess(). Override this to process audio.<br/>
+     *  You should follow this in your inherited classes. <br/>
+     *  1) Register MML event listeners by setMMLEventListener() or newMMLEventListener().<br/>
+     *  2) Override on...() functions.<br/>
+     *  3) Override prepareCompile() and compile() if necessary.<br/>
+     *  4) Override prepareProcess() and process() to process audio data.<br/>
+     *  And usage is as below. 
+     *  1) Call initialize() to initialize.<br/>
+     *  2) Call prepareCompile() and compile() to compile the MML string to MMLData.<br/>
+     *  3) Call prepareProcess() and process() to process audio in inherited class.<br/>
      */
     public class MMLSequencer
     {
@@ -68,6 +71,8 @@ package org.si.sound.mml {
         /** beat per minute. */
         protected function set bpm(b:Number) : void
         {
+            if (b<1) b=1;
+            else if (b>511) b=511;
             _samplePerTick = int((sampleRate * 240 / (setting.resolution * b)) * (1<<FIXED_BITS));
             onTempoChanged(_bpm/b);
             _bpm = b;
@@ -192,11 +197,11 @@ package org.si.sound.mml {
             if (e == null) return MMLParser.parseProgress;
 
             // create main sequence group
-            mmlData.mainSequenceGroup.alloc(e);
+            mmlData.sequenceGroup.alloc(e);
             // abstruct global sequences
             _abstructGlobalSequence();
             // callback after parsing
-            onAfterCompile(mmlData.mainSequenceGroup);
+            onAfterCompile(mmlData.sequenceGroup);
             
             return 1;
         }
@@ -216,6 +221,7 @@ package org.si.sound.mml {
             _bufferSampleCount = bufferSize;
             bpm = mmlData.defaultBPM;
             globalExecutor.initialize(mmlData.globalSequence);
+            mmlData.regiterAllTables();
         }
         
         
@@ -366,10 +372,10 @@ package org.si.sound.mml {
         static private var _tempExecutor:MMLExecutor = new MMLExecutor();
         private function _abstructGlobalSequence() : void
         {
-            var seqGroup:MMLSequenceGroup = mmlData.mainSequenceGroup;
+            var seqGroup:MMLSequenceGroup = mmlData.sequenceGroup;
             
             var list:Array = [];
-            var seq:MMLSequence, prev:MMLEvent, e:MMLEvent, pos:int, count:int, hasNoEvent:Boolean, i:int;
+            var seq:MMLSequence, prev:MMLEvent, e:MMLEvent, pos:int, count:int, hasNoEvent:Boolean, i:int, defaultBPM:int;
             
             for (seq = seqGroup.headSequence; seq != null; seq = seq.nextSequence) {
                 count = seq.headEvent.data;
@@ -436,22 +442,23 @@ package org.si.sound.mml {
             seq.alloc();
             list = list.sortOn(length, Array.NUMERIC);
             pos = 0;
-            _bpm = 0;
+            defaultBPM = setting.defaultBPM;
             for each (e in list) {
                 if (e.length == 0 && e.id == MMLEvent.TEMPO) {
-                    _bpm = e.data;
+                    // first tempo command is defaultBPM.
+                    defaultBPM = e.data;
+                } else {
+                    count = e.length - pos;
+                    pos = e.length;
+                    e.length = 0;
+                    if (count > 0) seq.pushEvent(MMLEvent.WAIT, 0, count);
+                    seq.connectEvent(e);
                 }
-                count = e.length - pos;
-                pos = e.length;
-                e.length = 0;
-                if (count > 0) seq.pushEvent(MMLEvent.WAIT, 0, count);
-                seq.connectEvent(e);
             }
 //trace(seq);
             
-            
-            // return initial tempo
-            mmlData.defaultBPM = (_bpm == 0) ? setting.defaultBPM : _bpm;
+            // set default bpm in mmlData
+            mmlData.defaultBPM = defaultBPM;
         }
         
         
@@ -478,7 +485,7 @@ package org.si.sound.mml {
             }
             
             // waiting
-            if (exec._residueSampleCount < _globalBufferSampleCount) {
+            if (exec._residueSampleCount <= _globalBufferSampleCount) {
                 _globalExecuteSampleCount = exec._residueSampleCount;
                 _globalBufferSampleCount  -= _globalExecuteSampleCount;
                 exec._residueSampleCount  = 0;
@@ -507,7 +514,7 @@ package org.si.sound.mml {
             }
             
             // processing
-            if (exec._residueSampleCount < _processSampleCount) {
+            if (exec._residueSampleCount <= _processSampleCount) {
                 onProcess(exec._residueSampleCount, e.jump);
                 _processSampleCount -= exec._residueSampleCount;
                 exec._residueSampleCount = 0;

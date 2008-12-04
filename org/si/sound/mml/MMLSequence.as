@@ -13,7 +13,7 @@ package org.si.sound.mml {
     
     
     
-    /** MMLSequence holds a chain of MMLEvents. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has array of"). */
+    /** Sequence of 1 sound channel. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLSequence
     {
     // valiables

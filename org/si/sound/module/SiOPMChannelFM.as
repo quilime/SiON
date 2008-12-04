@@ -109,7 +109,7 @@ package org.si.sound.module {
             _pipe0 = SLLint.allocRing(1);
             _pipe1 = SLLint.allocRing(1);
             
-            initialize();
+            initialize(null);
         }
         
         
@@ -200,8 +200,8 @@ package org.si.sound.module {
             if (param.opeCount == 0) return;
             
             if (withVolume) {
-                _left_volume  = param.leftVolume;
-                _right_volume = param.rightVolume;
+                _left_volume  = param.leftVolume  * 0.0078125; // = 1/128
+                _right_volume = param.rightVolume * 0.0078125;
             }
             setFrequencyRatio(param.fratio);
             setAlgorism(param.opeCount, param.alg);
@@ -211,6 +211,9 @@ package org.si.sound.module {
             _lfo_timer_step = param.lfoFreqStep;
             setAmplitudeModulation(param.amd);
             setPitchModulation(param.pmd);
+            setFilterEnvelop(param.far, param.fdr1, param.fdr2, param.frr, param.cutoff, param.fdc1, param.fdc2, param.fsc, param.frc);
+            setFilterResonance(param.resonanse);
+            activateFilter((param.cutoff<128 || param.resonanse>0))
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.opeParam[i]);
             }
@@ -541,14 +544,14 @@ package org.si.sound.module {
     // operation
     //--------------------------------------------------
         /** Initialize. */
-        override public function initialize() : void
+        override public function initialize(prev:SiOPMChannelBase) : void
         {
             // initialize operators
             _updateOperatorCount(1);
             operator[0].initialize();
             
             // initialize sound channel
-            super.initialize();
+            super.initialize(prev);
         }
         
         

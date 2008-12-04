@@ -23,7 +23,7 @@ package org.si.sound.driver {
         // maximum output
         static public const OUTPUT_MAX:Number = 0.5;
         
-        // module types (0-31)
+        // module types (0-9)
         static public const MT_PSG   :int = 0;  // PSG
         static public const MT_APU   :int = 1;  // FC pAPU
         static public const MT_NOISE :int = 2;  // noise wave
@@ -34,8 +34,10 @@ package org.si.sound.driver {
         static public const MT_PCM   :int = 7;  // PCM
         static public const MT_PULSE :int = 8;  // pulse wave
         static public const MT_RAMP  :int = 9;  // ramp wave
-        static public const MT_DELAY :int = 16; // delay
-        static public const MT_MAX   :int = 32;
+        static public const MT_MAX   :int = 10;
+        
+        static public const MT_DELAY :int = 10; // delay
+        static private const MT_ARRAY_SIZE:int = 11;
         
         
         
@@ -51,6 +53,8 @@ package org.si.sound.driver {
         public var panTable:Vector.<Number> = null;
         /** module setting table */
         public var channelModuleSetting:Array = null;
+        /** module setting table */
+        public var effectModuleSetting:Array = null;
         
         /** int->Number ratio on pulse data */
         public var i2n:Number;
@@ -123,9 +127,9 @@ package org.si.sound.driver {
                 panTable[i] = Math.sin(i*0.012176715711588345);  // 0.012176715711588345 = PI*0.5/129
             }
             
-            // Module pgType table          
+            // Channel module setting
             var ms:SiMMLChannelSetting;
-            channelModuleSetting = new Array(MT_MAX);
+            channelModuleSetting = new Array(MT_ARRAY_SIZE);
             channelModuleSetting[MT_PSG]    = new SiMMLChannelSetting(MT_PSG,    SiOPMTable.PG_SQUARE,      3,   1, 4); // PSG
             channelModuleSetting[MT_APU]    = new SiMMLChannelSetting(MT_APU,    SiOPMTable.PG_PULSE,       12,  2, 5); // FC pAPU
             channelModuleSetting[MT_NOISE]  = new SiMMLChannelSetting(MT_NOISE,  SiOPMTable.PG_NOISE_WHITE, 16,  1, 1); // noise
@@ -136,10 +140,7 @@ package org.si.sound.driver {
             channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         512, 1, 1); // PCM
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 1); // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 1); // ramp
-            channelModuleSetting[MT_DELAY]  = new SiMMLChannelSetting(MT_DELAY,  SiOPMTable.PG_SINE,        1,   1, 1); // delay
-            // tempolaly not available
-            for (i=10; i<16; i++) { channelModuleSetting[i]  = new SiMMLChannelSetting(i, SiOPMTable.PG_SINE, 1, 1, 1); }
-            for (i=17; i<32; i++) { channelModuleSetting[i]  = new SiMMLChannelSetting(i, SiOPMTable.PG_SINE, 1, 1, 1); }
+            channelModuleSetting[MT_DELAY]  = new SiMMLChannelSetting(MT_DELAY,  SiOPMTable.PG_SINE, 1, 1, 1);
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -169,8 +170,12 @@ package org.si.sound.driver {
             ms._channelIndex[2] = 8;
             ms._channelIndex[3] = 9;
             ms._channelIndex[4] = 11;
+            // FM setting
+            channelModuleSetting[MT_FM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_FM;
             // Delay
+            channelModuleSetting[MT_DELAY]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_DELAY]._channelType = SiOPMChannelManager.CT_EFFECT_DELAY;
+            
             
             // These tables are just depended on my ear ... ('A`)
             tss_s2ar = _logTable(41, -4, 63, 9);
@@ -207,49 +212,42 @@ package org.si.sound.driver {
         }
         
         
+        
+        
+    // operations
+    //--------------------------------------------------
         /** Reset all user tables */
         static public function resetAllUserTables() : void
         {
-            // [NOTE] We should free allocated memory area in the environment without garbege collectors.
             var i:int, imax:int;
             
             // Reset all envelop tables
             imax = instance.envelopTables.length;
-            for (i=0; i<imax; i++) {
-                if (instance.envelopTables[i]) instance.envelopTables[i].free();
-            }
+            for (i=0; i<imax; i++) { instance.envelopTables[i] = null }
             
             // Reset all FM parameter settings
             imax = instance.fmParameters.length;
-            for (i=0; i<imax; i++) {
-                if (instance.fmParameters[i]) instance.fmParameters[i].initialize();
-            }
+            for (i=0; i<imax; i++) { instance.fmParameters[i] = null; }
         }
         
         
-        /** Set envelop table */
-        static public function setEnvelopTable(index:int, head:SLLint, tail:SLLint) : void
+        /** Register envelop table */
+        static public function registerEnvelopTable(index:int, table:SiMMLEnvelopTable) : void
         {
-            // allocate envelop table
-            if (instance.envelopTables[index]) {
-                instance.envelopTables[index].free();
-            } else {
-                instance.envelopTables[index] = new SiMMLEnvelopTable();
-            }
-            // set envelop table
-            var table:SiMMLEnvelopTable = instance.envelopTables[index];
-            table.head = head;
-            table.tail = tail;
-            // looping last data
-            if (table.tail.next == null) table.tail.next = table.tail;
+            instance.envelopTables[index] = table;
+        }
+        
+        
+        /** Register SiOPMChannelParam */
+        static public function registerChannelParam(index:int, param:SiOPMChannelParam) : void
+        {
+            instance.fmParameters[index] = param;
         }
         
         
         /** Get SiOPMChannelParam */
         static public function getSiOPMChannelParam(index:int) : SiOPMChannelParam
         {
-            if (instance.fmParameters.length <= index) instance.fmParameters.length = index+1;
-            if (instance.fmParameters[index] == null)  instance.fmParameters[index] = new SiOPMChannelParam();
             return instance.fmParameters[index];
         }
     }

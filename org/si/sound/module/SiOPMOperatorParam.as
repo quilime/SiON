@@ -26,7 +26,7 @@ package org.si.sound.module {
         /** [extension] Total level [0,127] */
         public var tl:int;
         /** Key scaling rate [0,3] */
-        public var ks:int;
+        public var ksr:int;
         /** [extension] Key scaling level [0,3] */
         public var ksl:int;
         /** [extension] Fine multiple [0,...] */
@@ -49,6 +49,8 @@ package org.si.sound.module {
         public var fixedPitch:int;
         /** [extension] Frequency modulation level [0,7]. 5 is standard modulation. */
         public var modLevel:int;
+        /** mute */
+        public var mute:Boolean;
         
         
         /** multiple [0,15] */
@@ -69,7 +71,7 @@ package org.si.sound.module {
             rr = 63;
             sl = 0;
             tl = 0;
-            ks = 1;
+            ksr = 1;
             ksl = 0;
             fmul = 128;
             dt1 = 0;
@@ -81,6 +83,31 @@ package org.si.sound.module {
             phase = 0;
             fixedPitch = 0;
             modLevel = 5;
+            mute = false;
+        }
+        
+        
+        public function copyFrom(org:SiOPMOperatorParam) : void
+        {
+            ar = org.ar;
+            dr = org.dr;
+            sr = org.sr;
+            rr = org.rr;
+            sl = org.sl;
+            tl = org.tl;
+            ksr = org.ksr;
+            ksl = org.ksl;
+            fmul = org.fmul;
+            dt1 = org.dt1;
+            detune = org.detune;
+            ams = org.ams;
+            ssgec = org.ssgec;
+            pgType = org.pgType;
+            ptType = org.ptType;
+            phase = org.phase;
+            fixedPitch = org.fixedPitch;
+            modLevel = org.modLevel;
+            mute = org.mute;
         }
         
         
@@ -94,15 +121,16 @@ package org.si.sound.module {
             str += String(rr) + "/";
             str += String(sl) + "/";
             str += String(tl) + "/";
-            str += String(ks) + "/";
+            str += String(ksr) + "/";
             str += String(ksl) + "/";
             str += String(fmul) + "/";
             str += String(dt1) + "/";
             str += String(detune) + "/";
             str += String(ams) + "/";
-            str += String(ssgec) + "/";
             str += String(phase)  + "/";
-            str += String(fixedPitch);
+            str += String(fixedPitch) + "/";
+            str += String(ssgec) + "/";
+            str += String(mute);
             return str;
         }
     }

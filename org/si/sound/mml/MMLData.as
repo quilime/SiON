@@ -13,13 +13,13 @@ package org.si.sound.mml {
     
     
     
-    /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has array of"). */
+    /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLData
     {
     // valiables
     //--------------------------------------------------
-        /** main MMLSequenceGroup */
-        public var mainSequenceGroup:MMLSequenceGroup;
+        /** Sequence group */
+        public var sequenceGroup:MMLSequenceGroup;
         /** Global sequence */
         public var globalSequence:MMLSequence;
         
@@ -31,6 +31,9 @@ package org.si.sound.mml {
         public var title:String;
         /** Author */
         public var author:String;
+        
+        /** wave tables */
+        public var waveTables:Array;
         
         
         
@@ -45,14 +48,15 @@ package org.si.sound.mml {
     //--------------------------------------------------
         function MMLData()
         {
-            mainSequenceGroup = new MMLSequenceGroup();
-            globalSequence    = new MMLSequence();
-            _sequenceGroups   = [];
+            sequenceGroup = new MMLSequenceGroup();
+            globalSequence = new MMLSequence();
             
             defaultBPM = 120;
             defaultFPS = 60;
             title = "";
             author = "";
+            
+            waveTables = [];
         }
         
         
@@ -63,38 +67,90 @@ package org.si.sound.mml {
         /** Clear all parameters and free all sequence groups. */
         public function clear() : void
         {
-            mainSequenceGroup.free();
+            sequenceGroup.free();
             globalSequence.free();
-            
-            for each (var seqGroup:MMLSequenceGroup in _sequenceGroups) {
-                seqGroup.free();
-                _freeList.push(seqGroup);
-            }
-            _sequenceGroups.length = 0;
             
             defaultBPM = 120;
             defaultFPS = 60;
             title = "";
+            author = "";
+            
+            for each (var table:MMLDataWaveTable in waveTables) { MMLDataWaveTable.free(table); }
+            waveTables.length = 0;
         }
-
         
         
-        
-    // factory
-    //--------------------------------------------------
-        // MMLSequenceGroup buffer
-        private var _sequenceGroups:Array;
-        // free list
-        static private var _freeList:Array = [];
-        
-        
-        /** Allocate new sequence and push sequence chain. */
-        public function newSequenceGroup() : MMLSequenceGroup
+        /** Register all tables before processing audio. */
+        public function regiterAllTables() : void
         {
-            var seqGroup:MMLSequenceGroup = _freeList.pop() || new MMLSequenceGroup();
-            _sequenceGroups.push(seqGroup);
-            return seqGroup;
+            for each (var table:MMLDataWaveTable in waveTables) { table.register(); }
         }
+        
+        
+        /** Set wave table data */
+        public function setWaveTable(index:int, table:Vector.<Number>, bits:int) : void
+        {
+            waveTables.push(MMLDataWaveTable.alloc(index, table, bits));
+        }
+    }
+}
+
+
+
+
+import org.si.sound.module.SiOPMTable;
+
+
+class MMLDataWaveTable
+{
+    public var index:int;
+    public var waveFixedBits:int;
+    public var waveTable:Vector.<int>;
+    static private var _freeList:Array = [];
+   
+    
+    function MMLDataWaveTable()
+    {
+        index = -1;
+        waveFixedBits = 0;
+        waveTable = null;
+    }
+    
+    
+    public function register() : void
+    {
+        SiOPMTable.registerWaveTable(index, waveTable, waveFixedBits);
+    }
+    
+    
+    static public function free(e:MMLDataWaveTable) : void
+    {
+        e.index = -1;
+        _freeList.push(e); 
+    }
+
+    
+    static public function alloc(index:int, table:Vector.<Number>, bits:int) : MMLDataWaveTable
+    { 
+        var i:int, imax:int;
+        
+        // new element
+        var e:MMLDataWaveTable = _freeList.pop() || new MMLDataWaveTable();
+
+        // initialize
+        e.index = index;
+        if (e.waveFixedBits != SiOPMTable.PHASE_BITS - bits) {
+            e.waveTable = new Vector.<int>(1<<bits);
+            e.waveFixedBits = SiOPMTable.PHASE_BITS - bits;
+        }
+        
+        // copy wave table
+        imax = e.waveTable.length;
+        for (i=0; i<imax; i++) {
+            e.waveTable[i] = SiOPMTable.calcLogTableIndex(table[i]);
+        }
+        
+        return e;
     }
 }
 

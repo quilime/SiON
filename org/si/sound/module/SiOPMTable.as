@@ -22,7 +22,7 @@ package org.si.sound.module {
         static public const HALF_TONE_BITS      :int = 6;    // half tone resolution    = 2 ^ HALF_TONE_BITS      = 64
         static public const NOTE_BITS           :int = 7;    // max note value          = 2 ^ NOTE_BITS           = 128
         static public const NOISE_TABLE_BITS    :int = 14;   // 16k noise 
-        static public const LOG_TABLE_RESOLUTION:int = 256;  // log table resolution    = LOG_TABLE_RESOLUTION for every 1/2 scale.
+        static public const LOG_TABLE_RESOLUTION:int = 256;  // log table resolution    = LOG_TABLE_RESOLUTION for every 1/2 scaling.
         static public const LOG_VOLUME_BITS     :int = 13;   // _logTable[0] = 2^13 at maximum
         static public const LOG_TABLE_MAX_BITS  :int = 16;   // _logTable entries
         static public const FIXED_BITS          :int = 16;   // internal fixed point 16.16
@@ -108,7 +108,7 @@ package org.si.sound.module {
     //--------------------------------------------------
         /** EG:increment table. This table is based on MAME's opm emulation. */
         public var eg_incTables:Array = [    // eg_incTables[19][8]
-            /*cycle: 0 1  2 3  4 5  6 7  */
+            /*cycle:              0 1  2 3  4 5  6 7  */
             /* 0*/  Vector.<int>([0,1, 0,1, 0,1, 0,1]),  /* rates 00..11 0 (increment by 0 or 1) */
             /* 1*/  Vector.<int>([0,1, 0,1, 1,1, 0,1]),  /* rates 00..11 1 */
             /* 2*/  Vector.<int>([0,1, 1,1, 0,1, 1,1]),  /* rates 00..11 2 */
@@ -130,7 +130,7 @@ package org.si.sound.module {
         ];
         /** EG:increment table for attack. This shortcut is based on fmgen (shift=0 means x0). */
         public var eg_incTablesAtt:Array = [
-            /*cycle:  0  1   2  3   4  5   6  7  */
+            /*cycle:              0 1  2 3  4 5  6 7  */
             /* 0*/  Vector.<int>([0,4, 0,4, 0,4, 0,4]),  /* rates 00..11 0 (increment by 0 or 1) */
             /* 1*/  Vector.<int>([0,4, 0,4, 4,4, 0,4]),  /* rates 00..11 1 */
             /* 2*/  Vector.<int>([0,4, 4,4, 0,4, 4,4]),  /* rates 00..11 2 */
@@ -417,29 +417,44 @@ package org.si.sound.module {
         //----------------------------------------
             // OPM noise period table.
             // noise_phase_shift = pitchTable[PT_OPM_NOISE][noiseFreq] >> (PHASE_BITS-_waveFixedBits).
-            table =  new Vector.<int>(NOTE_TABLE_SIZE, true);
+            imax  = 32<<HALF_TONE_BITS;
+            table = new Vector.<int>(imax, true);
             n = PHASE_MAX * clock_ratio;    // clock_ratio = ((clock/64)/rate) << CLOCK_RATIO_BITS
-            for (i=0; i<31; i++)           { table[i] = (int(n / ((32-i)*0.5))) >> CLOCK_RATIO_BITS; }
-            for (; i<NOTE_TABLE_SIZE; i++) { table[i] = table[30]; }
+            for (i=0; i<31; i++) {
+                iv = (int(n / ((32-i)*0.5))) >> CLOCK_RATIO_BITS;
+                for (j=0; j<HALF_TONE_RESOLUTION; j++) {
+                    table[(i<<HALF_TONE_BITS)+j] = iv;
+                }
+            }
+            for (i=31<<HALF_TONE_BITS; i<imax; i++) { table[i] = iv; }
             pitchTable[PT_OPM_NOISE] = table;
             phaseStepShiftFilter[PT_OPM_NOISE] = 0xffffffff;
             
             // PSG noise period table.
-            table =  new Vector.<int>(NOTE_TABLE_SIZE, true);
+            table = new Vector.<int>(imax, true);
             // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/(clock/16))[sec]  /  (1/44100)[sec])) >> (PHASE_BIT-_waveFixedBits)
             n = PHASE_MAX * 111860.78125 / 44100;   // 111860.78125 = 1789772.5/16
-            for (i=0; i<32; i++)           { table[i] = n / i; }
-            for (; i<NOTE_TABLE_SIZE; i++) { table[i] = table[31]; }
+            for (i=0; i<32; i++) {
+                iv = n / i;
+                for (j=0; j<HALF_TONE_RESOLUTION; j++) {
+                    table[(i<<HALF_TONE_BITS)+j] = iv;
+                }
+            }
             pitchTable[PT_PSG_NOISE] = table;
             phaseStepShiftFilter[PT_PSG_NOISE] = 0xffffffff;
             
             // APU noise period table
             var fc_nf:Array = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];
-            table = new Vector.<int>(NOTE_TABLE_SIZE, true);
+            imax  = 16<<HALF_TONE_BITS;
+            table = new Vector.<int>(imax, true);
             // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/clock)[sec]  /  (1/44100)[sec])) >> (PHASE_BIT-_waveFixedBits)
             n = PHASE_MAX * 1789772.5 / 44100;
-            for (i=0; i<16; i++)           { table[i] = n / fc_nf[i]; }
-            for (; i<NOTE_TABLE_SIZE; i++) { table[i] = table[15]; }
+            for (i=0; i<16; i++) {
+                iv = n / fc_nf[i];
+                for (j=0; j<HALF_TONE_RESOLUTION; j++) {
+                    table[(i<<HALF_TONE_BITS)+j] = iv;
+                }
+            }
             pitchTable[PT_APU_NOISE] = table;
             phaseStepShiftFilter[PT_APU_NOISE] = 0xffffffff;
             
@@ -808,8 +823,8 @@ package org.si.sound.module {
             waveTables[PG_MA3_WAVE+22] = Vector.<int>([iv, LOG_TABLE_BOTTOM, iv, LOG_TABLE_BOTTOM]);
             waveFixedBits[PG_MA3_WAVE+22] = PHASE_BITS - 2;
             // waveform 30 = quarter square
-            waveTables[PG_MA3_WAVE+22] = Vector.<int>([iv, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM]);
-            waveFixedBits[PG_MA3_WAVE+22] = PHASE_BITS - 2;
+            waveTables[PG_MA3_WAVE+30] = Vector.<int>([iv, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM]);
+            waveFixedBits[PG_MA3_WAVE+30] = PHASE_BITS - 2;
             
             // waveform 7 ???
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -1017,43 +1032,30 @@ package org.si.sound.module {
             
             // Reset wave tables
             for (i=0; i<256; i++) {
-                if (instance.waveTables[PG_CUSTOM+i]) _freeWaveTable.push(instance.waveTables[PG_CUSTOM+i]);
                 instance.waveTables   [PG_CUSTOM+i] = instance.waveTables[PG_SQUARE];
                 instance.waveFixedBits[PG_CUSTOM+i] = PHASE_BITS;  // always 0
-                instance.waveTables   [PG_PCM+i] = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_PCM+i] = PHASE_BITS;  // always 0]
+                instance.waveTables   [PG_PCM+i]    = instance.waveTables[PG_SQUARE];
+                instance.waveFixedBits[PG_PCM+i]    = PHASE_BITS;  // always 0
             }
         }
         
         
-        /** Set wave table 
-        *  @param index The index of wave table.(0-255)
-         *  @param table The Number Vector of wave table. The member count must be SAMPLING_TABLE_SIZE(=1024).
-         */
-        static public function setWaveTable(index:int, table:Vector.<Number>) : void
+        /** Register wave table. */
+        static public function registerWaveTable(index:int, table:Vector.<int>, bits:int) : void
         {
-            var i:int;
-            
             // offset index
             var table_index:int = index + PG_CUSTOM;
-            
-            // allocate memory area
-            if (instance.waveFixedBits[table_index] == PHASE_BITS) {
-                instance.waveTables   [table_index] = _freeWaveTable.pop() || new Vector.<int>(SAMPLING_TABLE_SIZE, true);
-            }
-            
-            // copy wave table
-            for (i=0; i<SAMPLING_TABLE_SIZE; i++) {
-                instance.waveTables[table_index][i] = calcLogTableIndex(table[i]);
-            }
-            instance.waveFixedBits[table_index] = PHASE_BITS - SAMPLING_TABLE_BITS;
+
+            // register wave table
+            instance.waveTables[table_index]    = table;
+            instance.waveFixedBits[table_index] = bits;
 
             // update PG_MA3_WAVE waveform 15,23,31.
             if (index < 3) {
                 // index=0,1,2 are PG_MA3 waveform 15,23,31.
-                i = 15 + index * 8 + PG_MA3_WAVE;
-                instance.waveTables[i]    = instance.waveTables[table_index];
-                instance.waveFixedBits[i] = instance.waveFixedBits[table_index];
+                table_index = 15 + index * 8 + PG_MA3_WAVE;
+                instance.waveTables[table_index]    = table;
+                instance.waveFixedBits[table_index] = bits;
             }
         }
     }

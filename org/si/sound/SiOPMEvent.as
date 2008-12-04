@@ -8,22 +8,24 @@
 
 
 package org.si.sound {
-	import flash.events.Event;
-	import flash.media.Sound;
+    import flash.events.Event;
+    import flash.media.Sound;
     import flash.utils.ByteArray;
-	
     
     
     
-	/** SiOPM Event class.
+    
+    /** SiOPM Event class.
      */
-	public class SiOPMEvent extends Event 
+    public class SiOPMEvent extends Event 
     {
     // constants
     //----------------------------------------
-		public static const COMPILE_PROGRESS:String = 'compileProgress';
-		public static const COMPILE_COMPLETE:String = 'compileComplete';
-		public static const STREAM:String           = 'stream';
+        public static const COMPILE_PROGRESS:String = 'compileProgress';
+        public static const COMPILE_COMPLETE:String = 'compileComplete';
+        public static const STREAM:String           = 'stream';
+        public static const STREAM_START:String     = 'streamStart';
+        public static const STREAM_STOP:String      = 'streamStop';
         
         
         
@@ -36,7 +38,8 @@ package org.si.sound {
         // streaming buffer
         private var _streamBuffer:ByteArray;
         
-		
+        
+        
         
     // properties
     //----------------------------------------
@@ -49,15 +52,22 @@ package org.si.sound {
         
         
         
-    // constructor
+    // functions
     //----------------------------------------
         /** Creates an SiOPMEvent object to pass as a parameter to event listeners. */
-		public function SiOPMEvent(type:String, driver:SiOPMDriver, streamBuffer:ByteArray = null, bubbles:Boolean = false, cancelable:Boolean = false)
+        public function SiOPMEvent(type:String, driver:SiOPMDriver, streamBuffer:ByteArray = null, bubbles:Boolean = false, cancelable:Boolean = false)
         {
-			super(type, bubbles, cancelable);
+            super(type, bubbles, cancelable);
             _driver = driver;
             _streamBuffer = streamBuffer;
-		}
-	}
+        }
+        
+        
+        /** clone. */
+        override public function clone() : Event
+        { 
+            return new SiOPMEvent(type, driver, data, bubbles, cancelable);
+        }
+    }
 }
 

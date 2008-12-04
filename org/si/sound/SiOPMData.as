@@ -8,13 +8,14 @@
 
 
 package org.si.sound {
-    import org.si.sound.mml.MMLData;
+    import org.si.sound.driver.SiMMLData;
+    import org.si.utils.SLLint;
     
     
     
     /** SiOPM data class.
      */
-    public class SiOPMData extends MMLData
+    public class SiOPMData extends SiMMLData
     {
     // valiables
     //----------------------------------------
@@ -35,5 +36,4 @@ package org.si.sound {
     //----------------------------------------
     }
 }
-
 

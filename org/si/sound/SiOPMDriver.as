@@ -10,8 +10,9 @@
 package org.si.sound {
     import flash.errors.*;
     import flash.events.*;
-	import flash.media.Sound;
+    import flash.media.Sound;
     import flash.media.SoundChannel;
+    import flash.media.SoundTransform;
     import flash.display.Sprite;
     import flash.utils.getTimer;
     import flash.utils.ByteArray;
@@ -19,6 +20,7 @@ package org.si.sound {
     import org.si.utils.SLLint;
     import org.si.utils.SLLNumber;
     import org.si.sound.driver.SiMMLSequencer;
+    import org.si.sound.driver.SiMMLSequencerTrack;
     
     
     
@@ -48,7 +50,6 @@ package org.si.sound {
         /** SiMMLSequencer instance. */
         public var sequencer:SiMMLSequencer;
         
-        
         private var _data:SiOPMData;            // data to compile or process
         private var _mmlString:String;          // mml string of previous compiling
         private var _sound:Sound;               // sound stream instance
@@ -59,6 +60,9 @@ package org.si.sound {
         private var _storeCompiledData:Boolean; // flag to store compiled data
         private var _throwErrorEvent:Boolean;   // true; throw ErrorEvent, false; throw Error
         
+        private var _volume:Number;             // master volume
+        private var _pan:Number;                // master pan
+        
         private var _compileInterval:int        // interrupting interval in compile
         private var _compileProgress:Number;    // progression of compile
         private var _isPaused:Boolean;          // flag to pause
@@ -68,13 +72,14 @@ package org.si.sound {
         private var _timeProcessTotal:int;      // total processing time in last 8 bufferings.
         private var _timeProcessData:SLLint;    // processing time data of last 8 bufferings.
         private var _timeProcessAveRatio:Number;// number to averaging _timeProcessTotal
+        private var _latency:Number;            // streaming latency [ms]
         
         private var _listenEvent:int;           // current lintening event
         
         
         
         
-    // prooperties
+    // properties
     //----------------------------------------
         // data
         /** MML string. This property is only available during compile. */
@@ -88,14 +93,30 @@ package org.si.sound {
         
         /** Sound channel. This property is only available during playing sound. */
         public function get soundChannel() : SoundChannel { return _soundChannel; }
+
         
         
         // paramteters
         /** Track count. This value is only available after play(). */
         public function get trackCount() : int { return sequencer.trackCount; }
         
+        /** Sound volume. */
+        public function get volume() : Number       { return _volume; }
+        public function set volume(v:Number) : void {
+            _volume = v; 
+            if (_soundChannel) _soundChannel.soundTransform.volume = _volume;
+        }
         
-        // time
+        /** Sound panning. */
+        public function get pan() : Number       { return _pan; }
+        public function set pan(p:Number) : void {
+            _pan = p; 
+            if (_soundChannel) _soundChannel.soundTransform.pan = _pan;
+        }
+        
+        
+        
+        // measured time
         /** total compiling time. [ms] */
         public function get compileTime() : int { return _timeCompile; }
         
@@ -104,6 +125,9 @@ package org.si.sound {
         
         /** compiling progression. 0=start -> 1=finish. */
         public function get compileProgress() : Number { return _compileProgress; }
+        
+        /** streaming latency */
+        public function get latency() : Number { return _latency; }
         
         
         // flag
@@ -138,17 +162,21 @@ package org.si.sound {
             _freqRatio  = sampleRate;
             _listenEvent = NO_LISTEN;
             
+            _volume = 1;
+            _pan = 0;
+            
             _timeCompile = 0;
             _timeProcessTotal = 0;
             _timeProcessData = SLLint.allocRing(TIME_AVARAGING_SIZE);
             _timeProcessAveRatio = _freqRatio / (_bufferSize * TIME_AVARAGING_SIZE);
+            _latency = 0;
             
             _mmlString    = null;
             _data         = null;
             _soundChannel = null;
             
             // register sound streaming function 
-            _sound.addEventListener(Event.SAMPLE_DATA, _streaming);
+            _sound.addEventListener("sampleData", _streaming);
         }
         
         
@@ -213,9 +241,15 @@ package org.si.sound {
                     
                     // preparation
                     sequencer.prepareProcess(_data, _bufferSize);
+
+                    // dispatch streaming start event
+                    dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM_START, this));
                     
                     // start stream
+                    _process_addAllEventListners();
                     _soundChannel = _sound.play();
+                    _soundChannel.soundTransform.volume = _volume;
+                    _soundChannel.soundTransform.pan    = _pan;
 
                     // initialize
                     _timeProcessTotal = 0;
@@ -224,8 +258,6 @@ package org.si.sound {
                         _timeProcessData = _timeProcessData.next;
                     }
                     _isPaused = false;
-                    
-                    _process_addAllEventListners();
                 }
             }
         }
@@ -238,6 +270,9 @@ package org.si.sound {
             if (_soundChannel) {
                 _soundChannel.stop();
                 _soundChannel = null;
+                _latency = 0;
+                // dispatch streaming stop event
+                dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM_STOP, this));
             }
         }
         
@@ -246,6 +281,17 @@ package org.si.sound {
         public function pause() : void
         {
             _isPaused = true;
+        }
+        
+        
+        /** Get track instance. This function only is available after play(). 
+         *  Most common timing to call in the event handler of SiOPMEvent.STREAM_START.
+         *  @param trackIndex Track index. This must be less than SiMMLDriver.trackCount.
+         *  @return Track instance. When the trackIndex is out of range, returns null.
+         */
+        public function getTrack(trackIndex:int) : SiMMLSequencerTrack
+        {
+            return sequencer.getTrack(trackIndex);
         }
         
         
@@ -329,39 +375,52 @@ package org.si.sound {
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
-            if (_isPaused) return;
+            var buf:ByteArray = e.data,
+                dat:SLLNumber = sequencer.module.outputBuffer, 
+                imax:int      = sequencer.module.bufferLength, 
+                i:int;
+
+            // calculate latency (0.022675736961451247 = 1/44.1)
+            if (_soundChannel) {
+                _latency = e.position * 0.022675736961451247 - _soundChannel.position;
+            }
             
             try {
-                // processing
-                var t:int = getTimer();
-                sequencer.process();
-                
-                // calculate the average of processing time
-                _timeProcessTotal -= _timeProcessData.i;
-                _timeProcessData.i = getTimer() - t;
-                _timeProcessTotal += _timeProcessData.i;
-                _timeProcessData   = _timeProcessData.next;
-                _timeProcess = _timeProcessTotal * _timeProcessAveRatio;
-                
-                // write samples
-                var buf:ByteArray = e.data, 
-                    dat:SLLNumber = sequencer.module.outputBuffer, 
-                    imax:int      = sequencer.module.bufferLength, 
-                    i:int;
-                for (i=0; i<imax; i++) {
-                    buf.writeFloat(dat.n);
-                    buf.writeFloat(dat.next.n);
-                    dat.n = 0;
-                    dat.next.n = 0;
-                    dat = dat.next.next;
+                if (_isPaused) {
+                    // paused -> 0 filling
+                    for (i=0; i<imax; i++) {
+                        buf.writeFloat(0);
+                        buf.writeFloat(0);
+                    }
+                } else {
+                    // processing
+                    var t:int = getTimer();
+                    sequencer.process();
+                    
+                    // calculate the average of processing time
+                    _timeProcessTotal -= _timeProcessData.i;
+                    _timeProcessData.i = getTimer() - t;
+                    _timeProcessTotal += _timeProcessData.i;
+                    _timeProcessData   = _timeProcessData.next;
+                    _timeProcess = _timeProcessTotal * _timeProcessAveRatio;
+                    
+                    // write samples
+                    for (i=0; i<imax; i++) {
+                        buf.writeFloat(dat.n);
+                        buf.writeFloat(dat.next.n);
+                        dat.n = 0;
+                        dat.next.n = 0;
+                        dat = dat.next.next;
+                    }
+                    
+                    // dispatch streaming event
+                    dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM, this, buf));
                 }
-                
-                // dispatch streaming event
-                dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM, this, buf));
             } catch (e:Error) {
                 // error
                 _removeAllEventListners();
-                dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
+                if (_throwErrorEvent) dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
+                else throw e;
             }
         }
     }

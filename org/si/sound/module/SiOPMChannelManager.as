@@ -86,7 +86,7 @@ package org.si.sound.module {
         
         
         // get new channel. returns null when the channel count is overflow.
-        private function _newChannel() : SiOPMChannelBase
+        private function _newChannel(prev:SiOPMChannelBase) : SiOPMChannelBase
         {
             var newInstance:SiOPMChannelBase;
             if (_term._next._isActive) {
@@ -111,7 +111,7 @@ package org.si.sound.module {
             newInstance._next._prev = newInstance;
             
             // initialize
-            newInstance.initialize();
+            newInstance.initialize(prev);
             
             return newInstance;
         }
@@ -136,7 +136,7 @@ package org.si.sound.module {
             var ch:SiOPMChannelBase;
             for (ch=_term._next; ch!=_term; ch=ch._next) {
                 ch._isActive = false;
-                ch.initialize();
+                ch.initialize(null);
             }
         }
         
@@ -169,8 +169,8 @@ package org.si.sound.module {
             _chip         = chip;
             _enableExpand = enableExpand;
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
-            _channelManagers[CT_CHANNEL_FM]   = new SiOPMChannelManager(SiOPMChannelFM,   CT_CHANNEL_FM);
-            _channelManagers[CT_EFFECT_DELAY] = new SiOPMChannelManager(SiOPMEffectDelay, CT_EFFECT_DELAY);
+            _channelManagers[CT_CHANNEL_FM]   = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
+            _channelManagers[CT_EFFECT_DELAY] = new SiOPMChannelManager(SiOPMChannelEffectDelay, CT_EFFECT_DELAY);
         }
         
         
@@ -195,9 +195,9 @@ package org.si.sound.module {
         
         
         /** New channel with initializing. */
-        static public function newChannel(type:int) : SiOPMChannelBase
+        static public function newChannel(type:int, prev:SiOPMChannelBase) : SiOPMChannelBase
         {
-            return _channelManagers[type]._newChannel();
+            return _channelManagers[type]._newChannel(prev);
         }
         
         

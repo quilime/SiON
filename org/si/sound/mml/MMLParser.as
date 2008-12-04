@@ -331,7 +331,7 @@ package org.si.sound.mml {
         
         
         /** Parse mml string. 
-         *  @param  interrupt Interrupting interval [ms]. 0 means no interrupt. The interrupt appears between each sequence.
+         *  @param  interrupt Interrupting interval [ms]. 0 means no interruption. The interrupt appears between each sequence.
          *  @return Returns head MMLEvent. The return value of null means no head event.
          */
         static public function parse(interrupt:int=0) : MMLEvent
@@ -384,10 +384,10 @@ package org.si.sound.mml {
                         case '@':   _mod_param(__param());                           break;
                         case '@i':  _input (__param(0));        break;
                         case '@o':  _output(__param(0));        break;
-        	            case '(':   _volumeShift( __param(1));  break;
-        	            case ')':   _volumeShift(-__param(1));  break;
-        	            case '<':   _octaveShift( __param(1));  break;
-        	            case '>':   _octaveShift(-__param(1));  break;
+                        case '(':   _volumeShift( __param(1));  break;
+                        case ')':   _volumeShift(-__param(1));  break;
+                        case '<':   _octaveShift( __param(1));  break;
+                        case '>':   _octaveShift(-__param(1));  break;
                         case '&':   _slur();                    break;
                         case '&&':  _slurweak();                break;
                         case '*':   _portament();               break;

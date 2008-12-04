@@ -31,6 +31,14 @@ package org.si.sound.driver {
                 tail = null;
             }
         }
+        
+        public function initialize(head_:SLLint, tail_:SLLint) : void
+        {
+            head = head_;
+            tail = tail_;
+            // looping last data
+            if (tail.next == null) tail.next = tail;
+        }
     }
 }
 

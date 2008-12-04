@@ -62,6 +62,11 @@ package org.si.sound.driver {
         public var quantCount:int = 0;
         /** Event mask */
         public var eventMask:int = 0;
+        
+        /** call back function before noteOn */
+        private var _callbackBeforeNoteOn:Function = null;
+        /** call back function before noteOff */
+        private var _callbackBeforeNoteOff:Function = null;
 
         // internal use
         private var _table:SiMMLTable;      // table
@@ -132,8 +137,18 @@ package org.si.sound.driver {
         // zero table
         static private var _env_zero_table:SLLint = SLLint.allocRing(1);
         
-        // indeces
-        private var _index:Vector.<int>;
+        // residue of previous envelop process 
+        private var _residue:int;
+        
+        // track number
+        private var _trackNumber:int
+        
+        
+        
+        
+    // properties
+    //--------------------------------------------------
+        public function get trackNumber() : int { return _trackNumber; }
         
         
         
@@ -145,7 +160,6 @@ package org.si.sound.driver {
             _table = SiMMLTable.instance;
             executor = new MMLExecutor();
             
-            _index           = new Vector.<int>(2, true);
             _set_processMode = new Vector.<int>(2, true);
             
             _set_env_exp    = new Vector.<SLLint>(2, true);
@@ -171,7 +185,8 @@ package org.si.sound.driver {
         
     // operations
     //--------------------------------------------------
-        public function initialize(seq:MMLSequence, fps:int) : void
+        /** initialize track */
+        public function initialize(seq:MMLSequence, fps:int, trackNumber:int) : void
         {
             var i:int;
             
@@ -187,6 +202,7 @@ package org.si.sound.driver {
             _tone = channelModuleSetting.initializeTone(this, 0);
             
             // initialize parameters
+            _trackNumber = trackNumber;
             noteShift = 0;
             pitchShift = 0;
             _keyOnTime = 0;
@@ -201,10 +217,12 @@ package org.si.sound.driver {
             _env_pitch_offset = 0;
             _env_exp_offset = 0;
             setEnvelopFPS(fps);
+            _callbackBeforeNoteOn = null;
+            _callbackBeforeNoteOff = null;
+            _residue = 0;
             
             // reset envelop tables
             for (i=0; i<2; i++) {
-                _index[i] = 0;
                 _set_processMode[i] = NORMAL;
                 _set_env_exp[i]    = null;
                 _set_env_tone[i]   = null;
@@ -233,8 +251,8 @@ package org.si.sound.driver {
         
     // processing
     //--------------------------------------------------
-        /** process */
-        public function process(length:int) : void
+        /** @private [internal use] process */
+        internal function process(length:int) : void
         {
             if (_keyOnCounter == 0) {
                 // no status changing
@@ -265,7 +283,7 @@ package org.si.sound.driver {
                 break;
             case ENVELOP:
                 idx = (channel.isNoteOn()) ? 1 : 0;
-                _index[idx] = _processEnvelop(length, _index[idx]);
+                _residue = _processEnvelop(length, _residue);
                 break;
             }
             
@@ -295,12 +313,12 @@ package org.si.sound.driver {
                 if (_env_pitch_active) {
                     channel.pitch = _env_pitch.i + (_env_note.i<<6) + (_env_pitch_offset>>FIXED_BITS);
                     // pitch envelop
-                    if (--_cnt_pitch) {
+                    if (--_cnt_pitch == 0) {
                         _env_pitch = _env_pitch.next;
                         _cnt_pitch = _max_cnt_pitch;
                     }
                     // note envelop
-                    if (--_cnt_note) {
+                    if (--_cnt_note == 0) {
                         _env_note = _env_note.next;
                         _cnt_note = _max_cnt_note;
                     }
@@ -363,6 +381,11 @@ package org.si.sound.driver {
         // note off
         private function _noteOff() : void
         {
+            // callback
+            if (_callbackBeforeNoteOff != null) {
+                if (!_callbackBeforeNoteOff(this)) return;
+            }
+            
             // note off
             channel.noteOff();
             // no key off after this
@@ -377,18 +400,23 @@ package org.si.sound.driver {
         // note on
         private function _noteOn(new_pitch:int) : void
         {
-            // reset previous envelop
-            if (_processMode == ENVELOP) {
-                channel.offsetVolume(_expression, _velocity);
-                channelModuleSetting.selectTone(this, _tone);
-                channel.setFilterOffset(128);
+            // callback
+            if (_callbackBeforeNoteOn != null) {
+                if (!_callbackBeforeNoteOn(this, new_pitch)) return;
             }
-
+            
             // change pitch
             channel.pitch = new_pitch;
 
             // note on
             if (!_flagNoKeyOn) {
+                // reset previous envelop
+                if (_processMode == ENVELOP) {
+                    channel.offsetVolume(_expression, _velocity);
+                    channelModuleSetting.selectTone(this, _tone);
+                    channel.setFilterOffset(128);
+                }
+
                 // previous note off
                 if (channel.isNoteOn()) channel.noteOff();
                 // reset _keyOnTime
@@ -442,7 +470,7 @@ package org.si.sound.driver {
                 // activate filter
                 channel.activateFilter(Boolean(_env_filter));
                 // reset index
-                _index[keyOn] = 0;
+                _residue = 0;
             }
         }
         
@@ -451,14 +479,14 @@ package org.si.sound.driver {
         
     // event handlers
     //--------------------------------------------------
-        /** handler for rest. */
-        public function rest() : void
+        /** @private [internal use] handler for rest. */
+        internal function rest() : void
         {
         }
         
 
-        /** handler for note. */
-        public function note(note:int, length:int) : void
+        /** @private [internal use] handler for note. */
+        internal function note(note:int, length:int) : void
         {
             // note on
             _noteOn(((note + noteShift)<<6) + pitchShift);
@@ -474,23 +502,23 @@ package org.si.sound.driver {
         }
         
 
-        /** slur with next notes key on. */
-        public function setSlurWeak() : void
+        /** @private [internal use] slur with next notes key on. */
+        internal function setSlurWeak() : void
         {
             _keyOnCounter = 0;
         }
         
         
-        /** slur without next notes key on. */
-        public function setSlur() : void
+        /** @private [internal use] slur without next notes key on. */
+        internal function setSlur() : void
         {
             _flagNoKeyOn = true;
             _keyOnCounter = 0;
         }
         
         
-        /** pitch bend (and slur) */
-        public function setPitchBend(nextNote:int, term:int) : void
+        /** @private [internal use] pitch bend (and slur) */
+        internal function setPitchBend(nextNote:int, term:int) : void
         {
             var startPitch:int = channel.pitch,
                 endPitch  :int = (((nextNote + noteShift)<<6) || (startPitch & 63)) + pitchShift;
@@ -505,7 +533,6 @@ package org.si.sound.driver {
             _env_pitch = _set_env_pitch[1];
             
             _processMode = ENVELOP;
-            _index[1]    = 0;
         }
         
         
@@ -513,6 +540,19 @@ package org.si.sound.driver {
         
     // interface
     //--------------------------------------------------
+        /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
+         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8192) as an arguments. When the function returns false, noteOn will be canceled.</br>
+         *  function callbackNoteOn(track:SiMMLTrack, newPitch:int) : Boolean { return true; }
+         *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
+         *  function callbackNoteOff(track:SiMMLTrack) : Boolean { return true; }
+         */
+        public function setTrackCallback(noteOn:Function=null, noteOff:Function=null) : void
+        {
+            _callbackBeforeNoteOn  = noteOn;
+            _callbackBeforeNoteOff = noteOff;
+        }
+
+        
         /** Channel module type (%).
          *  @param type Channel module type
          *  @param channelNum Channel number to emulate.
@@ -520,7 +560,6 @@ package org.si.sound.driver {
         public function setChannelModuleType(type:int, channelNum:int) : void
         {
             // change module type
-            if (type < 0 && type >= SiMMLTable.MT_MAX) type = SiMMLTable.MT_ALL;
             channelModuleSetting = _table.channelModuleSetting[type];
             
             // reset operator pgType
@@ -768,7 +807,6 @@ package org.si.sound.driver {
         private function _envelopOn(noteOn:int) : void
         {
             _set_processMode[noteOn] = ENVELOP;
-            _index[noteOn]           = 0;
         }
         
         

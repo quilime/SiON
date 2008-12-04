@@ -53,8 +53,6 @@ package org.si.sound.driver {
         
         /** Current processing track. */
         protected var currentTrack:SiMMLSequencerTrack;
-        /** Current processing channel. */
-        protected var currentChannel:SiOPMChannelBase;
         
         /** MMLExecutorConnector */
         protected var connector:MMLExecutorConnector;
@@ -145,6 +143,8 @@ package org.si.sound.driver {
             setMMLEventListener(MMLEvent.MOD_TYPE,    _onModuleType);
             setMMLEventListener(MMLEvent.INPUT_PIPE,  _onInput);
             setMMLEventListener(MMLEvent.OUTPUT_PIPE, _onOutput);
+            newMMLEventListener('%delay',  _onModuleDelay);
+            
             
             // operator setting
             newMMLEventListener('i',   _onSlotIndex);
@@ -196,7 +196,7 @@ package org.si.sound.driver {
             module.initOperatorParam.rr     = 28;
             module.initOperatorParam.sl     = 0;
             module.initOperatorParam.tl     = 0;
-            module.initOperatorParam.ks     = 0;
+            module.initOperatorParam.ksr    = 0;
             module.initOperatorParam.ksl    = 0;
             module.initOperatorParam.fmul   = 128;
             module.initOperatorParam.dt1    = 0;
@@ -223,6 +223,17 @@ package org.si.sound.driver {
         
         
         
+    // operation
+    //--------------------------------------------------
+        /** Get track instance. This function only is available after prepareProcess. */
+        public function getTrack(trackIndex:int) : SiMMLSequencerTrack
+        {
+            return (trackIndex < _trackCount) ? _tracks[trackIndex] : null;
+        }
+        
+        
+        
+        
     // process
     //--------------------------------------------------
         /** Prepare to process audio.
@@ -231,21 +242,22 @@ package org.si.sound.driver {
          */
         override public function prepareProcess(data:MMLData, bufferSize:int) : void
         {
-            // call super function
-            super.prepareProcess(data, bufferSize);
-            
             // initialize module and all channels
             module.initialize(bufferSize);
             module.reset();
+            _trackCount = 0;
+            
+            // call super function
+            super.prepareProcess(data, bufferSize);
             
             // initialize all tracks
             var trk:SiMMLSequencerTrack;
-            var seq:MMLSequence = mmlData.mainSequenceGroup.headSequence;
+            var seq:MMLSequence = mmlData.sequenceGroup.headSequence;
             var idx:int = 0;
             
             while (seq) {
                 trk = (idx < _tracks.length) ? _tracks[idx] : (new SiMMLSequencerTrack());
-                trk.initialize(seq, mmlData.defaultFPS);
+                trk.initialize(seq, mmlData.defaultFPS, idx);
                 trk.setMasterVolume(setting.defaultFineVolume);
                 trk.setVolume(setting.defaultVolume<<3);
                 trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
@@ -271,13 +283,12 @@ package org.si.sound.driver {
                 _tracks[i].channel.prepareBuffer();
             }
             
-            // bufferinf
+            // buffering
             startGlobalSequence();
             do {
                 bufferingTick = executeGlobalSequence();
                 for (i=0; i<_trackCount; i++) {
-                    currentTrack   = _tracks[i];
-                    currentChannel = currentTrack.channel;
+                    currentTrack = _tracks[i];
                     ret = processMMLExecutor(currentTrack.executor, bufferingTick) && ret;
                 }
             } while (!isEndGlobalSequence());
@@ -300,10 +311,12 @@ package org.si.sound.driver {
         override protected function onBeforeCompile(mml:String) : String
         {
             var codeA:int = "A".charCodeAt();
+            var codeH:int = "-".charCodeAt();
             var comrex:RegExp = new RegExp("/\\*.*?\\*/|//.*?[\\r\\n]+", "gms");
             var reprex:RegExp = new RegExp("!\\[(\\d*)(.*?)(!\\|(.*?))?!\\](\\d*)", "gms");
-            var seqrex:RegExp = new RegExp("[ \\t\\r\\n]*(#([A-Z@]+)=?)?([^;{]*({.*?})?[^;]*);", "gms"); //}
-            var expmml:String, res:*, i:int, imax:int, str1:String, str2:String;
+            var seqrex:RegExp = new RegExp("[ \\t\\r\\n]*(#([A-Z@\\-]+)(\\+=|=)?)?([^;{]*({.*?})?[^;]*);", "gms"); //}
+            var midrex:RegExp = new RegExp("([A-Z])?(-([A-Z])?)?", "g");
+            var expmml:String, res:*, midres:*, c:int, i:int, imax:int, str1:String, str2:String, concat:Boolean, startID:int, endID:int;
 
             // reset
             _resetParserParameters();
@@ -325,28 +338,42 @@ package org.si.sound.driver {
             expmml = "";
             res = seqrex.exec(mml);
             while (res) {
+                // normal sequence
                 if (res[1] == undefined) {
-                    // normal sequence
-                    macroExpanded = 0;
-                    expmml += _expandMacro(res[3]) + ";";
-                } else {
-                    str2 = String(res[2]);
-                    i = (str2.length == 1) ? (str2.charCodeAt() - codeA) : -1;
-                    // macro definition.
-                    if (i != -1) {
-                        macroExpanded = 0;
-                        macroStrings[i] = (macroExpandDynamic) ? String(res[3]) : _expandMacro(res[3]);
-                    } else 
-                    // #END command
-                    if (str2 == 'END') {
+                    expmml += _expandMacro(res[4]) + ";";
+                } else 
+                
+                // system command
+                if (res[3] == undefined) {
+                    if (String(res[2]) == 'END') {
+                        // #END command
                         break;
                     } else
                     // parse system command
-                    if (!_parseSystemCommandBefore(str2, res[3])) {
+                    if (!_parseSystemCommandBefore(String(res[1]), res[4])) {
                         // if the function returns false, parse system command after compiling mml.
                         expmml += String(res[0]);
                     }
+                } else 
+                
+                // macro definition
+                {
+                    str2 = String(res[2]);
+                    concat = (res[3] == "+=");
+                    // parse macro IDs
+                    midrex.lastIndex = 0;
+                    midres = midrex.exec(str2);
+                    while (midres[0]) {
+                        startID = (midres[1]) ? (String(midres[1]).charCodeAt() - codeA) : 0;
+                        endID   = (midres[2]) ? ((midres[3]) ? (String(midres[3]).charCodeAt()-codeA) : MACRO_SIZE-1) : startID;
+                        for (i=startID; i<=endID; i++) {
+                            if (concat) { macroStrings[i] += (macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
+                            else        { macroStrings[i]  = (macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
+                        }
+                        midres = midrex.exec(str2);
+                    }
                 }
+                
                 // next
                 res = seqrex.exec(mml);
             }
@@ -355,7 +382,7 @@ package org.si.sound.driver {
             expmml = expmml.replace(reprex, 
                 function() : String {
                     imax = (arguments[1].length > 0) ? (int(arguments[1])-1) : (arguments[5].length > 0) ? (int(arguments[5])-1) : 1;
-                    if (imax > 127) imax = 127;
+                    if (imax > 256) imax = 256;
                     str2 = arguments[2];
                     if (arguments[3]) str2 += arguments[4];
                     for (i=0, str1=""; i<imax; i++) { str1 += str2; }
@@ -396,7 +423,7 @@ package org.si.sound.driver {
             var dat:String = String(res[1]);
             var pfx:String = String(res[2]);
             if (!_parseTableMacro(dat, pfx)) throw _errorParameterNotValid("{..}", dat);
-            SiMMLTable.setEnvelopTable(_internalTableIndex, _tempNumberList.next, _tempNumberListLast);
+            SiMMLData(mmlData)._setEnvelopTable(_internalTableIndex, _tempNumberList.next, _tempNumberListLast);
             prev.data = _internalTableIndex;
             _tempNumberList.next = null;
             _internalTableIndex--;
@@ -442,11 +469,12 @@ package org.si.sound.driver {
         
         
         /** Expand macro. */
-        protected function _expandMacro(m:*) : String
+        protected function _expandMacro(m:*, recursive:Boolean=false) : String
         {
+            if (!recursive) macroExpanded = 0;
             if (m == undefined) return "";
             var charCodeA:int = "A".charCodeAt(0);
-            return String(m).replace(/([A-Z])(\(([\-0-9]+)\))?/g, 
+            return String(m).replace(/([A-Z])(\(([\-\d]+)\))?/g, 
                 function() : String {
                     var t:int, i:int, f:int;
                     i = String(arguments[1]).charCodeAt() - charCodeA;
@@ -455,9 +483,9 @@ package org.si.sound.driver {
                     if (macroStrings[i]) {
                         if (arguments[2].length > 0) {
                             if (arguments[3].length > 0) t = int(arguments[3]);
-                            return "!@ns" + String(t) + ((macroExpandDynamic) ? _expandMacro(macroStrings[i]) : macroStrings[i]) + "!@ns" + String(-t);
+                            return "!@ns" + String(t) + ((macroExpandDynamic) ? _expandMacro(macroStrings[i], true) : macroStrings[i]) + "!@ns" + String(-t);
                         }
-                        return (macroExpandDynamic) ? _expandMacro(macroStrings[i]) : macroStrings[i];
+                        return (macroExpandDynamic) ? _expandMacro(macroStrings[i], true) : macroStrings[i];
                     }
                     return "";
                 }
@@ -475,84 +503,85 @@ package org.si.sound.driver {
             var i:int;
             
             // separating
-            var rex:RegExp = /[ \t\r\n]*([0-9]*)=?[ \t\r\n]*(\{(.*?)\})?(.*)/ms;
+            var rex:RegExp = /\s*(\d*)\s*(\{(.*?)\})?(.*)/ms;
             var res:* = rex.exec(prm);
             
             // abstructing
-            var num:int        = int(res[1]),
-                noData:Boolean = (res[2] == undefined),
-                dat:String     = (noData) ? "" : String(res[3]),
-                pfx:String     = String(res[4]);
+            var num:int        = int(res[1]),                       // number before {...} block
+                noData:Boolean = (res[2] == undefined),             // true when no {...} block
+                dat:String     = (noData) ? "" : String(res[3]),    // data string (inside of {...} block)
+                pfx:String     = String(res[4]);                    // postfix string
             
             // executing
             switch (cmd) {
                 // tone settings
-                case '@':    { _parseParam   (num, dat, pfx); return true; }
-                case 'OPM@': { _parseOPMParam(num, dat, pfx); return true; }
-                case 'OPN@': { _parseOPNParam(num, dat, pfx); return true; }
-                case 'OPL@': { _parseOPLParam(num, dat, pfx); return true; }
-                case 'OPX@': { _parseOPXParam(num, dat, pfx); return true; }
-                case 'MA@':  { _parseMA3Param(num, dat, pfx); return true; }
+                case '#@':    { _parseParam   (num, dat, pfx); return true; }
+                case '#OPM@': { _parseOPMParam(num, dat, pfx); return true; }
+                case '#OPN@': { _parseOPNParam(num, dat, pfx); return true; }
+                case '#OPL@': { _parseOPLParam(num, dat, pfx); return true; }
+                case '#OPX@': { _parseOPXParam(num, dat, pfx); return true; }
+                case '#MA@':  { _parseMA3Param(num, dat, pfx); return true; }
                     
                 // parser settings
-                case 'TITLE': { mmlData.title = (noData) ? pfx : dat; return true; }
-                case 'FPS':   { mmlData.defaultFPS = int((noData) ? pfx : dat); return true; }
-                case 'SIGN':  { MMLParser.keySign = (noData) ? pfx : dat; return true; }
-                case 'MACRO': { 
+                case '#TITLE': { mmlData.title = (noData) ? pfx : dat; return true; }
+                case '#FPS':   { mmlData.defaultFPS = (num>0) ? num : ((noData) ? 60 : int(dat)); return true; }
+                case '#SIGN':  { MMLParser.keySign = (noData) ? pfx : dat; return true; }
+                case '#MACRO': { 
                     if (noData) dat = pfx; 
-                    dat = dat.toLowerCase();
-                         if (dat == "d" || dat == "dynamic") macroExpandDynamic = true;
-                    else if (dat == "s" || dat == "static")  macroExpandDynamic = false;
-                    return true; 
+                         if (dat == "dynamic") macroExpandDynamic = true;
+                    else if (dat == "static")  macroExpandDynamic = false;
+                    else throw _errorParameterNotValid("#MACRO", dat);
+                    return true;
                 }
-                case 'REV': {
+                case '#REV': {
                     if (noData) dat = pfx;
                     if (dat == "") {
                         setting.octavePolarization = -1;
                         setting.volumePolarization = -1;
+                    } else 
+                    if (dat == "octave") {
+                        setting.octavePolarization = -1;
+                    } else 
+                    if (dat == "volume") {
+                        setting.volumePolarization = -1;
                     } else {
-                        for (i=0; i<dat.length; i++) {
-                            switch (dat.charAt(i)){
-                            case 'o':   case 'O':   setting.octavePolarization = -1;    break;
-                            case 'v':   case 'V':   setting.volumePolarization = -1;    break;
-                            }
-                        }
+                        throw _errorParameterNotValid("#REVERSE", dat);
                     }
                     return true;
                 }
 
                 // tables
-                case 'TABLE': {
+                case '#TABLE': {
                     if (num < 0 || num > 254)        throw _errorParameterNotValid("#TABLE", String(num));
                     if (!_parseTableMacro(dat, pfx)) throw _errorParameterNotValid("#TABLE", dat);
-                    SiMMLTable.setEnvelopTable(num, _tempNumberList.next, _tempNumberListLast);
+                    SiMMLData(mmlData)._setEnvelopTable(num, _tempNumberList.next, _tempNumberListLast);
                     _tempNumberList.next = null;
                     return true;
                 }
-                case 'WAV': {
+                case '#WAV': {
                     if (num < 0 || num > 255) throw _errorParameterNotValid("#WAV", String(num));
-                    SiOPMTable.setWaveTable(num, _parseWavMacro(dat, pfx));
+                    mmlData.setWaveTable(num, _parseWavMacro(dat, pfx), 5);
                     return true;
                 }
-                case 'WAVB': {
+                case '#WAVB': {
                     if (num < 0 || num > 255) throw _errorParameterNotValid("#WAVB", String(num));
-                    SiOPMTable.setWaveTable(num, _parseWavbMacro((noData) ? pfx : dat));
+                    mmlData.setWaveTable(num, _parseWavbMacro((noData) ? pfx : dat), 5);
                     return true;
                 }
-                case 'PRPCM': {
+                case '#PRPCM': {
                     if (num < 0 || num > 255) throw _errorParameterNotValid("#PRPCM", String(num));
                     _parsePreRenderPCM(dat, pfx);
                     return true;
                 }
                     
                 // system command after parsing
-                case 'FM':
+                case '#FM':
                     return false;
                 
                 // currently not suported
-                case 'WAVEXP':
-                case 'PCMB':
-                case 'PCMC':
+                case '#WAVEXP':
+                case '#PCMB':
+                case '#PCMC':
                     throw _errorSystemCommand("#" + cmd + " is not supported currently.");
                     
                 // error
@@ -568,7 +597,7 @@ package org.si.sound.driver {
         protected function _parseSystemCommandAfter(seqGroup:MMLSequenceGroup, syscmd:MMLSequence) : MMLSequence
         {
             var letter:String = syscmd.getSystemCommand();
-            var rex:RegExp = /#(FM)[={ \\t\\r\\n]*([^}]*)/;
+            var rex:RegExp = /#(FM)[{ \\t\\r\\n]*([^}]*)/;
             var res:* = rex.exec(letter);
             
             // skip system command
@@ -616,15 +645,10 @@ package org.si.sound.driver {
             var num:SLLint = __parseTableNumbers(dat, pfx, 32);
             for (i=0; i<32 && num!=null; i++) {
                 v = (num.i + 0.5) * 0.0078125;
-                v = (v>1) ? 1 : (v<-1) ? -1 : v;
-                j = i << 5;
-                jmax = j + 32;
-                while (j<jmax) { _tempWaveTable[j++] = v; }
+                _tempWaveTable[j++] = (v>1) ? 1 : (v<-1) ? -1 : v;
                 num = num.next;
             }
-            
-            i *= 32;
-            while (i<1024) { _tempWaveTable[i++] = 0; }
+            while (i<32) { _tempWaveTable[i++] = 0; }
             
             return _tempWaveTable;
         }
@@ -635,13 +659,10 @@ package org.si.sound.driver {
         {
             var ub:int, i:int, j:int, jmax:int, v:Number;
             
-            dat = dat.replace(/[ \t\r\n]+/gm, '');
+            dat = dat.replace(/\s+/gm, '');
             for (i=0; i<32; i++) {
                 ub = (i*2+1 < dat.length) ? int("0x" + dat.substr(i*2,2)) : 0;
-                v = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
-                j = i << 5;
-                jmax = j + 32;
-                while (j<jmax) { _tempWaveTable[j++] = v; }
+                _tempWaveTable[j++] = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
             }
             
             return _tempWaveTable;
@@ -657,7 +678,7 @@ package org.si.sound.driver {
             var seq:MMLSequence, count:int, prev:MMLEvent, e:MMLEvent;
             
             // parse
-            var seqGroup:MMLSequenceGroup = newSequenceGroup().parse(_expandMacro(dat));
+            //var seqGroup:MMLSequenceGroup = newSequenceGroup().parse(_expandMacro(dat));
 
             // expand internal tables
             for (seq = seqGroup.headSequence; seq != null; seq = seq.nextSequence) {
@@ -679,10 +700,10 @@ package org.si.sound.driver {
         
         
         // #@ {alg[0-15], fb[0-7], fbc[0-3], 
-        // (ws[0-1023], ar[0-63], dr[0-63], sr[0-63], rr[0-63], sl[0-15], tl[0-127], ksr[0-3], ksl[0-3], mul[], dt1[0-7], detune[], ams[0-3], phase[0-255], fixedNote[0-127]) x operator_count }
+        // (ws[0-1023], ar[0-63], dr[0-63], sr[0-63], rr[0-63], sl[0-15], tl[0-127], ksr[0-3], ksl[0-3], mul[], dt1[0-7], detune[], ams[0-3], phase[-1-255], fixedNote[0-127]) x operator_count }
         private function _parseParam(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 3, 15, "#@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -700,15 +721,16 @@ package org.si.sound.driver {
                 opp.rr     = int(data[dataIndex++]) & 63;   // 5
                 opp.sl     = int(data[dataIndex++]) & 15;   // 6
                 opp.tl     = int(data[dataIndex++]) & 127;  // 7
-                opp.ks     = int(data[dataIndex++]) & 3;    // 8
+                opp.ksr    = int(data[dataIndex++]) & 3;    // 8
                 opp.ksl    = int(data[dataIndex++]) & 3;    // 9
                 n = Number(data[dataIndex++]);
                 opp.fmul   = (n==0) ? 64 : int(n*128);      // 10
                 opp.dt1    = int(data[dataIndex++]) & 7;    // 11
                 opp.detune = int(data[dataIndex++]);        // 12
                 opp.ams    = int(data[dataIndex++]) & 3;    // 13
-                opp.phase  = int(data[dataIndex++]) & 255;  // 14
-                opp.fixedPitch = int(data[dataIndex++]) & 127;  // 15
+                i = int(data[dataIndex++]);
+                opp.phase  = (i==-1) ? i : (i & 255);           // 14
+                opp.fixedPitch = (int(data[dataIndex++]) & 127)<<6;  // 15
             }
         }
         
@@ -717,7 +739,7 @@ package org.si.sound.driver {
         // (ws[0-7], ar[0-15], dr[0-15], rr[0-15], egt[0,1], sl[0-15], tl[0-63], ksr[0,1], ksl[0-3], mul[0-15], ams[0-3]) x operator_count }
         private function _parseOPLParam(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 2, 11, "#OPL@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -739,7 +761,7 @@ package org.si.sound.driver {
                 opp.sr  = (int(data[dataIndex++]) != 0) ? 0 : opp.rr;
                 opp.sl  = int(data[dataIndex++]) & 15;          // 6
                 opp.tl  = int(data[dataIndex++]) & 63;          // 7
-                opp.ks  = (int(data[dataIndex++])<<1) & 3;      // 8
+                opp.ksr = (int(data[dataIndex++])<<1) & 3;      // 8
                 opp.ksl = int(data[dataIndex++]) & 3;           // 9
                 i = int(data[dataIndex++]) & 15;                // 10
                 opp.mul = (i==11 || i==13) ? (i-1) : (i==14) ? (i+1) : i;
@@ -753,7 +775,7 @@ package org.si.sound.driver {
         // (ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], dt2[0-3], ams[0-3]) x operator_count }
         private function _parseOPMParam(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 2, 11, "#OPM@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -772,7 +794,7 @@ package org.si.sound.driver {
                 opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 4
                 opp.sl  = int(data[dataIndex++]) & 15;              // 5
                 opp.tl  = int(data[dataIndex++]) & 127;             // 6
-                opp.ks  = int(data[dataIndex++]) & 3;               // 7
+                opp.ksr = int(data[dataIndex++]) & 3;               // 7
                 opp.mul = int(data[dataIndex++]) & 15;              // 8
                 opp.dt1 = int(data[dataIndex++]) & 7;               // 9
                 opp.detune = SiOPMTable.instance.dt2Table[data[dataIndex++] & 3];    // 10
@@ -785,7 +807,7 @@ package org.si.sound.driver {
         // (ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], ams[0-3]) x operator_count }
         private function _parseOPNParam(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 2, 10, "#OPN@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -804,7 +826,7 @@ package org.si.sound.driver {
                 opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 4
                 opp.sl  = int(data[dataIndex++]) & 15;              // 5
                 opp.tl  = int(data[dataIndex++]) & 127;             // 6
-                opp.ks  = int(data[dataIndex++]) & 3;               // 7
+                opp.ksr = int(data[dataIndex++]) & 3;               // 7
                 opp.mul = int(data[dataIndex++]) & 15;              // 8
                 opp.dt1 = int(data[dataIndex++]) & 7;               // 9
                 opp.ams = int(data[dataIndex++]) & 3;               // 10
@@ -816,7 +838,7 @@ package org.si.sound.driver {
         // (ws[0-7], ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], detune[], ams[0-3]) x operator_count }
         private function _parseOPXParam(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 2, 12, "#OPX@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -838,7 +860,7 @@ package org.si.sound.driver {
                 opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 5
                 opp.sl  = int(data[dataIndex++]) & 15;              // 6
                 opp.tl  = int(data[dataIndex++]) & 127;             // 7
-                opp.ks  = int(data[dataIndex++]) & 3;               // 8
+                opp.ksr = int(data[dataIndex++]) & 3;               // 8
                 opp.mul = int(data[dataIndex++]) & 15;              // 9
                 opp.dt1 = int(data[dataIndex++]) & 7;               // 10
                 opp.detune = int(data[dataIndex++]);                // 11
@@ -851,7 +873,7 @@ package org.si.sound.driver {
         // (ws[0-31], ar[0-15], dr[0-15], sr[0-15], rr[0-15], sl[0-15], tl[0-63], ksr[0,1], ksl[0-3], mul[0-15], dt1[0-7], ams[0-3]) x operator_count }
         private function _parseMA3Param(idx:int, dataString:String, postfix:String) : void
         {
-            var param:SiOPMChannelParam = SiMMLTable.getSiOPMChannelParam(idx).initialize();
+            var param:SiOPMChannelParam = SiMMLData(mmlData)._getSiOPMChannelParam(idx);
             var data:Array = __splitDataString(param, dataString, 2, 12, "#MA@");
             if (postfix.length > 0) __parseInitSequence(param, postfix);
             if (param.opeCount == 0) return;
@@ -872,7 +894,7 @@ package org.si.sound.driver {
                 opp.rr  = (int(data[dataIndex++]) << 2) & 63;   // 5
                 opp.sl  = int(data[dataIndex++]) & 15;          // 6
                 opp.tl  = int(data[dataIndex++]) & 63;          // 7
-                opp.ks  = (int(data[dataIndex++])<<1) & 3;      // 8
+                opp.ksr = (int(data[dataIndex++])<<1) & 3;      // 8
                 opp.ksl = int(data[dataIndex++]) & 3;           // 9
                 i = int(data[dataIndex++]) & 15;                // 10
                 opp.mul = (i==11 || i==13) ? (i-1) : (i==14) ? (i+1) : i;
@@ -918,7 +940,8 @@ package org.si.sound.driver {
             if (dataString == "") {
                 param.opeCount = 0;
             } else {
-                data = dataString.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "").split(/[^\-.0-9]+/gm);
+                        
+                data = dataString.replace(/^[^\d\-.]+|[^\d\-.]+$/g, "").split(/[^\d\-.]+/gm);
                 for (i=1; i<5; i++) {
                     if (data.length == chParamCount + opParamCount*i) {
                         param.opeCount = i;
@@ -951,19 +974,19 @@ package org.si.sound.driver {
             rep = null;
 
             // magnification
-            regexp = /([0-9]+)?(\*(-?[0-9.]+))?(([+-])([0-9.]+))?/;
+            regexp = /(\d+)?(\*(-?[\d.]+))?(([+-])([\d.]+))?/;
             res    = regexp.exec(pfx);
             jmax = (res[1]) ? int(res[1]) : 1;
             r    = (res[2]) ? Number(res[3]) : 1;
             o    = (res[4]) ? ((res[5] == '+') ? Number(res[6]) : -Number(res[6])) : 0;
             
             // res[1];(n..),m {res[2];n, res[3];m} / res[4];n / res[5];|
-            regexp = /(\(([, \t\r\n\-0-9]+)\)[, \t\r\n]*([0-9]+))|(-?[0-9]+)|(\|)/gm;
+            regexp = /(\(([,\-\d\s]+)\)[,\s]*(\d+))|(-?\d+)|(\|)/gm;
             res    = regexp.exec(dat);
             while (res && index<maxIndex) {
                 if (res[1]) {
                     // interpolation "(res[2]..),res[3]"
-                    array = String(res[2]).split(/[, \t\r\n]+/);
+                    array = String(res[2]).split(/[,\s]+/);
                     imax = int(res[3]);
                     if (imax < 2 || array.length < 1) throw _errorParameterNotValid("#WAV", dat);
                     itpl.length = array.length;
@@ -1261,11 +1284,11 @@ package org.si.sound.driver {
                 rc :int = (_p[9] == int.MIN_VALUE) ? 128 : _p[9];
             
             if (cut == 128 && res == 0 && ar == 0 && rr == 0) {
-                currentChannel.activateFilter(false);
+                currentTrack.channel.activateFilter(false);
             } else {
-                currentChannel.activateFilter(true);
-                currentChannel.setFilterResonance(res);
-                currentChannel.setFilterEnvelop(ar, dr1, dr2, rr, cut, dc1, dc2, sc, rc);
+                currentTrack.channel.activateFilter(true);
+                currentTrack.channel.setFilterResonance(res);
+                currentTrack.channel.setFilterEnvelop(ar, dr1, dr2, rr, cut, dc1, dc2, sc, rc);
             }
             return e.next;
         }
@@ -1275,8 +1298,8 @@ package org.si.sound.driver {
         {
             // get parameters
             e = e.getParameters(_p, 2);
-            currentChannel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
-            currentChannel.setLFOCycleTime((_p[0] == int.MIN_VALUE) ? 1000 : _p[0]*1000/60);
+            currentTrack.channel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
+            currentTrack.channel.setLFOCycleTime((_p[0] == int.MIN_VALUE) ? 333 : _p[0]*1000/60);
             return e.next;
         }
         
@@ -1372,7 +1395,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 5;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentChannel.setInput(_p[0], _p[1]);
+            currentTrack.channel.setInput(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1382,7 +1405,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 2;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentChannel.setOutput(_p[0], _p[1]);
+            currentTrack.channel.setOutput(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1392,7 +1415,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 4;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentChannel.setRingModulation(_p[0], _p[1]);
+            currentTrack.channel.setRingModulation(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1403,6 +1426,7 @@ package org.si.sound.driver {
         private function _onModuleType(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
+            if (_p[0] < 0 || _p[0] >= SiMMLTable.MT_MAX) _p[0] = SiMMLTable.MT_ALL;
             currentTrack.setChannelModuleType(_p[0], _p[1]);
             return e.next;
         }
@@ -1414,7 +1438,7 @@ package org.si.sound.driver {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             var cnt:int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
             var alg:int = (_p[1] != int.MIN_VALUE) ? _p[1] : SiMMLTable.instance.alg_init[cnt];
-            currentChannel.setAlgorism(cnt, alg);
+            currentTrack.channel.setAlgorism(cnt, alg);
             return e.next;
         }
         
@@ -1438,7 +1462,7 @@ package org.si.sound.driver {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             var fb :int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
             var fbc:int = (_p[1] != int.MIN_VALUE) ? _p[1] : 0;
-            currentChannel.setFeedBack(fb, fbc);
+            currentTrack.channel.setFeedBack(fb, fbc);
             return e.next;
         }
         
@@ -1446,7 +1470,7 @@ package org.si.sound.driver {
         private function _onSlotIndex(e:MMLEvent) : MMLEvent
         {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentChannel.activeOperatorIndex = (e.data == int.MIN_VALUE) ? 4 : e.data;
+            currentTrack.channel.activeOperatorIndex = (e.data == int.MIN_VALUE) ? 4 : e.data;
             return e.next;
         }
 
@@ -1456,7 +1480,7 @@ package org.si.sound.driver {
         {
             e = e.getParameters(_p, 2);
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            if (_p[0] != int.MIN_VALUE) currentChannel.rr = _p[0];
+            if (_p[0] != int.MIN_VALUE) currentTrack.channel.rr = _p[0];
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             currentTrack.setReleaseSweep(_p[1]);
             return e.next;
@@ -1466,7 +1490,7 @@ package org.si.sound.driver {
         private function _onOpeTotalLevel(e:MMLEvent) : MMLEvent
         {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentChannel.tl = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            currentTrack.channel.tl = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
@@ -1477,7 +1501,7 @@ package org.si.sound.driver {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentChannel.fmul = (_p[0] << 7) + _p[1];
+            currentTrack.channel.fmul = (_p[0] << 7) + _p[1];
             return e.next;
         }
         
@@ -1485,7 +1509,7 @@ package org.si.sound.driver {
         private function _onOpeDetune(e:MMLEvent) : MMLEvent
         {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentChannel.detune = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            currentTrack.channel.detune = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
@@ -1493,7 +1517,7 @@ package org.si.sound.driver {
         private function _onOpePhase(e:MMLEvent) : MMLEvent
         {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentChannel.phase = e.data;
+            currentTrack.channel.phase = e.data;
             return e.next;
         }
         
@@ -1504,7 +1528,7 @@ package org.si.sound.driver {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentChannel.fixedPitch = (_p[0] << 6) + _p[1];
+            currentTrack.channel.fixedPitch = (_p[0] << 6) + _p[1];
             return e.next;
         }
         
@@ -1512,7 +1536,7 @@ package org.si.sound.driver {
         private function _onOpeSSGEnvelop(e:MMLEvent) : MMLEvent
         {
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentChannel.ssgec = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            currentTrack.channel.ssgec = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
@@ -1521,9 +1545,17 @@ package org.si.sound.driver {
         {
             e = e.getParameters(_p, 2);
             if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            if (_p[0] != int.MIN_VALUE) currentChannel.setAllReleaseRate(_p[0]);
+            if (_p[0] != int.MIN_VALUE) currentTrack.channel.setAllReleaseRate(_p[0]);
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             currentTrack.setReleaseSweep(_p[1]);
+            return e.next;
+        }
+        
+        // %delay
+        private function _onModuleDelay(e:MMLEvent) : MMLEvent
+        {
+            e = e.getParameters(_p, 2);
+            currentTrack.setChannelModuleType(SiMMLTable.MT_DELAY, _p[0]);
             return e.next;
         }
         
@@ -1552,7 +1584,7 @@ package org.si.sound.driver {
         
         private function _errorParameterNotValid(cmd:String, param:String) : Error
         {
-            return new Error("SiMMLSequencer error : Parameter not valid. '" + cmd + "' = " + param);
+            return new Error("SiMMLSequencer error : Parameter not valid. '" + param + "' in " + cmd);
         }
         
             

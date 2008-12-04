@@ -145,6 +145,9 @@ package org.si.sound.module {
         public function get pitch()      : int  { return 0; }
         public function set pitch(i:int) : void {}
         
+        /** buffer index */
+        public function get bufferIndex() : int { return _bufferIndex; }
+        
         
         
         
@@ -350,19 +353,23 @@ package org.si.sound.module {
     // operations
     //--------------------------------------------------
         /** Initialize. */
-        public function initialize()   : void
+        public function initialize(prev:SiOPMChannelBase) : void
         {
-            // output buffer
-            _output = _chip.outputBuffer;
-            _bufferIndex = 0;
-            
-            // volume
-            _left_volume  = 1;
-            _right_volume = 1;
+            if (prev) {
+                _output = prev._output;
+                _bufferIndex = prev._bufferIndex;
+                _left_volume  = prev._left_volume;
+                _right_volume = prev._right_volume;
+            } else {
+                _output = _chip.outputBuffer;
+                _bufferIndex = 0;
+                _left_volume  = 1;
+                _right_volume = 1;
+            }
             
             // LFO
             initializeLFO(SiOPMTable.LFO_WAVE_TRIANGLE);
-            setLFOCycleTime(1000);
+            setLFOCycleTime(333);
             setFrequencyRatio(100);
             
             // Connection
@@ -597,8 +604,21 @@ package org.si.sound.module {
         
 
         /** No process (default functor of _funcProcess). */
-        static protected function _nop(len:int) : void
+        protected function _nop(len:int) : void
         {
+            var i:int;
+            // buffering
+            var bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+            for (i=0; i<len; i++) {
+                // increment
+                op.i = bp.i;
+                bp = bp.next;
+                op = op.next;
+            }
+            // update pointers
+            _basePipe = bp;
+            _outPipe  = op;
         }
         
         

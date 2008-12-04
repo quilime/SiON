@@ -75,6 +75,8 @@ package org.si.sound.module {
         internal var _kc:int;
         /** SSG type envelop control */
         internal var _ssg_type:int;
+        /** Mute [0/SiOPMTable.ENV_BOTTOM] */
+        internal var _mute:int;
         
         
     // pulse generator
@@ -246,7 +248,12 @@ package org.si.sound.module {
             }
             
         }
-
+        /** Mute */
+        public function set mute(b:Boolean) : void {
+            _mute = (b) ? SiOPMTable.ENV_BOTTOM : 0;
+            _updateTotalLevel();
+        }
+        
         
         public function get ar() : int { return _ar; }
         public function get dr() : int { return _dr; }
@@ -262,6 +269,7 @@ package org.si.sound.module {
         public function get ams() : int { return (_ams==16) ? 0 : (3-_ams); }
         public function get ksl() : int { return _ksl; }
         public function get ssgec() : int { return _ssg_type; }
+        public function get mute() : Boolean { return (_mute != 0); }
         
         
     // properties (other fm parameters)
@@ -291,7 +299,7 @@ package org.si.sound.module {
         // Get status, but all of them cannot be read.
         public function get kc() : int { return _kc; }
         public function get kf() : int { return (_pitchIndex & 63); }
-        public function get pitchFixed() : Boolean { return pitchFixed; }
+        public function get pitchFixed() : Boolean { return _pitchFixed; }
         
         
     // properties (pTSS)
@@ -455,13 +463,13 @@ package org.si.sound.module {
             pgType = param.pgType;
             ptType = param.ptType;
             
-            _keyon_phase = (param.phase & 255) << (SiOPMTable.PHASE_BITS - 8);
+            _keyon_phase = (param.phase==-1) ? -1 : ((param.phase & 255) << (SiOPMTable.PHASE_BITS - 8));
             
             _ar = param.ar & 63;
             _dr = param.dr & 63;
             _sr = param.sr & 63;
             _rr = param.rr & 63;
-            _ks = 5 - (param.ks & 3);
+            _ks = 5 - (param.ksr & 3);
             _ksl = param.ksl & 3;
             _ams = (param.ams) ? (3-param.ams) : 16;
             _multiple = param.fmul;
@@ -470,6 +478,7 @@ package org.si.sound.module {
             _dt1Table = _table.dt1Table[_dt1];
             _pitchIndexShift = param.detune;
             ssgec = param.ssgec;
+            _mute = (param.mute) ? SiOPMTable.ENV_BOTTOM : 0;
             
             // fixed pitch
             if (param.fixedPitch == 0) {
@@ -505,14 +514,14 @@ package org.si.sound.module {
             param.rr = _rr;
             param.sl = sl;
             param.tl = tl;
-            param.ks = ks;
+            param.ksr = ks;
+            param.ksl = ksl;
             param.fmul = fmul;
             param.dt1 = _dt1;
             param.detune = detune;
             param.ams = ams;
             param.ssgec = ssgec;
             param.phase = keyOnPhase;
-            param.ksl = ksl;
             param.modLevel = (_fmShift>10) ? (_fmShift - 10) : 0;
         }
         
@@ -720,7 +729,7 @@ package org.si.sound.module {
         // Internal update total level
         private function _updateTotalLevel() : void
         {
-            _eg_total_level = ((_tl+(_kc>>_eg_key_scale_level_rshift))<<SiOPMTable.ENV_LSHIFT) + _eg_tl_offset;
+            _eg_total_level = ((_tl+(_kc>>_eg_key_scale_level_rshift))<<SiOPMTable.ENV_LSHIFT) + _eg_tl_offset + _mute;
             if (_eg_total_level > SiOPMTable.ENV_BOTTOM) _eg_total_level = SiOPMTable.ENV_BOTTOM;
             _eg_total_level -= SiOPMTable.ENV_TOP;       // table index +192.
             _eg_out = (_eg_levelTable[_eg_level] + _eg_total_level)<<3;

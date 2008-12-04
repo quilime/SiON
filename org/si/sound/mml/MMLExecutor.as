@@ -108,7 +108,8 @@ package org.si.sound.mml {
         /** @private [internal use] callback onTempoChanged. */
         public function _onTempoChanged(changingRatio:Number) : void
         {
-            _processEvent.length *= changingRatio;
+            _residueSampleCount         *= changingRatio;
+            _decimalFractionSampleCount *= changingRatio;
         }
         
         

@@ -13,7 +13,7 @@ package org.si.sound.mml {
     
     
     
-    /** Group of MMLSequences. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has array of"). */
+    /** Group of MMLSequences. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLSequenceGroup
     {
     // valiables
