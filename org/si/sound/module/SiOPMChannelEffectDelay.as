@@ -3,18 +3,14 @@
 
 
 
-package org.si.sound.effect {
-    import org.si.sound.module.SiOPMChannelParam;
-    import org.si.sound.module.SiOPMChannelBase;
-    import org.si.sound.module.SiOPMModule;
-    import org.si.sound.module.SiOPMTable;
+package org.si.sound.module {
     import org.si.utils.SLLint;
     
     
     
     
     /** Delay effect */
-    public class SiOPMEffectDelay extends SiOPMChannelBase
+    public class SiOPMChannelEffectDelay extends SiOPMChannelBase
     {
     // variables
     //--------------------------------------------------
@@ -24,13 +20,16 @@ package org.si.sound.effect {
         private var _feedbackDelay:int;
         private var _feedback:Number;
         
+        private var _left_main_volume:Number;
+        private var _right_main_volume:Number;
+        private var _gain:Number;
         
         
         
     // constructor
     //--------------------------------------------------
         /** Constructor @param chip Managing SiOPMModule. */
-        function SiOPMEffectDelay(chip:SiOPMModule)
+        function SiOPMChannelEffectDelay(chip:SiOPMModule)
         {
             super(chip);
             _delayBuffer = new Vector.<int>(1);
@@ -38,7 +37,11 @@ package org.si.sound.effect {
             _firstDelay = 0;
             _feedbackDelay = 0;
             _feedback = 0;
-            _funcProcess = _buffer_fboff;
+            _funcProcess = _nop;
+            
+            _left_main_volume = 1;
+            _right_main_volume = 1;
+            _gain = 1;
         }
         
         
@@ -58,6 +61,12 @@ package org.si.sound.effect {
         override public function setType(pgType:int, ptType:int) : void 
         {
         }
+        /** feedback (@fb) */
+        override public function setFeedBack(fb:int, fbc:int) : void
+        {
+            _feedback    = fb*0.01;
+            _funcProcess = (_firstDelay==0) ? _nop : ((_feedbackDelay==0 || _feedback==0) ? _buffer_fboff : _buffer_fbon);
+        }
         
         
         /** Set by SiOPMChannelParam. */
@@ -67,13 +76,11 @@ package org.si.sound.effect {
         
         /** algorism (@al) */
         override public function setAlgorism(cnt:int, alg:int) : void {}
-        /** feedback (@fb) */
-        override public function setFeedBack(fb:int, fbc:int) : void {}
         /** Release rate (s) */
         override public function setAllReleaseRate(rr:int) : void {}
         
         /** active operator index (i). */
-        override public function set activeOperatorIndex(i:int) : void { }
+        override public function set activeOperatorIndex(i:int) : void {}
         /** Release rate (@rr) */
         override public function set rr(r:int) : void {}
         /** total level (@tl)  */
@@ -101,21 +108,43 @@ package org.si.sound.effect {
         /** Stereo volume */
         override public function setStereoVolume(l:Number, r:Number) : void
         {
-            _left_volume  = l;
-            _right_volume = r;
+            _left_main_volume  = l;
+            _right_main_volume = r;
+            _updateVolume();
         }
         
         
         /** offset volume */
         override public function offsetVolume(expression:int, velocity:int) : void
         {
+            // 0.00006103515625 = 1/(128*128)
+            _gain = expression * velocity * 0.00006103515625;
+            _updateVolume();
         }
         
         
-        /** Set input pipe (@i). */
-        override public function setInput(level:int, pipeIndex:int) : void
+        /** Set input pipe (@i). do nothing. */
+        override public function setInput(level:int, pipeIndex:int) : void { }
+        
+        
+        /** Set filter envelop */
+        override public function setFilterEnvelop(ar:int, dr1:int, dr2:int, rr:int, ac:int, dc1:int, dc2:int, sc:int, rc:int) : void
         {
-            // Do nothing.
+            super.setFilterEnvelop(ar,dr1,dr2,rr,ac,dc1,dc2,sc,rc);
+            // start LP-filter
+            _lfo_phase = 0;
+            if (_filterOn) {
+                resetLPFilterState();
+                shiftLPFilterState(EG_ATTACK);
+            }
+        }
+        
+
+        // update volume
+        private function _updateVolume() : void
+        {
+            _left_volume  = _left_main_volume  * _gain;
+            _right_volume = _right_main_volume * _gain;
         }
         
         
@@ -124,13 +153,18 @@ package org.si.sound.effect {
     // operations
     //--------------------------------------------------
         /** Initialize. */
-        override public function initialize()   : void
+        override public function initialize(prev:SiOPMChannelBase)   : void
         {
-            super.initialize();
-            _funcProcess = _buffer_fboff;
+            super.initialize(prev);
+            _funcProcess = _nop;
         }
+       
         
+        // Do nothing on note event
+        override public function noteOn() : void { }
+        override public function noteOff() : void { }
         
+                
         
         
     // settings
@@ -143,7 +177,7 @@ package org.si.sound.effect {
             _firstDelay    = firstDelay;
             _feedbackDelay = feedbackDelay;
             _feedback      = feedback;
-            _funcProcess = (_feedbackDelay==0 || _feedback==0) ? _buffer_fboff : _buffer_fbon;
+            _funcProcess = (_firstDelay==0) ? _nop : ((_feedbackDelay==0 || _feedback==0) ? _buffer_fboff : _buffer_fbon);
             var bufferSize:int = (_firstDelay > _feedbackDelay) ? _firstDelay : _feedbackDelay;
             
             // expand buffer

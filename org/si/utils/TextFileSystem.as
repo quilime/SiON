@@ -1,11 +1,12 @@
-package org.si.sound.simos {
+package org.si.utils {
     import flash.events.*;
     import flash.net.SharedObject;
     import flash.net.SharedObjectFlushStatus;
     import flash.net.FileReference;
     
     
-    public class SiMOSFileSystem
+    /** Tex file managiment system by xml. */
+    public class TextFileSystem
     {
     // constants
     //------------------------------------------------------------
@@ -37,9 +38,10 @@ package org.si.sound.simos {
         
         
         
+        
     // constructor
     //------------------------------------------------------------
-        function SiMOSFileSystem()
+        function TextFileSystem()
         {
         }
         

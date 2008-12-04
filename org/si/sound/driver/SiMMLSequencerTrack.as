@@ -70,7 +70,6 @@ package org.si.sound.driver {
 
         // internal use
         private var _table:SiMMLTable;      // table
-        private var _keyOnTime:int;         // key on time
         private var _keyOnCounter:int;      // key on counter
         private var _flagNoKeyOn:Boolean;   // key on flag
         private var _processMode:int;       // processing mode
@@ -205,7 +204,6 @@ package org.si.sound.driver {
             _trackNumber = trackNumber;
             noteShift = 0;
             pitchShift = 0;
-            _keyOnTime = 0;
             _keyOnCounter = 0;
             _flagNoKeyOn = false;
             _processMode = NORMAL;
@@ -286,8 +284,6 @@ package org.si.sound.driver {
                 _residue = _processEnvelop(length, _residue);
                 break;
             }
-            
-            if (_keyOnTime != -1) _keyOnTime += length;
         }
         
         
@@ -390,8 +386,6 @@ package org.si.sound.driver {
             channel.noteOff();
             // no key off after this
             _keyOnCounter = 0;
-            // ignore _keyOnTime
-            _keyOnTime = -1;
              // update process
             _updateProcess(0);
         }
@@ -418,9 +412,13 @@ package org.si.sound.driver {
                 }
 
                 // previous note off
-                if (channel.isNoteOn()) channel.noteOff();
-                // reset _keyOnTime
-                _keyOnTime = 0;
+                if (channel.isNoteOn()) {
+                    // callback
+                    if (_callbackBeforeNoteOff != null) {
+                        if (!_callbackBeforeNoteOff(this)) return;
+                    }
+                    channel.noteOff();
+                }
                 // update process
                 _updateProcess(1);
                 // note on
@@ -553,7 +551,7 @@ package org.si.sound.driver {
         }
 
         
-        /** Channel module type (%).
+        /** Channel module type (%, %e).
          *  @param type Channel module type
          *  @param channelNum Channel number to emulate.
          */

@@ -8,13 +8,6 @@
 
 
 package org.si.sound.module {
-    import org.si.utils.SLLint;
-    import org.si.utils.SLLNumber;
-    import org.si.sound.effect.*
-    
-    
-    
-    
     /** @private SiOPM sound channel manager */
     public class SiOPMChannelManager
     {
@@ -150,6 +143,7 @@ package org.si.sound.module {
                 ch.reset();
             }
         }
+        
         
         
         

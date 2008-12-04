@@ -37,6 +37,9 @@ package org.si.sound {
     {
     // constants
     //----------------------------------------
+        static public const VERSION:String = "0.4.0";
+        
+        
         private const NO_LISTEN:int = 0;
         private const LISTEN_COMPILE:int = 1;
         private const LISTEN_PROCESS:int = 2;

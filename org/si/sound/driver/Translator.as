@@ -8,6 +8,9 @@
 
 
 package org.si.sound.driver {
+    import org.si.sound.module.*;
+    
+    
     /** Translator */
     public class Translator
     {
@@ -19,6 +22,8 @@ package org.si.sound.driver {
         
         
         
+    // TSSCP
+    //--------------------------------------------------
         /** Translate pTSSCP mml to SiOPM mml. */
         static public function tsscp(tsscpMML:String) : String
         {
@@ -295,6 +300,8 @@ package org.si.sound.driver {
 
         
         
+    // mml256 (still in concept)
+    //--------------------------------------------------
         /** Translate mml256 to SiOPM mml. */
         static public function mml256(org:String) : String
         {
@@ -389,11 +396,254 @@ package org.si.sound.driver {
         }
         
         
-    
+        
+        
+    // FM parameters
+    //--------------------------------------------------
+        /** #@{..};
+         *  alg[0-15], fb[0-7], fbc[0-3], 
+         *  (ws[0-1023], ar[0-63], dr[0-63], sr[0-63], rr[0-63], sl[0-15], tl[0-127], ksr[0-3], ksl[0-3], mul[], dt1[0-7], detune[], ams[0-3], phase[-1-255], fixedNote[0-127]) x operator_count
+         */
+        static public function parseParam(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 3, 15, "#@");
+            if (param.opeCount == 0) return;
+            
+            param.alg = int(data[0]);
+            param.fb  = int(data[1]);
+            param.fbc = int(data[2]);
+            var dataIndex:int = 3, n:Number, i:int;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.pgType = int(data[dataIndex++]) & 1023; // 1
+                opp.ar     = int(data[dataIndex++]) & 63;   // 2
+                opp.dr     = int(data[dataIndex++]) & 63;   // 3
+                opp.sr     = int(data[dataIndex++]) & 63;   // 4
+                opp.rr     = int(data[dataIndex++]) & 63;   // 5
+                opp.sl     = int(data[dataIndex++]) & 15;   // 6
+                opp.tl     = int(data[dataIndex++]) & 127;  // 7
+                opp.ksr    = int(data[dataIndex++]) & 3;    // 8
+                opp.ksl    = int(data[dataIndex++]) & 3;    // 9
+                n = Number(data[dataIndex++]);
+                opp.fmul   = (n==0) ? 64 : int(n*128);      // 10
+                opp.dt1    = int(data[dataIndex++]) & 7;    // 11
+                opp.detune = int(data[dataIndex++]);        // 12
+                opp.ams    = int(data[dataIndex++]) & 3;    // 13
+                i = int(data[dataIndex++]);
+                opp.phase  = (i==-1) ? i : (i & 255);           // 14
+                opp.fixedPitch = (int(data[dataIndex++]) & 127)<<6;  // 15
+            }
+        }
+        
+        
+        /** #OPL@{..};
+         *  alg[0-15], fb[0-7], 
+         *  (ws[0-7], ar[0-15], dr[0-15], rr[0-15], egt[0,1], sl[0-15], tl[0-63], ksr[0,1], ksl[0-3], mul[0-15], ams[0-3]) x operator_count
+         */
+        static public function parseOPLParam(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 2, 11, "#OPL@");
+            if (param.opeCount == 0) return;
+            
+            var alg:int = SiMMLTable.instance.alg_opl[param.opeCount-1][int(data[0])&15];
+            if (alg == -1) throw errorParameterNotValid("#OPL@ algorism", data[0]);
+            
+            param.fratio = 133;
+            param.alg = alg;
+            param.fb  = int(data[1]);
+            var dataIndex:int = 2, i:int;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.pgType = SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++])&31);    // 1
+                opp.ar  = (int(data[dataIndex++]) << 2) & 63;   // 2
+                opp.dr  = (int(data[dataIndex++]) << 2) & 63;   // 3
+                opp.rr  = (int(data[dataIndex++]) << 2) & 63;   // 4
+                // egt=0;decay tone / egt=1;holding tone           5
+                opp.sr  = (int(data[dataIndex++]) != 0) ? 0 : opp.rr;
+                opp.sl  = int(data[dataIndex++]) & 15;          // 6
+                opp.tl  = int(data[dataIndex++]) & 63;          // 7
+                opp.ksr = (int(data[dataIndex++])<<1) & 3;      // 8
+                opp.ksl = int(data[dataIndex++]) & 3;           // 9
+                i = int(data[dataIndex++]) & 15;                // 10
+                opp.mul = (i==11 || i==13) ? (i-1) : (i==14) ? (i+1) : i;
+                opp.ams = int(data[dataIndex++]) & 3;           // 11
+                // multiple
+            }
+        }
+        
+        
+        /** #OPM@{..};
+         *  alg[0-15], fb[0-7], 
+         *  (ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], dt2[0-3], ams[0-3]) x operator_count
+         */
+        static public function parseOPMParam(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 2, 11, "#OPM@");
+            if (param.opeCount == 0) return;
+            
+            var alg:int = SiMMLTable.instance.alg_opm[param.opeCount-1][int(data[0])&15];
+            if (alg == -1) throw errorParameterNotValid("#OPN@ algorism", data[0]);
+
+            param.alg = alg;
+            param.fb  = int(data[1]);
+            var dataIndex:int = 2;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.ar  = (int(data[dataIndex++]) << 1) & 63;       // 1
+                opp.dr  = (int(data[dataIndex++]) << 1) & 63;       // 2
+                opp.sr  = (int(data[dataIndex++]) << 1) & 63;       // 3
+                opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 4
+                opp.sl  = int(data[dataIndex++]) & 15;              // 5
+                opp.tl  = int(data[dataIndex++]) & 127;             // 6
+                opp.ksr = int(data[dataIndex++]) & 3;               // 7
+                opp.mul = int(data[dataIndex++]) & 15;              // 8
+                opp.dt1 = int(data[dataIndex++]) & 7;               // 9
+                opp.detune = SiOPMTable.instance.dt2Table[data[dataIndex++] & 3];    // 10
+                opp.ams = int(data[dataIndex++]) & 3;               // 11
+            }
+        }
+        
+        
+        /** #OPN@{..};
+         *  alg[0-15], fb[0-7], 
+         *  (ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], ams[0-3]) x operator_count
+         */
+        static public function parseOPNParam(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 2, 10, "#OPN@");
+            if (param.opeCount == 0) return;
+            
+            var alg:int = SiMMLTable.instance.alg_opm[param.opeCount-1][int(data[0])&15];
+            if (alg == -1) throw errorParameterNotValid("#OPN@ algorism", data[0]);
+
+            param.alg = alg;
+            param.fb  = int(data[1]);
+            var dataIndex:int = 2;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.ar  = (int(data[dataIndex++]) << 1) & 63;       // 1
+                opp.dr  = (int(data[dataIndex++]) << 1) & 63;       // 2
+                opp.sr  = (int(data[dataIndex++]) << 1) & 63;       // 3
+                opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 4
+                opp.sl  = int(data[dataIndex++]) & 15;              // 5
+                opp.tl  = int(data[dataIndex++]) & 127;             // 6
+                opp.ksr = int(data[dataIndex++]) & 3;               // 7
+                opp.mul = int(data[dataIndex++]) & 15;              // 8
+                opp.dt1 = int(data[dataIndex++]) & 7;               // 9
+                opp.ams = int(data[dataIndex++]) & 3;               // 10
+            }
+        }
+        
+        
+        /** #OPX@{..};
+         *  alg[0-15], fb[0-7], 
+         *  (ws[0-7], ar[0-31], dr[0-31], sr[0-31], rr[0-15], sl[0-15], tl[0-127], ks[0-3], mul[0-15], dt1[0-7], detune[], ams[0-3]) x operator_count
+         */
+        static public function parseOPXParam(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 2, 12, "#OPX@");
+            if (param.opeCount == 0) return;
+            
+            var alg:int = SiMMLTable.instance.alg_opx[param.opeCount-1][int(data[0])&15];
+            if (alg == -1) throw errorParameterNotValid("#OPX@ algorism", data[0]);
+            
+            param.alg = (alg & 15);
+            param.fb  = int(data[1]);
+            param.fbc = (alg & 16) ? 1 : 0;
+            var dataIndex:int = 2, i:int;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                i = int(data[dataIndex++]);
+                opp.pgType = (i<7) ? (SiOPMTable.PG_MA3_WAVE+(i&7)) : (SiOPMTable.PG_CUSTOM+(i-7));    // 1
+                opp.ar  = (int(data[dataIndex++]) << 1) & 63;       // 2
+                opp.dr  = (int(data[dataIndex++]) << 1) & 63;       // 3
+                opp.sr  = (int(data[dataIndex++]) << 1) & 63;       // 4
+                opp.rr  = ((int(data[dataIndex++]) << 2) + 2) & 63; // 5
+                opp.sl  = int(data[dataIndex++]) & 15;              // 6
+                opp.tl  = int(data[dataIndex++]) & 127;             // 7
+                opp.ksr = int(data[dataIndex++]) & 3;               // 8
+                opp.mul = int(data[dataIndex++]) & 15;              // 9
+                opp.dt1 = int(data[dataIndex++]) & 7;               // 10
+                opp.detune = int(data[dataIndex++]);                // 11
+                opp.ams = int(data[dataIndex++]) & 3;               // 12
+            }
+        }
+        
+        
+        /** #MA@{..};
+         *  alg[0-15], fb[0-7], 
+         *  (ws[0-31], ar[0-15], dr[0-15], sr[0-15], rr[0-15], sl[0-15], tl[0-63], ksr[0,1], ksl[0-3], mul[0-15], dt1[0-7], ams[0-3]) x operator_count
+         */
+        static public function parseMA3Param(param:SiOPMChannelParam, dataString:String) : void
+        {
+            var data:Array = _splitDataString(param, dataString, 2, 12, "#MA@");
+            if (param.opeCount == 0) return;
+            
+            var alg:int = SiMMLTable.instance.alg_ma3[param.opeCount-1][int(data[0])&15];
+            if (alg == -1) throw errorParameterNotValid("#MA@ algorism", data[0]);
+            
+            param.fratio = 133;
+            param.alg = alg;
+            param.fb  = int(data[1]);
+            var dataIndex:int = 2, i:int;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.pgType = SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++]) & 31); // 1
+                opp.ar  = (int(data[dataIndex++]) << 2) & 63;   // 2
+                opp.dr  = (int(data[dataIndex++]) << 2) & 63;   // 3
+                opp.sr  = (int(data[dataIndex++]) << 2) & 63;   // 4
+                opp.rr  = (int(data[dataIndex++]) << 2) & 63;   // 5
+                opp.sl  = int(data[dataIndex++]) & 15;          // 6
+                opp.tl  = int(data[dataIndex++]) & 63;          // 7
+                opp.ksr = (int(data[dataIndex++])<<1) & 3;      // 8
+                opp.ksl = int(data[dataIndex++]) & 3;           // 9
+                i = int(data[dataIndex++]) & 15;                // 10
+                opp.mul = (i==11 || i==13) ? (i-1) : (i==14) ? (i+1) : i;
+                opp.dt1 = int(data[dataIndex++]) & 7;           // 11
+                opp.ams = int(data[dataIndex++]) & 3;           // 12
+            }
+        }
+        
+
+        // split dataString of #@ macro
+        static private function _splitDataString(param:SiOPMChannelParam, dataString:String, chParamCount:int, opParamCount:int, cmd:String) : Array
+        {
+            var data:Array, i:int;
+            
+            // parse parameters
+            if (dataString == "") {
+                param.opeCount = 0;
+            } else {
+                data = dataString.replace(/^[^\d\-.]+|[^\d\-.]+$/g, "").split(/[^\d\-.]+/gm);
+                for (i=1; i<5; i++) {
+                    if (data.length == chParamCount + opParamCount*i) {
+                        param.opeCount = i;
+                        return data;
+                    }
+                }
+                throw errorToneParameterNotValid(cmd, chParamCount, opParamCount);
+            }
+            return null;
+        }
+        
+        
+        
+        
+    // errors
+    //--------------------------------------------------
+        static public function errorToneParameterNotValid(cmd:String, chParam:int, opParam:int) : Error
+        {
+            return new Error("Translator error : Parameter count is not valid in '" + cmd + "'. " + String(chParam) + " parameters for channel and " + String(opParam) + " parameters for each operator.");
+        }
+        
+        static public function errorParameterNotValid(cmd:String, param:String) : Error
+        {
+            return new Error("Translator error : Parameter not valid. '" + param + "' in " + cmd);
+        }
         
         static public function errorTranslation(str:String) : Error
         {
-            return new Error("SiOPMTranslator Error : mml error. '" + str + "'");
+            return new Error("Translator Error : mml error. '" + str + "'");
         }
     }
 }

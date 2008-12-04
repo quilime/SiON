@@ -36,7 +36,9 @@ package org.si.sound.driver {
         static public const MT_RAMP  :int = 9;  // ramp wave
         static public const MT_MAX   :int = 10;
         
+        static public const MT_EFFECT:int = 10; // first effect module id
         static public const MT_DELAY :int = 10; // delay
+        static public const MT_EFFECT_MAX:int = 11;
         static private const MT_ARRAY_SIZE:int = 11;
         
         

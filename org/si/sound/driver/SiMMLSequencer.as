@@ -143,7 +143,7 @@ package org.si.sound.driver {
             setMMLEventListener(MMLEvent.MOD_TYPE,    _onModuleType);
             setMMLEventListener(MMLEvent.INPUT_PIPE,  _onInput);
             setMMLEventListener(MMLEvent.OUTPUT_PIPE, _onOutput);
-            newMMLEventListener('%delay',  _onModuleDelay);
+            newMMLEventListener('%e',  _onModuleEffect);
             
             
             // operator setting
@@ -1430,6 +1430,16 @@ package org.si.sound.driver {
             currentTrack.setChannelModuleType(_p[0], _p[1]);
             return e.next;
         }
+        
+        // %e
+        private function _onModuleEffect(e:MMLEvent) : MMLEvent
+        {
+            e = e.getParameters(_p, 2);
+            var id:int = _p[0] + SiMMLTable.MT_EFFECT;
+            if (id < SiMMLTable.MT_EFFECT || id >= SiMMLTable.MT_EFFECT_MAX) _p[0] = SiMMLTable.MT_DELAY;
+            currentTrack.setChannelModuleType(id, _p[1]);
+            return e.next;
+        }
     
         // @al
         private function _onAlgorism(e:MMLEvent) : MMLEvent
@@ -1548,14 +1558,6 @@ package org.si.sound.driver {
             if (_p[0] != int.MIN_VALUE) currentTrack.channel.setAllReleaseRate(_p[0]);
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             currentTrack.setReleaseSweep(_p[1]);
-            return e.next;
-        }
-        
-        // %delay
-        private function _onModuleDelay(e:MMLEvent) : MMLEvent
-        {
-            e = e.getParameters(_p, 2);
-            currentTrack.setChannelModuleType(SiMMLTable.MT_DELAY, _p[0]);
             return e.next;
         }
         
