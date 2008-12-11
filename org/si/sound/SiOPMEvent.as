@@ -46,8 +46,11 @@ package org.si.sound {
         /** Sound driver. */
         public function get driver():SiOPMDriver { return _driver; }
         
+        /** Sound data. */
+        public function get data():SiOPMData { return _driver.data; }
+        
         /** ByteArray of sound stream. This is available only in STREAM event. */
-        public function get data():ByteArray { return _streamBuffer; }
+        public function get streamBuffer():ByteArray { return _streamBuffer; }
         
         
         
@@ -66,7 +69,7 @@ package org.si.sound {
         /** clone. */
         override public function clone() : Event
         { 
-            return new SiOPMEvent(type, driver, data, bubbles, cancelable);
+            return new SiOPMEvent(type, driver, streamBuffer, bubbles, cancelable);
         }
     }
 }

@@ -59,7 +59,7 @@ package org.si.sound.mml {
     // operations
     //--------------------------------------------------
         /** Initialize.
-         *  @param seq Sequence to execute.
+         *  @param seq Sequence to execute. If its null, set the execution pointer at the head.
          */
         public function initialize(seq:MMLSequence) : void
         {
@@ -82,6 +82,13 @@ package org.si.sound.mml {
             _repeatCounter = null;
             _residueSampleCount = 0;
             _decimalFractionSampleCount = 0;
+        }
+        
+        
+        /** Reset pointer to sequence head */
+        public function resetPointer() : void
+        {
+            if (sequence) pointer  = sequence.headEvent.next;
         }
         
         

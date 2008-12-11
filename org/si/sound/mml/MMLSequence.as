@@ -35,12 +35,12 @@ package org.si.sound.mml {
         
     // properties
     //--------------------------------------------------
-        /** Loop flag. Returns false if loop ends. */
+        /** next sequence. */
         public function get nextSequence() : MMLSequence
         {
             return (!_nextSequence._isTerminal) ? _nextSequence : null;
         }
-       
+        
         
         
         

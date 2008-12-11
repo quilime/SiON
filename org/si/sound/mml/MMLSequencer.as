@@ -48,12 +48,13 @@ package org.si.sound.mml {
         /** Current processing sequence executor. You can refer this in onProcess. */
         protected var currentExecutor:MMLExecutor; 
         /** Current MMLData to compile or process */
-        protected var mmlData:MMLData;   // 
+        protected var mmlData:MMLData;
         
         private var _newUserDefinedEventID:int = MMLEvent.USER_DEFINE;  // id value of new user-defined event.
         private var _userDefinedEventID:Object = {};                    // id map of user-defined event letter set by newMMLEventListener().
         private var _eventHandlers:Vector.<Function>   = new Vector.<Function>(MMLEvent.COMMAND_MAX, true); // list of event handler functions set by setMMLEventListener().
         private var _eventGlobalFlags:Vector.<Boolean> = new Vector.<Boolean> (MMLEvent.COMMAND_MAX, true); // global event flag
+        private var _nopEvent:MMLEvent;             // MMLEvent.NOP
         
         private var _processSampleCount:int;        // leftover of buffer sample count in processing
         private var _globalBufferSampleCount:int;   // leftover of buffer sample count in global sequence
@@ -61,7 +62,7 @@ package org.si.sound.mml {
         
         private var _bpm:Number;                    // beat per minute
         private var _samplePerTick:int;             // samples per tick << FIXED_BITS
-        private var _bufferSampleCount:int;         // buffer sample count
+        private var _bufferSize:int;                // buffer sample count
         
         
         
@@ -90,6 +91,7 @@ package org.si.sound.mml {
             this.setting = new MMLParserSetting();
             
             for (var i:int=0; i<MMLEvent.COMMAND_MAX; i++) { _eventHandlers[i] = _nop; }
+            setMMLEventListener(MMLEvent.NOP,          _default_onNoOperation,  false);
             setMMLEventListener(MMLEvent.PROCESS,      _default_onProcess,      false);
             setMMLEventListener(MMLEvent.REPEAT_ALL,   _default_onRepeatAll,    false);
             setMMLEventListener(MMLEvent.REPEAT_BEGIN, _default_onRepeatBegin,  false);
@@ -100,6 +102,7 @@ package org.si.sound.mml {
             setMMLEventListener(MMLEvent.TEMPO,        _default_onTempo,        true);
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
+            _nopEvent = (new MMLEvent()).initialize(MMLEvent.NOP, 0, 0);
             
             globalExecutor = new MMLExecutor();
         }
@@ -169,13 +172,17 @@ package org.si.sound.mml {
         {
             // set internal parameters
             mmlData = data;
+            if (mmlData == null) return false;
             
             // clear mml data
             mmlData.clear();
             
             // callback before compiling
             var mmlString:String = onBeforeCompile(mml);
-            if (mmlString== null) return false;
+            if (mmlString== null) {
+                mmlData = null;
+                return false;
+            }
             
             // setting
             MMLParser._setUserDefinedEventID(_userDefinedEventID);
@@ -187,10 +194,12 @@ package org.si.sound.mml {
         
         /** Parse mml string. Calls onAfterCompile() inside.
          *  @param interval Interval to interrupt parsing [ms]. Set 0 to parse at once.
-         *  @return Return compile progression. Returns 1 when its finished.
+         *  @return Return compile progression. Returns 1 when its finished, or when preparation has not completed.
          */
         public function compile(interval:int = 1000) : Number
         {
+            if (mmlData == null) return 1;
+            
             // parse mmlString
             var e:MMLEvent = MMLParser.parse(interval);
             // null means parse imcompleted.
@@ -218,10 +227,15 @@ package org.si.sound.mml {
         public function prepareProcess(data:MMLData, bufferSize:int) : void
         {
             mmlData = data;
-            _bufferSampleCount = bufferSize;
-            bpm = mmlData.defaultBPM;
-            globalExecutor.initialize(mmlData.globalSequence);
-            mmlData.regiterAllTables();
+            _bufferSize = bufferSize;
+            if (mmlData == null) {
+                bpm = setting.defaultBPM;
+                globalExecutor.initialize(null);
+            } else {
+                bpm = mmlData.defaultBPM;
+                globalExecutor.initialize(mmlData.globalSequence);
+                mmlData.regiterAllTables();
+            }
         }
         
         
@@ -239,7 +253,7 @@ package org.si.sound.mml {
         /** Execute global sequence. */
         protected function startGlobalSequence() : void
         {
-            _globalBufferSampleCount = _bufferSampleCount;
+            _globalBufferSampleCount = _bufferSize;
             _globalExecuteSampleCount = 0;
         }
         protected function executeGlobalSequence() : int
@@ -280,7 +294,7 @@ package org.si.sound.mml {
             _processSampleCount = bufferSampleCount;
             while (_processSampleCount > 0) {
                 if (event == null) {
-                    onProcess(_processSampleCount, null);
+                    _eventHandlers[MMLEvent.NOP](_nopEvent);
                     return true;
                 } else {
                     // update _processSampleCount in some _eventHandler()s
@@ -472,6 +486,14 @@ package org.si.sound.mml {
         }
         
         
+        /** default operation for MMLEvent.NOP. */
+        protected function _default_onNoOperation(e:MMLEvent) : MMLEvent
+        {
+            onProcess(_processSampleCount, e);
+            return e;
+        }
+        
+        
         /** default operation for MMLEvent.WAIT. */
         protected function _default_onWait(e:MMLEvent) : MMLEvent
         {
@@ -522,6 +544,33 @@ package org.si.sound.mml {
                 return e.jump.next;
             } else {
                 onProcess(_processSampleCount, e.jump);
+                exec._residueSampleCount -= _processSampleCount;
+                _processSampleCount = 0;
+                // stay on this command
+                return e;
+            }
+        }
+        
+        
+        /** dummy operation for MMLEvent.PROCESS. */
+        protected function _dummy_onProcess(e:MMLEvent) : MMLEvent
+        {
+            var exec:MMLExecutor = currentExecutor;
+            
+            // set processing length
+            if (exec._residueSampleCount == 0) {
+                var sampleCountFixed:int = e.length * _samplePerTick + exec._decimalFractionSampleCount;
+                exec._residueSampleCount = sampleCountFixed >> FIXED_BITS;
+                exec._decimalFractionSampleCount = sampleCountFixed & FIXED_FILTER;
+            }
+            
+            // processing
+            if (exec._residueSampleCount <= _processSampleCount) {
+                _processSampleCount -= exec._residueSampleCount;
+                exec._residueSampleCount = 0;
+                // goto next command
+                return e.jump.next;
+            } else {
                 exec._residueSampleCount -= _processSampleCount;
                 _processSampleCount = 0;
                 // stay on this command

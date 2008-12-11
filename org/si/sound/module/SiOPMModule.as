@@ -29,20 +29,18 @@ package org.si.sound.module {
     //--------------------------------------------------
         /** Intial values for operator parameters */
         public var initOperatorParam:SiOPMOperatorParam;
+        /** zero buffer */
+        public var zeroBuffer:SLLint;
         
         /** Operator */
         protected var _freeOperators:Array;
-        
         /** stereo output buffer */
         protected var _outputBuffer:SLLNumber;
         /** buffer length */
         protected var _bufferLength:int;
         
-        /** zero buffer */
-        public var zeroBuffer:SLLint;
-        
-        /** @private [internal use] pipes */
-        private var _waveBuffer:Array;
+        // pipes
+        private var _waveBuffer:Vector.<SLLint>;
         
         
         
@@ -75,10 +73,15 @@ package org.si.sound.module {
             
             // TG managers (expandable)
             _freeOperators = [];
-            
-            _bufferLength = 0;
+
+            // zero buffer gives always 0
             zeroBuffer = SLLint.allocRing(1);
-            _waveBuffer = new Array(WAVE_BUFFER_SIZE);
+            
+            // others
+            _bufferLength = 0;
+            _outputBuffer = null;
+            _waveBuffer = new Vector.<SLLint>(WAVE_BUFFER_SIZE, true);
+            for (var i:int=0; i<WAVE_BUFFER_SIZE; i++) { _waveBuffer[i] = null; }
             
             // call at once
             SiOPMChannelManager.initialize(this, true);
@@ -99,8 +102,10 @@ package org.si.sound.module {
             // allocate buffer
             if (_bufferLength != bufferLength) {
                 _bufferLength = bufferLength;
+                SLLNumber.freeRing(_outputBuffer);
                 _outputBuffer = SLLNumber.allocRing(bufferLength*2);
                 for (i=0; i<WAVE_BUFFER_SIZE; i++) {
+                    SLLint.freeRing(_waveBuffer[i]);
                     _waveBuffer[i] = SLLint.allocRing(bufferLength);
                 }
             }

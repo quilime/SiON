@@ -50,7 +50,7 @@ package org.si.sound.driver {
             _ptTypeList = new Vector.<int>(length, true);
             for (i=0, idx=offset; i<length; i++, idx+=step) {
                 _pgTypeList[i] = idx;
-                _ptTypeList[i] = SiOPMTable.PT_DEFAULT;
+                _ptTypeList[i] = SiOPMTable.instance.defaultPTType[idx];
             }
             _channelIndex = new Vector.<int>(channelCount, true);
             for (i=0; i<channelCount; i++) { _channelIndex[i] = 0; }
@@ -60,7 +60,7 @@ package org.si.sound.driver {
             _channelType = SiOPMChannelManager.CT_CHANNEL_FM;
             _selectToneType = SELECT_TONE_NORMAL;
         }
-
+        
         
         
         

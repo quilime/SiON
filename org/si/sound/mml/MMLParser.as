@@ -579,7 +579,7 @@ package org.si.sound.mml {
             if (param<_setting.minQuantCount || param>_setting.maxQuantCount) {
                 throw errorRangeOver("@q", _setting.minQuantCount, _setting.maxQuantCount);
             }
-            addMMLEvent(MMLEvent.QUANT_COUNT, param * _setting.resolution / _setting.maxQuantCount);
+            addMMLEvent(MMLEvent.QUANT_COUNT, param);
         }
         
         

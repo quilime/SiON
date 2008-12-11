@@ -11,8 +11,13 @@ package org.si.sound.module {
     /** OPM Parameters */
     public class SiOPMOperatorParam
     {
-    // valiables 15 parameters
+    // valiables
     //--------------------------------------------------
+        /** [extension] Pulse generator type [0,1023] */
+        public var pgType:int;
+        /** [extension] Pitch table type [0,7] */
+        public var ptType:int;
+        
         /** Attack rate [0,63] */
         public var ar:int;
         /** Decay rate [0,63] */
@@ -25,36 +30,43 @@ package org.si.sound.module {
         public var sl:int;
         /** [extension] Total level [0,127] */
         public var tl:int;
+        
         /** Key scaling rate [0,3] */
         public var ksr:int;
         /** [extension] Key scaling level [0,3] */
         public var ksl:int;
+        
         /** [extension] Fine multiple [0,...] */
         public var fmul:int;
         /** dt1 [0,7]  */
         public var dt1:int;
         /** detune */
         public var detune:int;
+        
         /** Amp modulation shift [0-3] */
         public var ams:int;
-        /** SSG type envelop control */
-        public var ssgec:int;
-        /** [extension] Pulse generator type [0,1023] */
-        public var pgType:int;
-        /** [extension] Pitch table type [0,7] */
-        public var ptType:int;
         /** [extension] Initiail phase [0,255] */
         public var phase:int;
         /** [extension] Fixed pitch. 0 means pitch is not fixed. */
         public var fixedPitch:int;
-        /** [extension] Frequency modulation level [0,7]. 5 is standard modulation. */
-        public var modLevel:int;
+        
         /** mute */
         public var mute:Boolean;
+        /** SSG type envelop control */
+        public var ssgec:int;
+        /** [extension] Frequency modulation level [0,7]. 5 is standard modulation. */
+        public var modLevel:int;
         
         
         /** multiple [0,15] */
         public function set mul(m:int) : void { fmul = (m) ? (m<<7) : 64; }
+        
+        /** set pgType and ptType */
+        public function setPGType(type:int) : void
+        {
+            pgType = type;
+            ptType = SiOPMTable.instance.defaultPTType[type];
+        }
         
         
         function SiOPMOperatorParam()
@@ -65,6 +77,8 @@ package org.si.sound.module {
         
         public function initialize() : void
         {
+            pgType = SiOPMTable.PG_SINE;
+            ptType = SiOPMTable.PT_OPM;
             ar = 63;
             dr = 0;
             sr = 0;
@@ -77,18 +91,18 @@ package org.si.sound.module {
             dt1 = 0;
             detune = 0;
             ams = 0;
-            ssgec = 0;
-            pgType = SiOPMTable.PG_SINE;
-            ptType = SiOPMTable.PT_DEFAULT;
             phase = 0;
             fixedPitch = 0;
-            modLevel = 5;
             mute = false;
+            ssgec = 0;
+            modLevel = 5;
         }
         
         
         public function copyFrom(org:SiOPMOperatorParam) : void
         {
+            pgType = org.pgType;
+            ptType = org.ptType;
             ar = org.ar;
             dr = org.dr;
             sr = org.sr;
@@ -101,34 +115,33 @@ package org.si.sound.module {
             dt1 = org.dt1;
             detune = org.detune;
             ams = org.ams;
-            ssgec = org.ssgec;
-            pgType = org.pgType;
-            ptType = org.ptType;
             phase = org.phase;
             fixedPitch = org.fixedPitch;
-            modLevel = org.modLevel;
             mute = org.mute;
+            ssgec = org.ssgec;
+            modLevel = org.modLevel;
         }
         
         
         public function toString() : String
         {
             var str:String = "SiOPMOperatorParam : "
-            str += String(pgType) + "/";
+            str += String(pgType) + "(";
+            str += String(ptType) + ") : ";
             str += String(ar) + "/";
             str += String(dr) + "/";
             str += String(sr) + "/";
             str += String(rr) + "/";
             str += String(sl) + "/";
-            str += String(tl) + "/";
+            str += String(tl) + " : ";
             str += String(ksr) + "/";
-            str += String(ksl) + "/";
+            str += String(ksl) + " : ";
             str += String(fmul) + "/";
             str += String(dt1) + "/";
-            str += String(detune) + "/";
+            str += String(detune) + " : ";
             str += String(ams) + "/";
             str += String(phase)  + "/";
-            str += String(fixedPitch) + "/";
+            str += String(fixedPitch) + " : ";
             str += String(ssgec) + "/";
             str += String(mute);
             return str;

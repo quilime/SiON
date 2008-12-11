@@ -63,6 +63,7 @@ package org.si.sound.module {
         /** ENV_TIMER_INITIAL * freq_ratio */  protected var _eg_timer_initial:int;
         /** LFO_TIMER_INITIAL * freq_ratio */  protected var _lfo_timer_initial:int;
         
+        /** note on flag */ protected var _isNoteOn:Boolean;
         
         
         
@@ -213,7 +214,7 @@ package org.si.sound.module {
             setPitchModulation(param.pmd);
             setFilterEnvelop(param.far, param.fdr1, param.fdr2, param.frr, param.cutoff, param.fdc1, param.fdc2, param.fsc, param.frc);
             setFilterResonance(param.resonanse);
-            activateFilter((param.cutoff<128 || param.resonanse>0))
+            activateFilter(param.cutoff<128 || param.resonanse>0 || param.far>0 || param.frr>0);
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.opeParam[i]);
             }
@@ -285,105 +286,6 @@ package org.si.sound.module {
             if (fixNote != int.MIN_VALUE) ope.fixedPitchIndex = fixNote<<6;
         }
         
-        
-        /** Set opl sound by 12 basic params. The value of int.MIN_VALUE means not to change.
-         *  @param ar Attack rate [0-15].
-         *  @param dr Decay rate [0-15].
-         *  @param rr Release rate [0-15].
-         *  @param egt Envelop generator type [0,1].
-         *  @param sl Sustain level [0-15].
-         *  @param tl Total level [0-127].
-         *  @param ksr Key scaling rate [0,1].
-         *  @param ksl Key scaling level [0-3].
-         *  @param mul Multiple [0-15].
-         *  @param detune  Detune [].
-         *  @param ams Amplitude modulation shift [0-3].
-         *  @param ws  Wave select [0-7].
-         */
-        public function setOPLParameters(ar:int, dr:int, rr:int, egt:int, sl:int, tl:int, ksr:int, ksl:int, mul:int, detune:int, ams:int, ws:int) : void
-        {
-            setFrequencyRatio(133);
-            var ope:SiOPMOperator = activeOperator;
-            if (ar  != int.MIN_VALUE) ope.ar  = (ar<<2);
-            if (dr  != int.MIN_VALUE) ope.dr  = (dr<<2);
-            if (rr  != int.MIN_VALUE) ope.rr  = (rr<<2);
-            // egt=0;decay tone / egt=1;holding tone
-            if (egt != int.MIN_VALUE) ope.sr  = (egt) ? 0 : ope.rr;
-            if (sl  != int.MIN_VALUE) ope.sl  = sl;
-            if (tl  != int.MIN_VALUE) ope.tl  = tl;
-            if (ksr != int.MIN_VALUE) ope.ks  = ksr<<1;
-            if (ksl != int.MIN_VALUE) ope.ksl = ksl;
-            if (mul != int.MIN_VALUE) {
-                switch (mul) {
-                case 11: ope.mul = 10;   break;
-                case 13: ope.mul = 12;   break;
-                case 14: ope.mul = 15;   break;
-                default: ope.mul = mul;  break;
-                }
-            }
-            if (detune != int.MIN_VALUE) ope.detune = detune;
-            if (ams    != int.MIN_VALUE) ope.ams = ams;
-            if (ws     != int.MIN_VALUE) ope.pgType = SiOPMTable.PG_MA3_WAVE + ws;
-        }
-        
-        
-        /** Set opm sound by 11 basic params. The value of int.MIN_VALUE means not to change.
-         *  @param ar Attack rate [0-31].
-         *  @param dr Decay rate [0-31].
-         *  @param sr Sustain rate [0-31].
-         *  @param rr Release rate [0-15].
-         *  @param sl Sustain level [0-15].
-         *  @param tl Total level [0-127].
-         *  @param ks Key scaling [0-3].
-         *  @param mul Multiple [0-15].
-         *  @param dt1 Detune 1 [0-7]. 
-         *  @param dt2 Detune 2 [0-3].
-         *  @param ame Amplitude modulation enable [0/1].
-         */
-        public function setOPMParameters(ar:int, dr:int, sr:int, rr:int, sl:int, tl:int, ks:int, mul:int, dt1:int, dt2:int, ame:int) : void
-        {
-            var ope:SiOPMOperator = activeOperator;
-            if (ar  != int.MIN_VALUE) ope.ar  = ar<<1;
-            if (dr  != int.MIN_VALUE) ope.dr  = dr<<1;
-            if (sr  != int.MIN_VALUE) ope.sr  = sr<<1;
-            if (rr  != int.MIN_VALUE) ope.rr  = (rr<<2)+2;
-            if (sl  != int.MIN_VALUE) ope.sl  = sl;
-            if (tl  != int.MIN_VALUE) ope.tl  = tl;
-            if (ks  != int.MIN_VALUE) ope.ks  = ks;
-            if (mul != int.MIN_VALUE) ope.mul = mul;
-            if (dt1 != int.MIN_VALUE) ope.dt1 = dt1;
-            if (dt2 != int.MIN_VALUE) ope.dt2 = dt2;
-            if (ame != int.MIN_VALUE) ope.ame = (ame != 0);
-        }
-        
-        
-        /** Set opna sound by 10 basic params. The value of int.MIN_VALUE means not to change.
-         *  @param ar Attack rate [0-31].
-         *  @param dr Decay rate [0-31].
-         *  @param sr Sustain rate [0-31].
-         *  @param rr Release rate [0-15].
-         *  @param sl Sustain level [0-15].
-         *  @param tl Total level [0-127].
-         *  @param ks Key scaling [0-3].
-         *  @param mul Multiple [0-15].
-         *  @param dt1 Detune 1 [0-7].
-         *  @param ams Amplitude modulation shift [0-3].
-         */
-        public function setOPNParameters(ar:int, dr:int, sr:int, rr:int, sl:int, tl:int, ks:int, mul:int, dt1:int, ams:int) : void
-        {
-            var ope:SiOPMOperator = activeOperator;
-            if (ar  != int.MIN_VALUE) ope.ar  = ar<<1;
-            if (dr  != int.MIN_VALUE) ope.dr  = dr<<1;
-            if (sr  != int.MIN_VALUE) ope.sr  = sr<<1;
-            if (rr  != int.MIN_VALUE) ope.rr  = (rr<<2)+2;
-            if (sl  != int.MIN_VALUE) ope.sl  = sl;
-            if (tl  != int.MIN_VALUE) ope.tl  = tl;
-            if (ks  != int.MIN_VALUE) ope.ks  = ks;
-            if (mul != int.MIN_VALUE) ope.mul = mul;
-            if (dt1 != int.MIN_VALUE) ope.dt1 = dt1;
-            if (ams != int.MIN_VALUE) ope.ams = ams;
-        }
-                
         
         
         
@@ -549,6 +451,7 @@ package org.si.sound.module {
             // initialize operators
             _updateOperatorCount(1);
             operator[0].initialize();
+            _isNoteOn = false;
             
             // initialize sound channel
             super.initialize(prev);
@@ -562,6 +465,7 @@ package org.si.sound.module {
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].reset();
             }
+            _isNoteOn = false;
         }
         
         
@@ -579,6 +483,7 @@ package org.si.sound.module {
                 resetLPFilterState();
                 shiftLPFilterState(EG_ATTACK);
             }
+            _isNoteOn = true;
         }
         
         
@@ -593,14 +498,14 @@ package org.si.sound.module {
             if (_filterOn) {
                 shiftLPFilterState(EG_RELEASE);
             }
+            _isNoteOn = false;
         }
         
         
         /** Check note on */
         override public function isNoteOn() : Boolean
         {
-            // return ope#0's note on
-            return operator[0].isNoteOn();
+            return _isNoteOn;
         }
         
         

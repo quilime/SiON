@@ -22,7 +22,19 @@ package org.si.sound.driver {
         
         
         
-    // TSSCP
+    // mckc
+    //--------------------------------------------------
+        /** Translate ppmckc mml to SiOPM mml. */
+        static public function mckc(mckcMML:String) : String
+        {
+            // If I have motivation ..., or I wish someone who know mck well would do ...
+            return mckcMML;
+        }
+        
+        
+        
+        
+    // tsscp
     //--------------------------------------------------
         /** Translate pTSSCP mml to SiOPM mml. */
         static public function tsscp(tsscpMML:String) : String
@@ -415,7 +427,7 @@ package org.si.sound.driver {
             var dataIndex:int = 3, n:Number, i:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
-                opp.pgType = int(data[dataIndex++]) & 1023; // 1
+                opp.setPGType(int(data[dataIndex++]) & 1023); // 1
                 opp.ar     = int(data[dataIndex++]) & 63;   // 2
                 opp.dr     = int(data[dataIndex++]) & 63;   // 3
                 opp.sr     = int(data[dataIndex++]) & 63;   // 4
@@ -454,7 +466,7 @@ package org.si.sound.driver {
             var dataIndex:int = 2, i:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
-                opp.pgType = SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++])&31);    // 1
+                opp.setPGType(SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++])&31));    // 1
                 opp.ar  = (int(data[dataIndex++]) << 2) & 63;   // 2
                 opp.dr  = (int(data[dataIndex++]) << 2) & 63;   // 3
                 opp.rr  = (int(data[dataIndex++]) << 2) & 63;   // 4
@@ -554,7 +566,7 @@ package org.si.sound.driver {
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
                 i = int(data[dataIndex++]);
-                opp.pgType = (i<7) ? (SiOPMTable.PG_MA3_WAVE+(i&7)) : (SiOPMTable.PG_CUSTOM+(i-7));    // 1
+                opp.setPGType((i<7) ? (SiOPMTable.PG_MA3_WAVE+(i&7)) : (SiOPMTable.PG_CUSTOM+(i-7)));    // 1
                 opp.ar  = (int(data[dataIndex++]) << 1) & 63;       // 2
                 opp.dr  = (int(data[dataIndex++]) << 1) & 63;       // 3
                 opp.sr  = (int(data[dataIndex++]) << 1) & 63;       // 4
@@ -588,7 +600,7 @@ package org.si.sound.driver {
             var dataIndex:int = 2, i:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
-                opp.pgType = SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++]) & 31); // 1
+                opp.setPGType(SiOPMTable.PG_MA3_WAVE + (int(data[dataIndex++]) & 31)); // 1
                 opp.ar  = (int(data[dataIndex++]) << 2) & 63;   // 2
                 opp.dr  = (int(data[dataIndex++]) << 2) & 63;   // 3
                 opp.sr  = (int(data[dataIndex++]) << 2) & 63;   // 4

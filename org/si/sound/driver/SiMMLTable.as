@@ -162,10 +162,8 @@ package org.si.sound.driver {
             ms._pgTypeList[9]  = SiOPMTable.PG_NOISE_PULSE;
             ms._pgTypeList[10] = SiOPMTable.PG_NOISE_SHORT;
             ms._pgTypeList[11] = SiOPMTable.PG_CUSTOM;
-            for (i=0; i<9; i++) { ms._ptTypeList[i] = SiOPMTable.PT_PSG; }
-            ms._ptTypeList[9]  = SiOPMTable.PT_APU_NOISE;
-            ms._ptTypeList[10] = SiOPMTable.PT_APU_NOISE;
-            ms._ptTypeList[11] = SiOPMTable.PT_APU_NOISE;
+            for (i=0; i<9;  i++) { ms._ptTypeList[i] = SiOPMTable.PT_PSG; }
+            for (i=9; i<12; i++) { ms._ptTypeList[i] = SiOPMTable.PT_APU_NOISE; }
             ms._initIndex       = 1;
             ms._channelIndex[0] = 4;
             ms._channelIndex[1] = 4;

@@ -18,8 +18,9 @@ package org.si.sound.driver {
     
 
 
-    /** Track for SiMMLSequencer. 
-     * [TODO] keyOnDelay
+    /** Track for SiMMLSequencer. <br/>
+     *  There are 2 types of SiMMLSequencerTrack. One is "sequence track", and other is "controlable track". 
+     *  The "sequence track" plays a sequence in the mml data, and the "controlable track" plays interavtive sound.
      */
     public class SiMMLSequencerTrack
     {
@@ -71,8 +72,10 @@ package org.si.sound.driver {
         // internal use
         private var _table:SiMMLTable;      // table
         private var _keyOnCounter:int;      // key on counter
+        private var _keyOnLength:int;       // key on length
         private var _flagNoKeyOn:Boolean;   // key on flag
         private var _processMode:int;       // processing mode
+        private var _newPitch:int;          // new pitch after key on
 
 
         // settings
@@ -86,6 +89,10 @@ package org.si.sound.driver {
         private var _expression:int;
         // tone number
         private var _tone:int;
+        // note number
+        private var _note:int;
+        // default fps
+        private var _defaultFPS:int;
 
         
         // setting
@@ -147,8 +154,54 @@ package org.si.sound.driver {
         
     // properties
     //--------------------------------------------------
+        /** track number */
         public function get trackNumber() : int { return _trackNumber; }
         
+        /** Note number */
+        public function get note() : int { return (channel.isNoteOn()) ? _note : -1; }
+        
+        
+        /** Is controlable ? */
+        public function get isControlable() : Boolean { return (!executor.pointer); }
+        
+        /** Is activate ? */
+        public function get isActive() : Boolean { return (executor.pointer || channel.isNoteOn() || _keyOnCounter); }
+        
+        
+        /** Master volume (0-128) */
+        public function get masterVolume() : int { return _total_volume*128/_table.i2n; }
+        public function set masterVolume(v:int) : void {
+            v = (v<0) ? 0 : (v>128) ? 128 : v;
+            _total_volume = v * 0.0078125 * _table.i2n;     // 0.0078125 = 1/128
+            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
+        }
+        
+        
+        /** Pan (-64-64 left=-64, center=0, right=64).<br/>
+         *  [left volume]  = cos((pan+64)/128*PI*0.5) * volume;<br/>
+         *  [right volume] = sin((pan+64)/128*PI*0.5) * volume;
+         */
+        public function get pan() : int { return _pan-64; }
+        public function set pan(p:int) : void {
+            _pan = (p<-64) ? 0 : (p>64) ? 128 : (p+64);
+            // update stereo volumes
+            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
+        }
+        
+        
+        /** velocity(0-256). linked to operator's total level. */
+        public function get velocity()        : int  { return _velocity; }
+        public function set velocity(v:int)   : void { 
+            _velocity = (v<0) ? 0 : (v>256) ? 256 : v;
+            channel.offsetVolume(_expression, _velocity);
+        }
+        
+        /** expression(0-128). linked to operator's total level. */
+        public function get expression()      : int  { return _expression; }
+        public function set expression(x:int) : void { 
+            _expression = (x<0) ? 0 : (x>128) ? 128 : x;
+            channel.offsetVolume(_expression, _velocity);
+        }
         
         
         
@@ -184,8 +237,19 @@ package org.si.sound.driver {
         
     // operations
     //--------------------------------------------------
-        /** initialize track */
-        public function initialize(seq:MMLSequence, fps:int, trackNumber:int) : void
+        /** @private [internal use] initialize track. [NOTE] Have to call reset() after this. */
+        internal function _initialize(seq:MMLSequence, fps:int, trackNumber:int) : SiMMLSequencerTrack
+        {
+            _trackNumber = trackNumber;
+            _defaultFPS = fps;
+            executor.initialize(seq);
+            
+            return this;
+        }
+        
+        
+        /** reset */
+        public function reset() : void
         {
             var i:int;
             
@@ -197,16 +261,18 @@ package org.si.sound.driver {
             _expression = 128;
             _pan = 64;
             _total_volume = 0.5 * _table.i2n;
+            _note = -1;
             channel = null;
             _tone = channelModuleSetting.initializeTone(this, 0);
             
             // initialize parameters
-            _trackNumber = trackNumber;
             noteShift = 0;
             pitchShift = 0;
             _keyOnCounter = 0;
+            _keyOnLength = 0;
             _flagNoKeyOn = false;
             _processMode = NORMAL;
+            _newPitch = 0;
             keyOnDelay = 0;
             quantRatio = 0;
             quantCount = 0;
@@ -214,7 +280,7 @@ package org.si.sound.driver {
             _env_pitch_active = false;
             _env_pitch_offset = 0;
             _env_exp_offset = 0;
-            setEnvelopFPS(fps);
+            setEnvelopFPS(_defaultFPS);
             _callbackBeforeNoteOn = null;
             _callbackBeforeNoteOff = null;
             _residue = 0;
@@ -240,8 +306,8 @@ package org.si.sound.driver {
                 _table_env_mp[i]   = null;
             }
             
-            // initialize excutor
-            executor.initialize(seq);
+            // reset pointer
+            executor.resetPointer();
         }
         
         
@@ -261,10 +327,10 @@ package org.si.sound.driver {
                 _process(length);
                 _keyOnCounter -= length;
             } else {
-                // process -> note off -> process
+                // process -> toggle key -> process
                 length -= _keyOnCounter;
                 _process(_keyOnCounter);
-                _noteOff();
+                _toggleKey();
                 if (length>0) _process(length);
             }
         }
@@ -273,14 +339,11 @@ package org.si.sound.driver {
         // processing
         private function _process(length:int) : void
         {
-            var idx:int;
-            
             switch(_processMode) {
             case NORMAL:
                 channel.buffer(length);
                 break;
             case ENVELOP:
-                idx = (channel.isNoteOn()) ? 1 : 0;
                 _residue = _processEnvelop(length, _residue);
                 break;
             }
@@ -374,8 +437,16 @@ package org.si.sound.driver {
         
     // note on/off
     //--------------------------------------------------
+        // toggle note
+        private function _toggleKey() : void
+        {
+            if (channel.isNoteOn()) _keyOff();
+            else _keyOn();
+        }
+        
+        
         // note off
-        private function _noteOff() : void
+        private function _keyOff() : void
         {
             // callback
             if (_callbackBeforeNoteOff != null) {
@@ -392,15 +463,15 @@ package org.si.sound.driver {
         
         
         // note on
-        private function _noteOn(new_pitch:int) : void
+        private function _keyOn() : void
         {
             // callback
             if (_callbackBeforeNoteOn != null) {
-                if (!_callbackBeforeNoteOn(this, new_pitch)) return;
+                if (!_callbackBeforeNoteOn(this, _newPitch)) return;
             }
             
             // change pitch
-            channel.pitch = new_pitch;
+            channel.pitch = _newPitch;
 
             // note on
             if (!_flagNoKeyOn) {
@@ -410,13 +481,10 @@ package org.si.sound.driver {
                     channelModuleSetting.selectTone(this, _tone);
                     channel.setFilterOffset(128);
                 }
-
                 // previous note off
                 if (channel.isNoteOn()) {
                     // callback
-                    if (_callbackBeforeNoteOff != null) {
-                        if (!_callbackBeforeNoteOff(this)) return;
-                    }
+                    if (_callbackBeforeNoteOff != null) _callbackBeforeNoteOff(this);
                     channel.noteOff();
                 }
                 // update process
@@ -429,6 +497,10 @@ package org.si.sound.driver {
             }
             
             _flagNoKeyOn = false;
+            
+            // set key on counter
+            _keyOnCounter = _keyOnLength;
+            if (_keyOnCounter <= 0) _keyOff();
         }
         
         
@@ -478,37 +550,43 @@ package org.si.sound.driver {
     // event handlers
     //--------------------------------------------------
         /** @private [internal use] handler for rest. */
-        internal function rest() : void
+        internal function _setRest() : void
         {
         }
         
 
         /** @private [internal use] handler for note. */
-        internal function note(note:int, length:int) : void
+        internal function _setNote(note:int, length:int) : void
         {
-            // note on
-            _noteOn(((note + noteShift)<<6) + pitchShift);
+            _note = note;
+            _newPitch = ((note + noteShift)<<6) + pitchShift;
+            _keyOnLength = int(length * quantRatio) - quantCount - keyOnDelay;
             
             if (length) {
-                // set key on counter
-                _keyOnCounter = int(length * quantRatio) - quantCount;
-                if (_keyOnCounter <= 0) _noteOff();
+                if (keyOnDelay) {
+                    _keyOff();
+                    _keyOnCounter = keyOnDelay;
+                } else {
+                    _keyOn();
+                }
             } else {
-                // no key off
-                _keyOnCounter = 0;
+                // slur event after this note
+                _keyOnLength = 1;   // not to switch key off in keyOn().
+                _keyOn();           // key on
+                _keyOnCounter = 0;  // keep key on in process
             }
         }
         
-
+        
         /** @private [internal use] slur with next notes key on. */
-        internal function setSlurWeak() : void
+        internal function _setSlurWeak() : void
         {
             _keyOnCounter = 0;
         }
         
         
         /** @private [internal use] slur without next notes key on. */
-        internal function setSlur() : void
+        internal function _setSlur() : void
         {
             _flagNoKeyOn = true;
             _keyOnCounter = 0;
@@ -516,11 +594,11 @@ package org.si.sound.driver {
         
         
         /** @private [internal use] pitch bend (and slur) */
-        internal function setPitchBend(nextNote:int, term:int) : void
+        internal function _setPitchBend(nextNote:int, term:int) : void
         {
             var startPitch:int = channel.pitch,
                 endPitch  :int = (((nextNote + noteShift)<<6) || (startPitch & 63)) + pitchShift;
-            setSlur();
+            _setSlur();
             if (startPitch == endPitch) return;
             
             _sweep_step = ((endPitch - startPitch) << FIXED_BITS) * _env_internval / term;
@@ -540,9 +618,9 @@ package org.si.sound.driver {
     //--------------------------------------------------
         /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
          *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8192) as an arguments. When the function returns false, noteOn will be canceled.</br>
-         *  function callbackNoteOn(track:SiMMLTrack, newPitch:int) : Boolean { return true; }
+         *  function callbackNoteOn(track:SiMMLSequencerTrack, newPitch:int) : Boolean { return true; }
          *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
-         *  function callbackNoteOff(track:SiMMLTrack) : Boolean { return true; }
+         *  function callbackNoteOff(track:SiMMLSequencerTrack) : Boolean { return true; }
          */
         public function setTrackCallback(noteOn:Function=null, noteOff:Function=null) : void
         {
@@ -551,6 +629,42 @@ package org.si.sound.driver {
         }
 
         
+        /** Key on. 
+         *  @param note Note number.
+         *  @param length Length in samples. The argument of 0 sets no key off.
+         */
+        public function keyOn(note:int, length:int=0) : void
+        {
+            _note = note;
+            _newPitch = ((note + noteShift)<<6) + pitchShift;
+            _keyOnLength = length;
+            
+            if (length) {
+                if (keyOnDelay) {
+                    _keyOff();
+                    _keyOnCounter = keyOnDelay;
+                } else {
+                    _keyOn();
+                }
+            } else {
+                _keyOnLength = 1;   // not to switch key off in keyOn().
+                _keyOn();           // key on
+                _keyOnCounter = 0;  // keep key on in process
+            }
+        }
+        
+        
+        /** Force key off */
+        public function keyOff() : void
+        {
+            _keyOff();
+        }
+        
+        
+        
+        
+    // mml events
+    //--------------------------------------------------
         /** Channel module type (%, %e).
          *  @param type Channel module type
          *  @param channelNum Channel number to emulate.
@@ -580,90 +694,20 @@ package org.si.sound.driver {
         }
         
         
-        /** Master volume (@v).
-         *  @param v Master volume [0,128].
-         */
-        public function setMasterVolume(v:int) : void
-        {
-            v = (v<0) ? 0 : (v>128) ? 128 : v;
-            _total_volume = v * 0.0078125 * _table.i2n;     // 0.0078125 = 1/128
-            // update stereo volumes
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
-        
-        
-        /** Pan (@p).<br/>
-         *  [left volume]  = cos(pan/128*PI*0.5) * volume;<br/>
-         *  [right volume] = sin(pan/128*PI*0.5) * volume;
-         *  @param p Panning position [0,128], left=0, center=64, right=128.
-         */
-        public function setPan(p:int) : void
-        {
-            _pan = (p<0) ? 0 : (p>128) ? 128 : p;
-            // update stereo volumes
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
-        
-        
-        /** @private [internal use] */
-        internal function _updateStereoVolume() : void
-        {
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
-        
-        
-        /** Volume. Linked to operator's total level.
-         *  @param v Volume [0,256].
-         */
-        public function setVolume(v:int) : void
-        {
-            _velocity = (v<0) ? 0 : (v>256) ? 256 : v;
-            // update volume offset
-            channel.offsetVolume(_expression, _velocity);
-        }
-        
-        
-        /** Volume offset. Linked to operator's total level.
-         *  @param v Volume.
-         */
-        public function offsetVolume(v:int) : void
-        {
-            _velocity += v;
-            if (_velocity < 0) _velocity = 0;
-            else if (_velocity > 256) _velocity = 256;
-            // update volume offset
-            channel.offsetVolume(_expression, _velocity);
-        }
-        
-        
-        /** Expression. Linked to operator's total level.
-         *  @param x Epression [0,128].
-         */
-        public function setExpression(x:int) : void
-        {
-            _expression = (x<0) ? 0 : (x>128) ? 128 : x;
-            // update volume offset
-            channel.offsetVolume(_expression, _velocity);
-        }
-        
-        
-        
-    // internal envelop
-    //--------------------------------------------------
-        /** portament */
+        /** portament (po) */
         public function setPortament(frame:int) : void
         {
         }
         
         
-        /** set envelop step */
+        /** set envelop step (@fps) */
         public function setEnvelopFPS(fps:int) : void
         {
             _env_internval = 44100 / fps;
         }
         
         
-        /** release sweep */
+        /** release sweep (s,) */
         public function setReleaseSweep(sweep:int) : void
         {
             _set_sweep_step[0] = sweep << FIXED_BITS;
@@ -677,7 +721,7 @@ package org.si.sound.driver {
         }
         
         
-        /** amplitude/pitch modulation envelop */
+        /** amplitude/pitch modulation envelop (ma, mp) */
         public function setModulationEnvelop(isPitchMod:Boolean, depth:int, end_depth:int, delay:int, term:int) : void
         {
             // select table
@@ -704,7 +748,7 @@ package org.si.sound.driver {
         
     // table envelop
     //--------------------------------------------------
-        /** set tone envelop */
+        /** set tone envelop (@@, _@@) */
         public function setToneEnvelop(noteOn:int, tableNum:int, step:int) : void
         {
             if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
@@ -718,7 +762,7 @@ package org.si.sound.driver {
         }
         
         
-        /** set amplitude envelop */
+        /** set amplitude envelop (na, _na) */
         public function setAmplitudeEnvelop(noteOn:int, tableNum:int, step:int, offset:Boolean = false) : void
         {
             if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
@@ -733,7 +777,7 @@ package org.si.sound.driver {
         }
         
         
-        /** set filter envelop */
+        /** set filter envelop (nf, _nf) */
         public function setFilterEnvelop(noteOn:int, tableNum:int, step:int) : void
         {
             if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
@@ -747,7 +791,7 @@ package org.si.sound.driver {
         }
         
         
-        /** set pitch envelop */
+        /** set pitch envelop (np, _np) */
         public function setPitchEnvelop(noteOn:int, tableNum:int, step:int) : void
         {
             if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
@@ -762,7 +806,7 @@ package org.si.sound.driver {
         }
         
         
-        /** set note envelop */
+        /** set note envelop (nt, _nt) */
         public function setNoteEnvelop(noteOn:int, tableNum:int, step:int) : void
         {
             if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
@@ -774,6 +818,17 @@ package org.si.sound.driver {
                 _set_env_note[noteOn]  = _env_zero_table;
                 _envelopOff(noteOn);
             }
+        }
+        
+        
+        
+        
+    // private subs
+    //--------------------------------------------------
+        /** @private [internal use] */
+        internal function _updateStereoVolume() : void
+        {
+            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
         }
         
         

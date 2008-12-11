@@ -21,7 +21,7 @@ package org.si.sound.module {
         
         /** operator count [0,4] */
         public var opeCount:int;
-        /** algorism [0,] */
+        /** algorism [0,15] */
         public var alg:int;
         /** feedback [0,7] */
         public var fb:int;

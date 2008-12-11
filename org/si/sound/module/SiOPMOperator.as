@@ -348,14 +348,12 @@ package org.si.sound.module {
         {
             _pgType = n & SiOPMTable.PG_FILTER;
             _waveTable     = _table.waveTables[_pgType];
-            _waveFixedBits = _table.waveFixedBits[_pgType] & SiOPMTable.FIXED_BITS_FILTER;
-            ptType         = _table.waveFixedBits[_pgType] >> SiOPMTable.FIXED_BITS_RSHIFT;
+            _waveFixedBits = _table.waveFixedBits[_pgType];
         }
         /** Pitch table type. */
         public function set ptType(n:int) : void
         {
             _ptType = n;
-            if (n == SiOPMTable.PT_DEFAULT) return;
             _wavePhaseStepShift = (SiOPMTable.PHASE_BITS - _waveFixedBits) & _table.phaseStepShiftFilter[n];
             _pitchTable         = _table.pitchTable[n];
             _pitchTableFilter   = _pitchTable.length - 1;

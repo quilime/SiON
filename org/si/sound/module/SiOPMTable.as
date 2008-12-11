@@ -46,15 +46,12 @@ package org.si.sound.module {
         static public const LOG_TABLE_SIZE      :int = LOG_TABLE_MAX_BITS * LOG_TABLE_RESOLUTION * 2;   // *2 posi&nega
         static public const LFO_TABLE_SIZE      :int = 256;                                             // FIXED VALUE !!
         static public const KEY_CODE_TABLE_SIZE :int = 128;                                             // FIXED VALUE !!
-        static public const FIXED_BITS_FILTER   :int = 31;                                              // FIXED VALUE !!
-        static public const FIXED_BITS_RSHIFT   :int = 5;                                               // FIXED VALUE !!
         static public const LOG_TABLE_BOTTOM    :int = LOG_VOLUME_BITS * LOG_TABLE_RESOLUTION * 2;      // bottom value of log table = 6656
         static public const ENV_BOTTOM          :int = (LOG_VOLUME_BITS * LOG_TABLE_RESOLUTION) >> 2;   // minimum gain of envelop = 832
         static public const ENV_TOP             :int = ENV_BOTTOM - (1<<ENV_BITS);                      // maximum gain of envelop = -192
         static public const ENV_BOTTOM_SSGEC    :int = 1<<(ENV_BITS-3);                                 // minimum gain of ssgec envelop = 128
         
         // pitch table type
-        static public const PT_DEFAULT:int = -1;
         static public const PT_OPM:int = 0;
         static public const PT_PCM:int = 1;
         static public const PT_PSG:int = 2;
@@ -189,6 +186,8 @@ package org.si.sound.module {
         public var waveTables:Array = null;
         /** PG:Wave tables shift. */
         public var waveFixedBits:Array = null;
+        /** PG:Default ptType for various pgType. */
+        public var defaultPTType:Vector.<int> = null;
         
         /** Table for dt1 (from fmgen.cpp). */
     	public var dt1Table:Array = null;
@@ -520,6 +519,7 @@ package org.si.sound.module {
             // allocate table list
             waveTables = new Array(DEFAULT_PG_MAX);
             waveFixedBits = new Array(DEFAULT_PG_MAX);
+            defaultPTType = new Vector.<int>(DEFAULT_PG_MAX, true);
             
         // clear all tables
         //------------------------------
@@ -528,6 +528,7 @@ package org.si.sound.module {
             for (i=0; i<DEFAULT_PG_MAX; i++) {
                 waveTables[i]    = table1;      // always 1
                 waveFixedBits[i] = PHASE_BITS;  // always 0 == data not available
+                defaultPTType[i] = PT_OPM;
             }
             
         // sine wave table
@@ -671,9 +672,11 @@ package org.si.sound.module {
                 table1[i] = calcLogTableIndex((Math.random()*2-1)*NOISE_WAVE_OUTPUT);
             }
             waveTables   [PG_NOISE_WHITE] = table1;
-            waveFixedBits[PG_NOISE_WHITE] = (PHASE_BITS - NOISE_TABLE_BITS) | (PT_PCM << FIXED_BITS_RSHIFT);
+            waveFixedBits[PG_NOISE_WHITE] = PHASE_BITS - NOISE_TABLE_BITS;
+            defaultPTType[PG_NOISE_WHITE] = PT_PCM;
             waveTables   [PG_NOISE] = waveTables   [PG_NOISE_WHITE];
             waveFixedBits[PG_NOISE] = waveFixedBits[PG_NOISE_WHITE];
+            defaultPTType[PG_NOISE] = defaultPTType[PG_NOISE_WHITE];
             
             // pulse noise. NOTE: This is dishonest impelementation. Details are shown in MAME or VirtuaNes source.
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
@@ -683,7 +686,8 @@ package org.si.sound.module {
                 table1[i] = (Math.random()>0.5) ? iv : (iv+1);
             }
             waveTables   [PG_NOISE_PULSE] = table1;
-            waveFixedBits[PG_NOISE_PULSE] = (PHASE_BITS - NOISE_TABLE_BITS) | (PT_PCM << FIXED_BITS_RSHIFT);
+            waveFixedBits[PG_NOISE_PULSE] = PHASE_BITS - NOISE_TABLE_BITS;
+            defaultPTType[PG_NOISE_PULSE] = PT_PCM;
             
             // fc short noise. NOTE: This is dishonest 93*11=1023 aprox.-> 1024.
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -695,7 +699,8 @@ package org.si.sound.module {
                 table1[i] = (j&1) ? iv : (iv+1);
             }
             waveTables   [PG_NOISE_SHORT] = table1;
-            waveFixedBits[PG_NOISE_SHORT] = (PHASE_BITS - SAMPLING_TABLE_BITS) | (PT_PCM << FIXED_BITS_RSHIFT);
+            waveFixedBits[PG_NOISE_SHORT] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            defaultPTType[PG_NOISE_SHORT] = PT_PCM;
 
             // high passed white noise
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
@@ -710,7 +715,8 @@ package org.si.sound.module {
                 table1[i] = calcLogTableIndex(v*n);
             }
             waveTables   [PG_NOISE_HIPAS] = table1;
-            waveFixedBits[PG_NOISE_HIPAS] = (PHASE_BITS - NOISE_TABLE_BITS) | (PT_PCM << FIXED_BITS_RSHIFT);
+            waveFixedBits[PG_NOISE_HIPAS] = PHASE_BITS - NOISE_TABLE_BITS;
+            defaultPTType[PG_NOISE_HIPAS] = PT_PCM;
             
             // periodic noise
             table1 = new Vector.<int>(16, true);
