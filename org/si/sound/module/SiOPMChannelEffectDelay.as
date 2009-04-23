@@ -57,10 +57,6 @@ package org.si.sound.module {
             if (param[2] == int.MIN_VALUE) param[2] = 0;
             setDelay(int(param[0]*44.1), int(param[1]*44.1), param[2]*0.01);
         }
-        /** pgType & ptType (@ call from SiMMLChannelSetting.selectTone()/initializeTone()) */
-        override public function setType(pgType:int, ptType:int) : void 
-        {
-        }
         /** feedback (@fb) */
         override public function setFeedBack(fb:int, fbc:int) : void
         {
@@ -105,14 +101,14 @@ package org.si.sound.module {
         
     // volume control
     //--------------------------------------------------
-        /** Stereo volume */
-        override public function setStereoVolume(l:Number, r:Number) : void
+        /** Stereo volume
+        override public function setMasterVolume(volume:Number, pan:int) : void
         {
-            _left_main_volume  = l;
-            _right_main_volume = r;
+            //_left_main_volume  = l;
+            //_right_main_volume = r;
             _updateVolume();
         }
-        
+        */        
         
         /** offset volume */
         override public function offsetVolume(expression:int, velocity:int) : void
@@ -143,8 +139,8 @@ package org.si.sound.module {
         // update volume
         private function _updateVolume() : void
         {
-            _left_volume  = _left_main_volume  * _gain;
-            _right_volume = _right_main_volume * _gain;
+            //_left_volume  = _left_main_volume  * _gain;
+            //_right_volume = _right_main_volume * _gain;
         }
         
         
@@ -153,9 +149,9 @@ package org.si.sound.module {
     // operations
     //--------------------------------------------------
         /** Initialize. */
-        override public function initialize(prev:SiOPMChannelBase)   : void
+        override public function initialize(prev:SiOPMChannelBase, bufferIndex:int)   : void
         {
-            super.initialize(prev);
+            super.initialize(prev, bufferIndex);
             _funcProcess = _nop;
         }
        
@@ -191,8 +187,7 @@ package org.si.sound.module {
             for (i=0; i<imax; i++) { _delayBuffer[i] = 0; }
             
             // set input pipe
-            _inPipe = _chip.getPipe(4);
-            for (i=0; i<_bufferIndex; i++) { _inPipe = _inPipe.next; }
+            _inPipe = _chip.getPipe(4, _bufferIndex);
             _readPoint = 0;
         }
         

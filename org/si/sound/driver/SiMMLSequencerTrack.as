@@ -9,6 +9,7 @@
 
 package org.si.sound.driver {
     import org.si.sound.module.SiOPMChannelBase;
+    import org.si.sound.module.SiOPMTable;
     import org.si.sound.mml.MMLEvent;
     import org.si.sound.mml.MMLSequence;
     import org.si.sound.mml.MMLExecutor;
@@ -79,10 +80,6 @@ package org.si.sound.driver {
 
 
         // settings
-        // total volume
-        private var _total_volume:Number;
-        // panning position
-        private var _pan:int;
         // velocity
         private var _velocity:int;
         // expression
@@ -164,29 +161,8 @@ package org.si.sound.driver {
         /** Is controlable ? */
         public function get isControlable() : Boolean { return (!executor.pointer); }
         
-        /** Is activate ? */
+        /** Is activate ? In the sequence track, this function always returns true. */
         public function get isActive() : Boolean { return (executor.pointer || channel.isNoteOn() || _keyOnCounter); }
-        
-        
-        /** Master volume (0-128) */
-        public function get masterVolume() : int { return _total_volume*128/_table.i2n; }
-        public function set masterVolume(v:int) : void {
-            v = (v<0) ? 0 : (v>128) ? 128 : v;
-            _total_volume = v * 0.0078125 * _table.i2n;     // 0.0078125 = 1/128
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
-        
-        
-        /** Pan (-64-64 left=-64, center=0, right=64).<br/>
-         *  [left volume]  = cos((pan+64)/128*PI*0.5) * volume;<br/>
-         *  [right volume] = sin((pan+64)/128*PI*0.5) * volume;
-         */
-        public function get pan() : int { return _pan-64; }
-        public function set pan(p:int) : void {
-            _pan = (p<-64) ? 0 : (p>64) ? 128 : (p+64);
-            // update stereo volumes
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
         
         
         /** velocity(0-256). linked to operator's total level. */
@@ -249,7 +225,7 @@ package org.si.sound.driver {
         
         
         /** reset */
-        public function reset() : void
+        public function reset(bufferIndex:int) : void
         {
             var i:int;
             
@@ -259,11 +235,9 @@ package org.si.sound.driver {
             // initialize channel by channelModuleSetting
             _velocity = 128;
             _expression = 128;
-            _pan = 64;
-            _total_volume = 0.5 * _table.i2n;
             _note = -1;
             channel = null;
-            _tone = channelModuleSetting.initializeTone(this, 0);
+            _tone = channelModuleSetting.initializeTone(this, 0, bufferIndex);
             
             // initialize parameters
             noteShift = 0;
@@ -675,7 +649,7 @@ package org.si.sound.driver {
             channelModuleSetting = _table.channelModuleSetting[type];
             
             // reset operator pgType
-            _tone = channelModuleSetting.initializeTone(this, channelNum);
+            _tone = channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
         }
         
         
@@ -703,7 +677,7 @@ package org.si.sound.driver {
         /** set envelop step (@fps) */
         public function setEnvelopFPS(fps:int) : void
         {
-            _env_internval = 44100 / fps;
+            _env_internval = SiOPMTable.instance.rate / fps;
         }
         
         
@@ -825,13 +799,6 @@ package org.si.sound.driver {
         
     // private subs
     //--------------------------------------------------
-        /** @private [internal use] */
-        internal function _updateStereoVolume() : void
-        {
-            channel.setStereoVolume(_table.panTable[128-_pan] * _total_volume, _table.panTable[_pan] * _total_volume);
-        }
-        
-        
         // envelop off
         private function _envelopOff(noteOn:int) : void
         {

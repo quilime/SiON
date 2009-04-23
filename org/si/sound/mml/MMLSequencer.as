@@ -36,12 +36,8 @@ package org.si.sound.mml {
     //--------------------------------------------------
         /** MML parser setting.  */
         public var setting:MMLParserSetting;
-        /** Audio setting, channel count. The value is restricted as 1 or 2.  */
-        public var channel:int;
         /** Audio setting, sampling ratio. The value is restricted as 22050 or 44100.  */
         public var sampleRate:int;
-        /** Audio setting, bit ratio. The value is restricted as 8 or 16.  */
-        public var bitRate:int;
         
         /** Global sequence executor */
         protected var globalExecutor:MMLExecutor;
@@ -62,7 +58,7 @@ package org.si.sound.mml {
         
         private var _bpm:Number;                    // beat per minute
         private var _samplePerTick:int;             // samples per tick << FIXED_BITS
-        private var _bufferSize:int;                // buffer sample count
+        private var _bufferLength:int;              // buffering length
         
         
         
@@ -136,28 +132,7 @@ package org.si.sound.mml {
             _eventGlobalFlags[id] = isGlobal;
             return id;
         }
-        
-        
-        
-        
-    // intiialize
-    //--------------------------------------------------
-        /** Initialize. This function calls onInitialize().
-         *  @param channel Channel count. 1 or 2 is available.
-         *  @param sampleRate Sampling ratio of wave. 22050 or 44100 is available.
-         *  @param bitRate Bit ratio of wave. 8 or 16 is available.
-         */
-        public function initialize(channel:int, sampleRate:int, bitRate:int) : void
-        {
-            if (channel   !=1     && channel   !=2)     throw new Error ("MMLSequencer error: Only 1 or 2 Channel count is available.");
-            if (sampleRate!=22050 && sampleRate!=44100) throw new Error ("MMLSequencer error: Only 22050 or 44100 sampling rate is available.");
-            if (bitRate   !=8     && bitRate   !=16)    throw new Error ("MMLSequencer error: Only 8 or 16 bit ratio is available.");
-            this.channel = channel;
-            this.sampleRate = sampleRate;
-            this.bitRate = bitRate;
-            onInitialize();
-        }
-        
+                
         
         
         
@@ -177,6 +152,10 @@ package org.si.sound.mml {
             // clear mml data
             mmlData.clear();
             
+            // setting
+            MMLParser._setUserDefinedEventID(_userDefinedEventID);
+            MMLParser._setGlobalEventFlags(_eventGlobalFlags);
+            
             // callback before compiling
             var mmlString:String = onBeforeCompile(mml);
             if (mmlString== null) {
@@ -184,9 +163,7 @@ package org.si.sound.mml {
                 return false;
             }
             
-            // setting
-            MMLParser._setUserDefinedEventID(_userDefinedEventID);
-            MMLParser._setGlobalEventFlags(_eventGlobalFlags);
+            // prepare
             MMLParser.prepareParse(setting, mmlString);
             return true;
         }
@@ -221,13 +198,16 @@ package org.si.sound.mml {
     // process
     //--------------------------------------------------
         /** Prepare to process audio. Override and call this in the overrided function.
-         *  @param bufferSize Sample count to buffer samples at once.
+         *  @param bufferLength Sample count to buffer samples at once.
+         *  @param sampleRate Sampling rate. 44100 or 22050 is available.
          *  @param resetParams Reset all channel parameters.
          */
-        public function prepareProcess(data:MMLData, bufferSize:int) : void
+        public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
+            if (sampleRate!=22050 && sampleRate!=44100) throw new Error ("MMLSequencer error: Only 22050 or 44100 sampling rate is available.");
             mmlData = data;
-            _bufferSize = bufferSize;
+            this.sampleRate = sampleRate;
+            _bufferLength = bufferLength;
             if (mmlData == null) {
                 bpm = setting.defaultBPM;
                 globalExecutor.initialize(null);
@@ -253,7 +233,7 @@ package org.si.sound.mml {
         /** Execute global sequence. */
         protected function startGlobalSequence() : void
         {
-            _globalBufferSampleCount = _bufferSize;
+            _globalBufferSampleCount = _bufferLength;
             _globalExecuteSampleCount = 0;
         }
         protected function executeGlobalSequence() : int
@@ -331,12 +311,6 @@ package org.si.sound.mml {
         
     // virtual functions
     //--------------------------------------------------
-        /** Callback on initializeng. This function is called from initialize(). Override this to modify setting. */
-        protected function onInitialize() : void
-        {
-        }
-        
-        
         /** Callback before parse. This function is called from parse() before parseing.
          *  @param mml The mml string to parse.
          *  @return The mml string you want to parse. Parses with default mml string when you return null.

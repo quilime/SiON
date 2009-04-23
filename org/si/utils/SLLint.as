@@ -122,6 +122,35 @@ package org.si.utils {
             lastElem.next = _freeList;
             _freeList = firstElem;
         }
+        
+        
+        
+        
+    // carete pager
+    //------------------------------------------------------------
+        /** Create pager of linked list */
+        static public function createListPager(firstElem:SLLint, fixedSize:Boolean) : Vector.<SLLint>
+        {
+            if (firstElem == null) return null;
+            var elem:SLLint, i:int, size:int;
+            for (size = 1, elem = firstElem; elem.next != null; elem = elem.next) { size++; }
+            var pager:Vector.<SLLint> = new Vector.<SLLint>(size, fixedSize);
+            elem = firstElem;
+            for (i=0; i<size; i++) { pager[i] = elem; elem = elem.next; }
+            return pager;
+        }
+
+        /** Create pager of ring-linked list */
+        static public function createRingPager(firstElem:SLLint, fixedSize:Boolean) : Vector.<SLLint>
+        {
+            if (firstElem == null) return null;
+            var elem:SLLint, i:int, size:int;
+            for (size = 1, elem = firstElem; elem.next != firstElem; elem = elem.next) { size++; }
+            var pager:Vector.<SLLint> = new Vector.<SLLint>(size, fixedSize);
+            elem = firstElem;
+            for (i=0; i<size; i++) { pager[i] = elem; elem = elem.next; }
+            return pager;
+        }
     }
 }
 

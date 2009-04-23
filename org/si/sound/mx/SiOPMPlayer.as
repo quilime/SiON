@@ -27,29 +27,9 @@ package org.si.sound.mx {
         /** driver. */
         public var driver:SiOPMDriver;
         
-        
-        
-        
-    // properties
-    //----------------------------------------
-        public function get mmlString()    : String       { return driver.mmlString; }
-        public function get data()         : SiOPMData    { return driver.data; }
-        public function get sound()        : Sound        { return driver.sound; }
-        public function get soundChannel() : SoundChannel { return driver.soundChannel; }
-        public function get trackCount()   : int          { return driver.trackCount; }
-        
-        public function get volume()         : Number     { return driver.volume; }
-        public function set volume(v:Number) : void       { driver.volume = v; }
-        public function get pan()            : Number     { return driver.pan; }
-        public function set pan(p:Number)    : void       { driver.pan = p; }
-        
-        public function get compileTime()     : int       { return driver.compileTime; }
-        public function get processTime()     : int       { return driver.processTime; }
-        public function get compileProgress() : Number    { return driver.compileProgress; }
-        
-        public function get isCompiling() : Boolean       { return driver.isCompiling; }
-        public function get isPlaying()   : Boolean       { return driver.isPlaying; }
-        
+        private var _lineCommand:Vector.<int> = new Vector.<int>(65);
+        private var _lineVectorL:Vector.<Number> = new Vector.<Number>(130);
+        private var _lineVectorR:Vector.<Number> = new Vector.<Number>(130);
         
         
         
@@ -62,28 +42,38 @@ package org.si.sound.mx {
          *  @param bufferSize Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
          *  @param throwErrorEvent true; throw ErrorEvent when it errors. false; throw Error when it errors.
          */
-        function SiOPMComponent (channelCount:int=2, sampleRate:int=44100, bitRate:int=16, bufferSize:int=8192, throwErrorEvent:Boolean=true)
+        function SiOPMPlayer(channelCount:int=2, sampleRate:int=44100, bitRate:int=16, bufferSize:int=8192, throwErrorEvent:Boolean=true)
         {
             driver = new SiOPMDriver(channelCount, sampleRate, bitRate, bufferSize, throwErrorEvent);
             driver.addEventListener(SiOPMEvent.COMPILE_COMPLETE, _throughEvent);
             driver.addEventListener(SiOPMEvent.COMPILE_PROGRESS, _throughEvent);
-            driver.addEventListener(SiOPMEvent.STREAM,           _throughEvent);
+            driver.addEventListener(SiOPMEvent.STREAM,           _onStream);
             driver.addEventListener(SiOPMEvent.STREAM_START,     _throughEvent);
             driver.addEventListener(SiOPMEvent.STREAM_STOP,      _throughEvent);
             driver.addEventListener(ErrorEvent.ERROR,            _throughEvent);
 
             function _throughEvent(e:Event) : void { dispatchEvent(e); }
+            for (var i:int=0; i<130; i+=2) {
+                _lineCommand[i>>1] = (i) ? 2 : 1;
+                _lineVectorL[i] = _lineVectorR[i] = i;
+            }
         }
         
         
-        
-        
-    // operations
-    //----------------------------------------
-        public function compile(mml:String, interval:int=200, storeCompiledData:Boolean=true) : void { driver.compile(mml, interval, true); }
-        public function play(data:SiOPMData=null) : void { driver.play(data); }
-        public function stop() : void { driver.stop(); }
-        public function pause() : void { driver.pause(); }
-        public function getTrack(trackIndex:int) : SiMMLSequencerTrack { return driver.getTrack(trackIndex); }
-   }
+        private function _onStream(event:SiOPMEvent) : void 
+        {
+            var data:Vector.<Number> = event.driver.module.output,
+                ci:int, i:int, imax:int = data.length, step:int = imax>>7;
+            for (ci=1, i=0; ci<130; i+=step, ci+=2) {
+                _lineVectorL[ci] = data[i]*16+20;
+                _lineVectorR[ci] = data[i+1]*16+60;
+            }
+            graphics.clear();
+            graphics.lineStyle(1, 0xffffff);
+            graphics.drawPath(_lineCommand, _lineVectorL);
+            graphics.drawPath(_lineCommand, _lineVectorR);
+            dispatchEvent(event);
+        }
+    }
 }
+

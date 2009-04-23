@@ -21,9 +21,9 @@ package org.si.sound.driver {
     // valiables
     //----------------------------------------
         /** envelop tables */
-        public var envelopTables:Array;
+        public var envelopTables:Vector.<SiMMLDataEmvelopTable>;
         /** FM channel paramters */
-        public var fmParameters:Array;
+        public var fmParameters:Vector.<SiMMLDataChannelParam>;
         
         
         
@@ -31,8 +31,8 @@ package org.si.sound.driver {
     //----------------------------------------
         function SiMMLData()
         {
-            envelopTables = [];
-            fmParameters = [];
+            envelopTables = new Vector.<SiMMLDataEmvelopTable>();
+            fmParameters  = new Vector.<SiMMLDataChannelParam>();
         }
         
         

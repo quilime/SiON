@@ -20,7 +20,8 @@ package org.si.sound.module {
     {
     // constants
     //--------------------------------------------------
-        static public const WAVE_BUFFER_SIZE:int = 5;
+        static public const STREAM_SIZE_MAX:int = 8;
+        static public const PIPE_SIZE:int = 5;
         
         
         
@@ -31,57 +32,74 @@ package org.si.sound.module {
         public var initOperatorParam:SiOPMOperatorParam;
         /** zero buffer */
         public var zeroBuffer:SLLint;
+        /** stereo output buffer */
+        public var streamBuffer:Vector.<SiOPMStream>;
         
         /** Operator */
-        protected var _freeOperators:Array;
-        /** stereo output buffer */
-        protected var _outputBuffer:SLLNumber;
+        protected var _freeOperators:Vector.<SiOPMOperator>;
         /** buffer length */
         protected var _bufferLength:int;
         
         // pipes
-        private var _waveBuffer:Vector.<SLLint>;
-        
-        
+        private var _pipeBuffer:Vector.<SLLint>;
+        private var _pipeBufferPager:Vector.<Vector.<SLLint>>;
         
         
     // properties
     //--------------------------------------------------
-        /** Stereo output buffer. The length is bufferLength*2. */
-        public function get outputBuffer() : SLLNumber
-        {
-            return _outputBuffer;
-        }
-        
-        
+        /** Buffer count */
+        public function get output() : Vector.<Number> { return streamBuffer[0].buffer; }
         /** Buffer length */
-        public function get bufferLength() : int
+        public function get bufferLength() : int { return _bufferLength; }
+        
+        
+        /** stream count */
+        public function set streamCount(count:int) : void 
         {
-            return _bufferLength;
+            var i:int;
+            
+            // allocate streams
+            if (count > STREAM_SIZE_MAX) count = STREAM_SIZE_MAX;
+            if (streamBuffer.length != count) {
+                if (streamBuffer.length < count) {
+                    i = streamBuffer.length;
+                    streamBuffer.length = count;
+                    for (; i<count; i++) streamBuffer[i] = SiOPMStream.newStream(2, _bufferLength);
+                } else {
+                    for (i=count; i<streamBuffer.length; i++) SiOPMStream.deleteStream(streamBuffer[i]);
+                    streamBuffer.length = count;
+                }
+            }
         }
-
+        
         
         
         
     // constructor
     //--------------------------------------------------
-        /** Default constructor */
+        /** Default constructor
+         *  @param busSize Number of mixing buses.
+         */
         function SiOPMModule()
         {
+            // initialize table once
+            SiOPMTable.initialize(3580000, 44100);
+            
             // initial values
             initOperatorParam = new SiOPMOperatorParam();
             
-            // TG managers (expandable)
-            _freeOperators = [];
+            // stream buffer
+            streamBuffer = new Vector.<SiOPMStream>();
+            streamCount = 1;
 
             // zero buffer gives always 0
             zeroBuffer = SLLint.allocRing(1);
             
             // others
             _bufferLength = 0;
-            _outputBuffer = null;
-            _waveBuffer = new Vector.<SLLint>(WAVE_BUFFER_SIZE, true);
-            for (var i:int=0; i<WAVE_BUFFER_SIZE; i++) { _waveBuffer[i] = null; }
+            _pipeBuffer = new Vector.<SLLint>(PIPE_SIZE, true);
+            _pipeBufferPager = new Vector.<Vector.<SLLint>>(PIPE_SIZE, true);
+            _freeOperators = new Vector.<SiOPMOperator>();
             
             // call at once
             SiOPMChannelManager.initialize(this, true);
@@ -93,23 +111,29 @@ package org.si.sound.module {
     // operation
     //--------------------------------------------------
         /** Initialize module and all tone generators.
+         *  @param channelCount ChannelCount
          *  @param bufferLength Maximum buffer size processing at once.
          */
-        public function initialize(bufferLength:int) : void
+        public function initialize(channelCount:int, bufferLength:int) : void
         {
-            var i:int, imax:int;
+            var i:int, stream:SiOPMStream, bufferLength2:int = bufferLength<<1;
 
             // allocate buffer
             if (_bufferLength != bufferLength) {
                 _bufferLength = bufferLength;
-                SLLNumber.freeRing(_outputBuffer);
-                _outputBuffer = SLLNumber.allocRing(bufferLength*2);
-                for (i=0; i<WAVE_BUFFER_SIZE; i++) {
-                    SLLint.freeRing(_waveBuffer[i]);
-                    _waveBuffer[i] = SLLint.allocRing(bufferLength);
+                for each (stream in streamBuffer) {
+                    stream.buffer.length = bufferLength2;
+                }
+                for (i=0; i<PIPE_SIZE; i++) {
+                    SLLint.freeRing(_pipeBuffer[i]);
+                    _pipeBuffer[i] = SLLint.allocRing(bufferLength);
+                    _pipeBufferPager[i] = SLLint.createRingPager(_pipeBuffer[i], true);
                 }
             }
 
+            // set standard outputs channel count
+            streamBuffer[0].channels = channelCount;
+            
             // initialize all channels
             SiOPMChannelManager.initializeAllChannels();
         }
@@ -122,11 +146,22 @@ package org.si.sound.module {
             SiOPMChannelManager.resetAllChannels();
         }
         
+        /** Clear all buffer. */
+        public function clearAllBuffers() : void
+        {
+            var idx:int, i:int, imax:int, buf:Vector.<Number>, stream:SiOPMStream;
+            for each (stream in streamBuffer) {
+                buf = stream.buffer;
+                imax = buf.length;
+                for (i=0; i<imax; i++) buf[i] = 0;
+            }
+        }
+        
         
         /** get pipe buffer */
-        public function getPipe(index:int) : SLLint
+        public function getPipe(pipeNum:int, index:int=0) : SLLint
         {
-            return _waveBuffer[index];
+            return _pipeBufferPager[pipeNum][index];
         }
         
         

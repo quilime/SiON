@@ -66,6 +66,7 @@ package org.si.sound.mml {
                 }
                 seq = addTail(newSequence());       // push new sequence
                 headEvent = seq._cutout(headEvent); // cutout sequence
+                seq._updateMMLString();             // update mml string
             }
         }
         

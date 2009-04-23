@@ -47,7 +47,7 @@ package org.si.sound.module {
         /** algorism */     protected var _algorism:int;
         
         // Processing
-        /** process func */ protected var _procFunction:Array;
+        /** process func */ protected var _funcProcessList:Array;
         
         // Pipe
         /** internal pipe0 */ protected var _pipe0:SLLint;
@@ -67,6 +67,7 @@ package org.si.sound.module {
         
         
         
+        
     // toString
     //--------------------------------------------------
         /** Output parameters. */
@@ -75,7 +76,7 @@ package org.si.sound.module {
             var str:String = "SiOPMChannelFM : operatorCount=";
             str += String(_operatorCount) + "\n";
             $("fb ", _inputLevel-6);
-            $2("lvol", _left_volume,  "rvol", _right_volume);
+            $2("vol", _volume[0],  "pan", _pan-64);
             if (operator[0]) str += String(operator[0]) + "\n";
             if (operator[1]) str += String(operator[1]) + "\n";
             if (operator[2]) str += String(operator[2]) + "\n";
@@ -95,8 +96,8 @@ package org.si.sound.module {
         {
             super(chip);
             
-            _procFunction = [[_proc1op_loff, _proc2op, _proc3op, _proc4op], 
-                             [_proc1op_lon,  _proc2op, _proc3op, _proc4op]];
+            _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _procpcm_loff], 
+                                [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _procpcm_lon]];
             operator = new Vector.<SiOPMOperator>(4, true);
             operator[0] = _chip.allocOperator();
             operator[1] = null;
@@ -110,7 +111,7 @@ package org.si.sound.module {
             _pipe0 = SLLint.allocRing(1);
             _pipe1 = SLLint.allocRing(1);
             
-            initialize(null);
+            initialize(null, 0);
         }
         
         
@@ -183,7 +184,8 @@ package org.si.sound.module {
             var new_lfo_on:int = int(sw);
             if (_lfo_on != new_lfo_on) {
                 _lfo_on = new_lfo_on;
-                _funcProcess = _procFunction[_lfo_on][_operatorCount-1];
+                if (operator[0]._pgType >= SiOPMTable.PG_PCM) _funcProcess = _funcProcessList[_lfo_on][4];
+                else _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
             }
         }
         
@@ -198,11 +200,14 @@ package org.si.sound.module {
          */
         override public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void
         {
+            var i:int;
             if (param.opeCount == 0) return;
             
             if (withVolume) {
-                _left_volume  = param.leftVolume  * 0.0078125; // = 1/128
-                _right_volume = param.rightVolume * 0.0078125;
+                var imax:int = SiOPMModule.STREAM_SIZE_MAX;
+                for (i=0; i<imax; i++) _volume[i] = param.volumes[i];
+                for (_hasEffectSend=false, i=1; i<imax; i++) if (_volume[i] > 0) _hasEffectSend = true;
+                _pan = param.pan;
             }
             setFrequencyRatio(param.fratio);
             setAlgorism(param.opeCount, param.alg);
@@ -215,7 +220,7 @@ package org.si.sound.module {
             setFilterEnvelop(param.far, param.fdr1, param.fdr2, param.frr, param.cutoff, param.fdc1, param.fdc2, param.fsc, param.frc);
             setFilterResonance(param.resonanse);
             activateFilter(param.cutoff<128 || param.resonanse>0 || param.far>0 || param.frr>0);
-            for (var i:int=0; i<_operatorCount; i++) {
+            for (i=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.opeParam[i]);
             }
         }
@@ -226,9 +231,9 @@ package org.si.sound.module {
          */
         override public function getSiOPMChannelParam(param:SiOPMChannelParam) : void
         {
-            var i:int;
-            param.leftVolume  = _left_volume;
-            param.rightVolume = _right_volume;
+            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
+            for (i=0; i<imax; i++) param.volumes[i] = _volume[i];
+            param.pan = _pan;
             param.fratio = _freq_ratio;
             param.opeCount = _operatorCount;
             param.alg = _algorism;
@@ -298,8 +303,10 @@ package org.si.sound.module {
         override public function setAlgorism(cnt:int, alg:int) : void
         {
             _updateOperatorCount(cnt);
+        
             _algorism = alg;
             switch (_operatorCount) {
+            case 1: _algorism1();  break;
             case 2: _algorism2();  break;
             case 3: _algorism3();  break;
             case 4: _algorism4();  break;
@@ -344,6 +351,8 @@ package org.si.sound.module {
         {
             activeOperator.pgType = pgType;
             activeOperator.ptType = ptType;
+            if (operator[0]._pgType >= SiOPMTable.PG_PCM) _funcProcess = _funcProcessList[_lfo_on][4];
+            else _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
         }
         
         
@@ -371,8 +380,7 @@ package org.si.sound.module {
             
             // set pipe
             if (level > 0) {
-                _inPipe = _chip.getPipe(pipeIndex);
-                for (i=0; i<_bufferIndex; i++) { _inPipe = _inPipe.next; }
+                _inPipe = _chip.getPipe(pipeIndex, _bufferIndex);
                 _inputMode = INPUT_PIPE;
                 _inputLevel = level + 10;   // different from super.setInput()
             } else {
@@ -446,7 +454,7 @@ package org.si.sound.module {
     // operation
     //--------------------------------------------------
         /** Initialize. */
-        override public function initialize(prev:SiOPMChannelBase) : void
+        override public function initialize(prev:SiOPMChannelBase, bufferIndex:int) : void
         {
             // initialize operators
             _updateOperatorCount(1);
@@ -454,7 +462,7 @@ package org.si.sound.module {
             _isNoteOn = false;
             
             // initialize sound channel
-            super.initialize(prev);
+            super.initialize(prev, bufferIndex);
         }
         
         
@@ -466,6 +474,7 @@ package org.si.sound.module {
                 operator[i].reset();
             }
             _isNoteOn = false;
+            _isIdling = true;
         }
         
         
@@ -484,6 +493,7 @@ package org.si.sound.module {
                 shiftLPFilterState(EG_ATTACK);
             }
             _isNoteOn = true;
+            _isIdling = false;
         }
         
         
@@ -506,6 +516,22 @@ package org.si.sound.module {
         override public function isNoteOn() : Boolean
         {
             return _isNoteOn;
+        }
+        
+        
+        /** Prepare buffering */
+        override public function prepareBuffer() : void
+        {
+            _bufferIndex = 0;
+            
+            // check idling flag
+            var i:int, ope:SiOPMOperator;
+            _isIdling = true;
+            for (i=0; i<_operatorCount; i++) {
+                ope = operator[i];
+                // SiOPMOperator.EG_OFF = 4
+                if (ope._final && ope._eg_state != 4) _isIdling = false;
+            }
         }
         
         
@@ -532,7 +558,7 @@ package org.si.sound.module {
                     if (ope._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope._eg_incTable[ope._eg_counter];
                         if (t > 0) {
-        					ope._eg_level -= 1 + (ope._eg_level >> t);
+                            ope._eg_level -= 1 + (ope._eg_level >> t);
                             if (ope._eg_level <= 0) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
                         }
                     } else {
@@ -600,7 +626,7 @@ package org.si.sound.module {
                     if (ope._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope._eg_incTable[ope._eg_counter];
                         if (t > 0) {
-        					ope._eg_level -= 1 + (ope._eg_level >> t);
+                            ope._eg_level -= 1 + (ope._eg_level >> t);
                             if (ope._eg_level <= 0) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
                         }
                     } else {
@@ -644,8 +670,7 @@ package org.si.sound.module {
         private function _proc2op(len:int) : void
         {
             var i:int, t:int, l:int, n:Number;
-            var sout:SLLNumber = _output, 
-                phase_filter:int = SiOPMTable.PHASE_FILTER,
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1];
             
@@ -679,7 +704,7 @@ package org.si.sound.module {
                     if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope0._eg_incTable[ope0._eg_counter];
                         if (t > 0) {
-        					ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
                             if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                         }
                     } else {
@@ -707,7 +732,7 @@ package org.si.sound.module {
                     if (ope1._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope1._eg_incTable[ope1._eg_counter];
                         if (t > 0) {
-        					ope1._eg_level -= 1 + (ope1._eg_level >> t);
+                            ope1._eg_level -= 1 + (ope1._eg_level >> t);
                             if (ope1._eg_level <= 0) ope1._eg_shiftState(ope1._eg_nextState[ope1._eg_state]);
                         }
                     } else {
@@ -749,8 +774,7 @@ package org.si.sound.module {
         private function _proc3op(len:int) : void
         {
             var i:int, t:int, l:int, n:Number;
-            var sout:SLLNumber = _output, 
-                phase_filter:int = SiOPMTable.PHASE_FILTER,
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1],
                 ope2:SiOPMOperator = operator[2];
@@ -787,7 +811,7 @@ package org.si.sound.module {
                     if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope0._eg_incTable[ope0._eg_counter];
                         if (t > 0) {
-        					ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
                             if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                         }
                     } else {
@@ -815,7 +839,7 @@ package org.si.sound.module {
                     if (ope1._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope1._eg_incTable[ope1._eg_counter];
                         if (t > 0) {
-        					ope1._eg_level -= 1 + (ope1._eg_level >> t);
+                            ope1._eg_level -= 1 + (ope1._eg_level >> t);
                             if (ope1._eg_level <= 0) ope1._eg_shiftState(ope1._eg_nextState[ope1._eg_state]);
                         }
                     } else {
@@ -843,7 +867,7 @@ package org.si.sound.module {
                     if (ope2._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope2._eg_incTable[ope2._eg_counter];
                         if (t > 0) {
-        					ope2._eg_level -= 1 + (ope2._eg_level >> t);
+                            ope2._eg_level -= 1 + (ope2._eg_level >> t);
                             if (ope2._eg_level <= 0) ope2._eg_shiftState(ope2._eg_nextState[ope2._eg_state]);
                         }
                     } else {
@@ -886,8 +910,7 @@ package org.si.sound.module {
         private function _proc4op(len:int) : void
         {
             var i:int, t:int, l:int, n:Number;
-            var sout:SLLNumber = _output, 
-                phase_filter:int = SiOPMTable.PHASE_FILTER,
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1],
                 ope2:SiOPMOperator = operator[2],
@@ -926,7 +949,7 @@ package org.si.sound.module {
                     if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope0._eg_incTable[ope0._eg_counter];
                         if (t > 0) {
-        					ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
                             if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                         }
                     } else {
@@ -954,7 +977,7 @@ package org.si.sound.module {
                     if (ope1._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope1._eg_incTable[ope1._eg_counter];
                         if (t > 0) {
-        					ope1._eg_level -= 1 + (ope1._eg_level >> t);
+                            ope1._eg_level -= 1 + (ope1._eg_level >> t);
                             if (ope1._eg_level <= 0) ope1._eg_shiftState(ope1._eg_nextState[ope1._eg_state]);
                         }
                     } else {
@@ -982,7 +1005,7 @@ package org.si.sound.module {
                     if (ope2._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope2._eg_incTable[ope2._eg_counter];
                         if (t > 0) {
-        					ope2._eg_level -= 1 + (ope2._eg_level >> t);
+                            ope2._eg_level -= 1 + (ope2._eg_level >> t);
                             if (ope2._eg_level <= 0) ope2._eg_shiftState(ope2._eg_nextState[ope2._eg_state]);
                         }
                     } else {
@@ -1010,7 +1033,7 @@ package org.si.sound.module {
                     if (ope3._eg_state == SiOPMOperator.EG_ATTACK) {
                         t = ope3._eg_incTable[ope3._eg_counter];
                         if (t > 0) {
-        					ope3._eg_level -= 1 + (ope3._eg_level >> t);
+                            ope3._eg_level -= 1 + (ope3._eg_level >> t);
                             if (ope3._eg_level <= 0) ope3._eg_shiftState(ope3._eg_nextState[ope3._eg_state]);
                         }
                     } else {
@@ -1033,6 +1056,156 @@ package org.si.sound.module {
                 // output and increment pointers
                 //----------------------------------------
                 op.i = _pipe0.i + bp.i;
+                ip = ip.next;
+                bp = bp.next;
+                op = op.next;
+            }
+            
+            // update pointers
+            _inPipe   = ip;
+            _basePipe = bp;
+            _outPipe  = op;
+        }
+        
+        
+        
+        
+    // processing PCM
+    //--------------------------------------------------
+        private function _procpcm_loff(len:int) : void
+        {
+            var t:int, l:int, i:int, n:Number;
+            var ope:SiOPMOperator = operator[0],
+                phase_filter:int = SiOPMTable.PHASE_FILTER,
+                tmax:int = ope._waveTable.length;
+            
+            
+            // buffering
+            var ip:SLLint = _inPipe,
+                bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+            for (i=0; i<len; i++) {
+                // eg_update();
+                //----------------------------------------
+                ope._eg_timer -= ope._eg_timer_step;
+                if (ope._eg_timer < 0) {
+                    if (ope._eg_state == SiOPMOperator.EG_ATTACK) {
+                        t = ope._eg_incTable[ope._eg_counter];
+                        if (t > 0) {
+                            ope._eg_level -= 1 + (ope._eg_level >> t);
+                            if (ope._eg_level <= 0) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
+                        }
+                    } else {
+                        ope._eg_level += ope._eg_incTable[ope._eg_counter];
+                        if (ope._eg_level >= ope._eg_stateShiftLevel) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
+                    }
+                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                    ope._eg_counter = (ope._eg_counter+1)&7;
+                    ope._eg_timer += _eg_timer_initial;
+                }
+
+                // pg_update();
+                //----------------------------------------
+                ope._phase += ope._phase_step;
+                t = (ope._phase + (ip.i<<_inputLevel)) >> 14; // pcm._waveFixedBits = 14
+                if (t >= tmax) {
+                    ope._eg_shiftState(SiOPMOperator.EG_OFF);
+                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                    for (;i<len; i++) {
+                        op.i = bp.i;
+                        ip = ip.next;
+                        bp = bp.next;
+                        op = op.next;
+                    }
+                    break;
+                }
+                l = ope._waveTable[t];
+                l += ope._eg_out;
+                t = _table.logTable[l];
+                ope._feedPipe.i = t;
+                
+                // output and increment pointers
+                //----------------------------------------
+                op.i = t + bp.i;
+                ip = ip.next;
+                bp = bp.next;
+                op = op.next;
+            }
+            
+            // update pointers
+            _inPipe   = ip;
+            _basePipe = bp;
+            _outPipe  = op;
+        }
+        
+        
+        private function _procpcm_lon(len:int) : void
+        {
+            var t:int, l:int, i:int, n:Number;
+            var ope:SiOPMOperator = operator[0],
+                phase_filter:int = SiOPMTable.PHASE_FILTER,
+                tmax:int = ope._waveTable.length;
+            
+            // buffering
+            var ip:SLLint = _inPipe,
+                bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+
+            for (i=0; i<len; i++) {
+                // lfo_update();
+                //----------------------------------------
+                _lfo_timer -= _lfo_timer_step;
+                if (_lfo_timer < 0) {
+                    _lfo_phase = (_lfo_phase+1) & 255;
+                    t = _lfo_waveTable[_lfo_phase];
+                    _am_out = (t * _am_depth) >> 7 << 3;
+                    _pm_out = (((t<<1)-255) * _pm_depth) >> 8;
+                    ope.detune2 = _pm_out;
+                    _lfo_timer += _lfo_timer_initial;
+                }
+                
+                // eg_update();
+                //----------------------------------------
+                ope._eg_timer -= ope._eg_timer_step;
+                if (ope._eg_timer < 0) {
+                    if (ope._eg_state == SiOPMOperator.EG_ATTACK) {
+                        t = ope._eg_incTable[ope._eg_counter];
+                        if (t > 0) {
+                            ope._eg_level -= 1 + (ope._eg_level >> t);
+                            if (ope._eg_level <= 0) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
+                        }
+                    } else {
+                        ope._eg_level += ope._eg_incTable[ope._eg_counter];
+                        if (ope._eg_level >= ope._eg_stateShiftLevel) ope._eg_shiftState(ope._eg_nextState[ope._eg_state]);
+                    }
+                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                    ope._eg_counter = (ope._eg_counter+1)&7;
+                    ope._eg_timer += _eg_timer_initial;
+                }
+
+                // pg_update();
+                //----------------------------------------
+                ope._phase += ope._phase_step;
+                t = (ope._phase + (ip.i<<_inputLevel)) >> 14; // pcm._waveFixedBits = 14
+                if (t >= tmax) {
+                    ope._eg_shiftState(SiOPMOperator.EG_OFF);
+                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                    for (;i<len; i++) {
+                        op.i = bp.i;
+                        ip = ip.next;
+                        bp = bp.next;
+                        op = op.next;
+                    }
+                    break;
+                }
+                l = ope._waveTable[t];
+                l += ope._eg_out + (_am_out>>ope._ams);
+                t = _table.logTable[l];
+                ope._feedPipe.i = t;
+                
+                // output and increment pointers
+                //----------------------------------------
+                op.i = t + bp.i;
                 ip = ip.next;
                 bp = bp.next;
                 op = op.next;
@@ -1093,7 +1266,7 @@ package org.si.sound.module {
             // update count
             _operatorCount = cnt;
             // select processing function
-            _funcProcess = _procFunction[_lfo_on][_operatorCount-1];
+            _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
             // default active operator is the last one.
             activeOperator = operator[_operatorCount-1];
 
@@ -1101,6 +1274,13 @@ package org.si.sound.module {
             if (_inputMode == INPUT_FEEDBACK) {
                 setFeedBack(0, 0);
             }
+        }
+        
+        
+        // alg operator=1
+        private function _algorism1() : void
+        {
+            operator[0]._setPipes(_pipe0, null, true);
         }
         
         

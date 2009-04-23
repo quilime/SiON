@@ -38,10 +38,10 @@ package org.si.sound.module {
         public var amd:int;
         /** pitch modulation depth */
         public var pmd:int;
-        /** [extention] left volume */
-        public var leftVolume:int;
-        /** [extention] right volume */
-        public var rightVolume:int;
+        /** [extention] master volume [0,1] */
+        public var volumes:Vector.<Number>;
+        /** [extention] panning */
+        public var pan:int;
 
         /** LP filter cutoff */
         public var cutoff:int;
@@ -83,6 +83,7 @@ package org.si.sound.module {
         function SiOPMChannelParam()
         {
             initSequence = new MMLSequence();
+            volumes = new Vector.<Number>(SiOPMModule.STREAM_SIZE_MAX, true);
             initialize();
 
             opeParam = new Vector.<SiOPMOperatorParam>(4, true);
@@ -94,6 +95,8 @@ package org.si.sound.module {
         
         public function initialize() : SiOPMChannelParam
         {
+            var i:int;
+            
             opeCount = 1;
             
             alg = 0;
@@ -104,8 +107,9 @@ package org.si.sound.module {
             amd = 0;
             pmd = 0;
             fratio = 100;
-            leftVolume  = 32;
-            rightVolume = 32;
+            for (i=1; i<SiOPMModule.STREAM_SIZE_MAX; i++) volumes[i]=0;
+            volumes[0] = 0.5;
+            pan = 64;
             
             cutoff = 128;
             resonanse = 0;
@@ -119,7 +123,7 @@ package org.si.sound.module {
             frc = 128;
             
             if (opeParam) {
-                for (var i:int; i<4; i++) { opeParam[i].initialize(); }
+                for (i=0; i<4; i++) { opeParam[i].initialize(); }
             }
             
             initSequence.free();
@@ -130,6 +134,8 @@ package org.si.sound.module {
         
         public function copyFrom(org:SiOPMChannelParam) : SiOPMChannelParam
         {
+            var i:int;
+            
             opeCount = org.opeCount;
             
             alg = org.alg;
@@ -140,8 +146,8 @@ package org.si.sound.module {
             amd = org.amd;
             pmd = org.pmd;
             fratio = org.fratio;
-            leftVolume = org.leftVolume;
-            rightVolume = org.rightVolume;
+            for (i=0; i<SiOPMModule.STREAM_SIZE_MAX; i++) volumes[i]=org.volumes[i];
+            pan = org.pan;
             
             cutoff = org.cutoff;
             resonanse = org.resonanse;
@@ -155,7 +161,7 @@ package org.si.sound.module {
             frc = org.frc;
             
             if (opeParam) {
-                for (var i:int; i<4; i++) { opeParam[i].copyFrom(org.opeParam[i]); }
+                for (i=0; i<4; i++) { opeParam[i].copyFrom(org.opeParam[i]); }
             }
             
             initSequence.free();
@@ -173,7 +179,7 @@ package org.si.sound.module {
             $2("fb ", fb,  "fbc", fbc);
             $2("lws", lfoWaveShape, "lfq", SiOPMTable.LFO_TIMER_INITIAL*0.005782313/lfoFreqStep);
             $2("amd", amd, "pmd", pmd);
-            $2("lvol", leftVolume,  "rvol", rightVolume);
+            $2("vol", volumes[0],  "pan", pan-64);
             $2("co", cutoff, "res", resonanse);
             str += "fenv=" + String(far) + "/" + String(fdr1) + "/"+ String(fdr2) + "/"+ String(frr) + "\n";
             str += "feco=" + String(fdc1) + "/"+ String(fdc2) + "/"+ String(fsc) + "/"+ String(frc) + "\n";

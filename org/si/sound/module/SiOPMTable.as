@@ -26,10 +26,12 @@ package org.si.sound.module {
         static public const LOG_VOLUME_BITS     :int = 13;   // _logTable[0] = 2^13 at maximum
         static public const LOG_TABLE_MAX_BITS  :int = 16;   // _logTable entries
         static public const FIXED_BITS          :int = 16;   // internal fixed point 16.16
+        static public const PCM_BITS            :int = 20;   // maximum PCM sample length = 2 ^ PCM_BITS = 1048576
         static public const LFO_FIXED_BITS      :int = 20;   // fixed point for lfo timer
         static public const CLOCK_RATIO_BITS    :int = 10;   // bits for clock/64/[sampling rate]
         static public const NOISE_WAVE_OUTPUT   :Number = 1;     // -2044 < [noise amplitude] < 2040 -> NOISE_WAVE_OUTPUT=0.25
         static public const SQUARE_WAVE_OUTPUT  :Number = 1;     //
+        static public const OUTPUT_MAX          :Number = 0.5;   // maximum output
         
         static public const ENV_LSHIFT          :int = ENV_BITS - 7;                     // Shift number from input tl [0,127] to internal value [0,ENV_BOTTOM].
         static public const ENV_TIMER_INITIAL   :int = (2047 * 3) << CLOCK_RATIO_BITS;   // envelop timer initial value
@@ -88,7 +90,8 @@ package org.si.sound.module {
         static public const PG_RAMP       :int = 128;   // (128- 191) ramp wave. PG_RAMP+[0,63]
                                                         // (192- 255) reserved
         static public const PG_CUSTOM     :int = 256;   // (256- 511) custom wave table. PG_CUSTOM+[0,255]
-        static public const PG_PCM        :int = 512;   // (512-1023) pcm module. PG_PCM+[0,511]
+        static public const PG_PCM        :int = 512;   // (512-767)  pcm module.PG_PCM+[0,255]
+        static public const PG_SAMPLE     :int = 768;   // (768-1023) samplar module.PG_SAMPLE+[0,255]
         static public const DEFAULT_PG_MAX:int = 1024;  // max value of pgType = 1023
         static public const PG_FILTER     :int = 1023;  // pg number loops between 0 to 1023
 
@@ -175,7 +178,7 @@ package org.si.sound.module {
         public var filter_eg_rate:Vector.<int> = null;
 
         /** PG:pitch table. */
-        public var pitchTable:Array = null;
+        public var pitchTable:Vector.<Vector.<int>> = null;
         /** PG:phase step shift filter. */
         public var phaseStepShiftFilter:Vector.<int> = null;
         /** PG:log table. */
@@ -183,9 +186,9 @@ package org.si.sound.module {
         /** PG:MIDI note number to FM key code. */
         public var nnToKC:Vector.<int> = null;
         /** PG:Wave tables. */
-        public var waveTables:Array = null;
+        public var waveTables:Vector.<Vector.<int>> = null;
         /** PG:Wave tables shift. */
-        public var waveFixedBits:Array = null;
+        public var waveFixedBits:Vector.<int> = null;
         /** PG:Default ptType for various pgType. */
         public var defaultPTType:Vector.<int> = null;
         
@@ -193,13 +196,21 @@ package org.si.sound.module {
     	public var dt1Table:Array = null;
         /** Table for dt2 (from MAME's opm source). */
         public var dt2Table:Vector.<int> = Vector.<int>([0, 384, 500, 608]);
+
+        /** int->Number ratio on pulse data */
+        public var i2n:Number;
+        /** Panning volume table. */
+        public var panTable:Vector.<Number> = null;
         
+        /** sampling rate */
+        public var rate:int;
         /** fm clock */
         public var clock:int;
         /** (clock/64/sampling_rate)<<CLOCK_RATIO_BITS */
         public var clock_ratio:int;
         /** 44100Hz=0, 22050Hz=1 */
         public var sampleRatePitchShift:int;
+        
         
         
         
@@ -212,7 +223,9 @@ package org.si.sound.module {
         /** static initializer */
         static public function initialize(clock:int, rate:int) : void
         {
-            if (instance == null) instance = new SiOPMTable(clock, rate);
+            if (instance == null || instance.clock != clock || instance.rate != rate) {
+                instance = new SiOPMTable(clock, rate);
+            }
         }
         
         
@@ -240,9 +253,13 @@ package org.si.sound.module {
         private function _setConstants(clock:int, rate:int) : void
         {
             this.clock = clock;
+            this.rate  = rate;
             sampleRatePitchShift = (rate == 44100) ? 0 : (rate == 22050) ? 1 : -1;
             if (sampleRatePitchShift == -1) throw new Error("SiOPMTable error : Sampling rate ("+ rate + ") is not supported.");
             clock_ratio = ((clock/64)<<CLOCK_RATIO_BITS)/rate;
+            
+            // int->Number ratio on pulse data
+            i2n = OUTPUT_MAX/Number(1<<LOG_VOLUME_BITS);
         }
         
         
@@ -339,6 +356,13 @@ package org.si.sound.module {
             for (i=1; i<65; i++) {
                 eg_tlTable[i+192] = ENV_TOP;
             }
+            
+            // panning volume table
+            panTable = new Vector.<Number>(129, true);
+            for (i=0; i<129; i++) {
+                panTable[i] = Math.sin(i*0.012176715711588345);  // 0.012176715711588345 = PI*0.5/129
+            }
+            
         }
         
         
@@ -359,7 +383,7 @@ package org.si.sound.module {
             
         // pitch table
         //----------------------------------------
-            pitchTable = new Array(PT_MAX);
+            pitchTable = new Vector.<Vector.<int>>(PT_MAX);
             phaseStepShiftFilter = new Vector.<int>(PT_MAX);
             
             imax = HALF_TONE_RESOLUTION * 12;   // 12=1octave
@@ -368,7 +392,7 @@ package org.si.sound.module {
             
             // OPM
             table = new Vector.<int>(PITCH_TABLE_SIZE, true);
-            n = 8.175798915643707 * PHASE_MAX / 44100;    // dphase @ MIDI note number = 0
+            n = 8.175798915643707 * PHASE_MAX / 44100;    // dphase @ MIDI note number = 0 
             for (i=0, p=0; i<imax; i++, p+=dp) { 
                 v = Math.pow(2, p) * n;
                 for (j=i; j<jmax; j+=imax) {
@@ -517,8 +541,8 @@ package org.si.sound.module {
                 table1:Vector.<int>, table2:Vector.<int>;
 
             // allocate table list
-            waveTables = new Array(DEFAULT_PG_MAX);
-            waveFixedBits = new Array(DEFAULT_PG_MAX);
+            waveTables = new Vector.<Vector.<int>>(DEFAULT_PG_MAX);
+            waveFixedBits = new Vector.<int>(DEFAULT_PG_MAX);
             defaultPTType = new Vector.<int>(DEFAULT_PG_MAX, true);
             
         // clear all tables
@@ -528,7 +552,7 @@ package org.si.sound.module {
             for (i=0; i<DEFAULT_PG_MAX; i++) {
                 waveTables[i]    = table1;      // always 1
                 waveFixedBits[i] = PHASE_BITS;  // always 0 == data not available
-                defaultPTType[i] = PT_OPM;
+                defaultPTType[i] = (i<PG_PCM) ? PT_OPM : PT_PCM;
             }
             
         // sine wave table
@@ -1039,31 +1063,59 @@ package org.si.sound.module {
             // Reset wave tables
             for (i=0; i<256; i++) {
                 instance.waveTables   [PG_CUSTOM+i] = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_CUSTOM+i] = PHASE_BITS;  // always 0
+                instance.waveFixedBits[PG_CUSTOM+i] = PHASE_BITS;   // always 0
                 instance.waveTables   [PG_PCM+i]    = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_PCM+i]    = PHASE_BITS;  // always 0
+                instance.waveFixedBits[PG_PCM+i]    = PHASE_BITS;   // always 0
+                instance.waveTables   [PG_SAMPLE+i] = instance.waveTables[PG_SQUARE];
+                instance.waveFixedBits[PG_SAMPLE+i] = PHASE_BITS;   // always 0
             }
         }
         
         
         /** Register wave table. */
-        static public function registerWaveTable(index:int, table:Vector.<int>, bits:int) : void
+        static public function registerWaveTable(index:int, table:Vector.<int>, fixedBits:int) : void
         {
             // offset index
             var table_index:int = index + PG_CUSTOM;
 
             // register wave table
             instance.waveTables[table_index]    = table;
-            instance.waveFixedBits[table_index] = bits;
+            instance.waveFixedBits[table_index] = fixedBits;
 
             // update PG_MA3_WAVE waveform 15,23,31.
             if (index < 3) {
                 // index=0,1,2 are PG_MA3 waveform 15,23,31.
                 table_index = 15 + index * 8 + PG_MA3_WAVE;
                 instance.waveTables[table_index]    = table;
-                instance.waveFixedBits[table_index] = bits;
+                instance.waveFixedBits[table_index] = fixedBits;
             }
+        }
+        
+        
+        /** Register PCM data. */
+        static public function registerPCMData(index:int, table:Vector.<int>, samplingOctave:int) : void
+        {
+            // offset index
+            var table_index:int = index + PG_PCM;
+
+            // register wave table
+            instance.waveTables[table_index]    = table;
+            instance.waveFixedBits[table_index] = 14 + (samplingOctave-5);
+        }
+        
+        
+        /** Register Sampler data. */
+        static public function registerSample(index:int, table:Vector.<int>, channelCount:int) : void
+        {
+            // offset index
+            var table_index:int = index + PG_SAMPLE;
+
+            // register wave table
+            instance.waveTables[table_index]    = table;
+            instance.waveFixedBits[table_index] = channelCount;
         }
     }
 }
+
+
 

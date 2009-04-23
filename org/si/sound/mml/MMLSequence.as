@@ -22,6 +22,8 @@ package org.si.sound.mml {
         public var headEvent:MMLEvent;
         /** Last MMLEvent. The ID is always MMLEvent.SEQUENCE_TAIL and lastEvent.next is always null. */
         public var tailEvent:MMLEvent;
+        /** MML String */
+        public var mmlString:String;
         
         // Previous sequence in the chain.
         private var _prevSequence:MMLSequence;
@@ -51,6 +53,7 @@ package org.si.sound.mml {
         {
             headEvent = null;
             tailEvent = null;
+            mmlString = "";
             _prevSequence = (term) ? this : null;
             _nextSequence = (term) ? this : null;
             _isTerminal = term;
@@ -100,6 +103,7 @@ package org.si.sound.mml {
                 _prevSequence = this;
                 _nextSequence = this;
             }
+            mmlString = "";
         }
         
         
@@ -177,6 +181,16 @@ package org.si.sound.mml {
             last.next = tailEvent;  // append tailEvent at last
             
             return next;
+        }
+        
+        
+        /** @private [internal use] update mml string */
+        internal function _updateMMLString() : void
+        {
+            if (headEvent.next.id == MMLEvent.DEBUG_INFO) {
+                mmlString = MMLParser._getSequenceMML(headEvent.next);
+                headEvent.length = 0;
+            }
         }
         
         

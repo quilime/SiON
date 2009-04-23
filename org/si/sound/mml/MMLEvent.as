@@ -47,6 +47,7 @@ package org.si.sound.mml {
         static public const WAIT         :int = 30;
         static public const TEMPO        :int = 31;
         static public const REGISTER     :int = 32;
+        static public const DEBUG_INFO   :int = 33;
         
         
         /** Event id for the first user defined command. */

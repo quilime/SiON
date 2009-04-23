@@ -20,9 +20,6 @@ package org.si.sound.driver {
     {
     // constants
     //--------------------------------------------------
-        // maximum output
-        static public const OUTPUT_MAX:Number = 0.5;
-        
         // module types (0-9)
         static public const MT_PSG   :int = 0;  // PSG
         static public const MT_APU   :int = 1;  // FC pAPU
@@ -34,12 +31,13 @@ package org.si.sound.driver {
         static public const MT_PCM   :int = 7;  // PCM
         static public const MT_PULSE :int = 8;  // pulse wave
         static public const MT_RAMP  :int = 9;  // ramp wave
-        static public const MT_MAX   :int = 10;
+        static public const MT_SAMPLE:int = 10; // sampler
+        static public const MT_MAX   :int = 11;
         
-        static public const MT_EFFECT:int = 10; // first effect module id
-        static public const MT_DELAY :int = 10; // delay
-        static public const MT_EFFECT_MAX:int = 11;
-        static private const MT_ARRAY_SIZE:int = 11;
+        static public const MT_EFFECT:int = 11; // first effect module id
+        static public const MT_DELAY :int = 11; // delay
+        static public const MT_EFFECT_MAX:int = 12;
+        static private const MT_ARRAY_SIZE:int = 12;
         
         
         
@@ -51,16 +49,11 @@ package org.si.sound.driver {
         /** FM parameter settings */
         public var fmParameters:Array = null;
 
-        /** Panning volume table. */
-        public var panTable:Vector.<Number> = null;
         /** module setting table */
         public var channelModuleSetting:Array = null;
         /** module setting table */
         public var effectModuleSetting:Array = null;
-        
-        /** int->Number ratio on pulse data */
-        public var i2n:Number;
-        
+       
         
         /** table from tsscp @s commnd to OPM ar */
         public var tss_s2ar:Vector.<String> = null;
@@ -120,15 +113,6 @@ package org.si.sound.driver {
         {
             var i:int;
             
-            // int->Number ratio on pulse data
-            i2n = OUTPUT_MAX/Number(1<<SiOPMTable.LOG_VOLUME_BITS);
-            
-            // panning volume table
-            panTable = new Vector.<Number>(129, true);
-            for (i=0; i<129; i++) {
-                panTable[i] = Math.sin(i*0.012176715711588345);  // 0.012176715711588345 = PI*0.5/129
-            }
-            
             // Channel module setting
             var ms:SiMMLChannelSetting;
             channelModuleSetting = new Array(MT_ARRAY_SIZE);
@@ -137,11 +121,12 @@ package org.si.sound.driver {
             channelModuleSetting[MT_NOISE]  = new SiMMLChannelSetting(MT_NOISE,  SiOPMTable.PG_NOISE_WHITE, 16,  1, 1); // noise
             channelModuleSetting[MT_MA3]    = new SiMMLChannelSetting(MT_MA3,    SiOPMTable.PG_MA3_WAVE,    32,  1, 1); // MA3
             channelModuleSetting[MT_CUSTOM] = new SiMMLChannelSetting(MT_CUSTOM, SiOPMTable.PG_CUSTOM,      256, 1, 1); // SCC / custom wave table
-            channelModuleSetting[MT_ALL]    = new SiMMLChannelSetting(MT_ALL,    SiOPMTable.PG_SINE,        1024,1, 1); // all pgTypes
+            channelModuleSetting[MT_ALL]    = new SiMMLChannelSetting(MT_ALL,    SiOPMTable.PG_SINE,        512, 1, 1); // all pgTypes
             channelModuleSetting[MT_FM]     = new SiMMLChannelSetting(MT_FM,     SiOPMTable.PG_SINE,        1,   1, 1); // FM sound module
-            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         512, 1, 1); // PCM
+            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         256, 1, 1); // PCM
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 1); // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 1); // ramp
+            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, SiOPMTable.PG_SAMPLE,      256, 1, 1); // sampler
             channelModuleSetting[MT_DELAY]  = new SiMMLChannelSetting(MT_DELAY,  SiOPMTable.PG_SINE, 1, 1, 1);
             
             // PSG setting
@@ -152,10 +137,10 @@ package org.si.sound.driver {
             ms._ptTypeList[0] = SiOPMTable.PT_PSG;
             ms._ptTypeList[1] = SiOPMTable.PT_PSG_NOISE;
             ms._ptTypeList[2] = SiOPMTable.PT_PSG;
-            ms._channelIndex[0] = 0;
-            ms._channelIndex[1] = 0;
-            ms._channelIndex[2] = 0;
-            ms._channelIndex[3] = 1;
+            ms._channelTone[0] = 0;
+            ms._channelTone[1] = 0;
+            ms._channelTone[2] = 0;
+            ms._channelTone[3] = 1;
             // APU setting
             ms = channelModuleSetting[MT_APU];
             ms._pgTypeList[8]  = SiOPMTable.PG_TRIANGLE_FC;
@@ -165,16 +150,19 @@ package org.si.sound.driver {
             for (i=0; i<9;  i++) { ms._ptTypeList[i] = SiOPMTable.PT_PSG; }
             for (i=9; i<12; i++) { ms._ptTypeList[i] = SiOPMTable.PT_APU_NOISE; }
             ms._initIndex       = 1;
-            ms._channelIndex[0] = 4;
-            ms._channelIndex[1] = 4;
-            ms._channelIndex[2] = 8;
-            ms._channelIndex[3] = 9;
-            ms._channelIndex[4] = 11;
+            ms._channelTone[0] = 4;
+            ms._channelTone[1] = 4;
+            ms._channelTone[2] = 8;
+            ms._channelTone[3] = 9;
+            ms._channelTone[4] = 11;
             // FM setting
             channelModuleSetting[MT_FM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_FM;
+            // Sampler
+            channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
+            channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
             // Delay
             channelModuleSetting[MT_DELAY]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
-            channelModuleSetting[MT_DELAY]._channelType = SiOPMChannelManager.CT_EFFECT_DELAY;
+            channelModuleSetting[MT_DELAY]._channelType    = SiOPMChannelManager.CT_EFFECT_DELAY;
             
             
             // These tables are just depended on my ear ... ('A`)

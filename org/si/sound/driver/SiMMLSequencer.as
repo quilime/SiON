@@ -49,7 +49,7 @@ package org.si.sound.driver {
     // valiables
     //--------------------------------------------------
         /** Module instance. */
-        public var module:SiOPMModule;
+        protected var module:SiOPMModule;
         
         /** Current processing track. */
         protected var currentTrack:SiMMLSequencerTrack;
@@ -76,8 +76,8 @@ package org.si.sound.driver {
         private var _title:String;
         // SiMMLSequencerTracks count
         private var _trackCount:int;
-        // SiMMLSequencerTracks
-        private var _tracks:Array;
+        // SiMMLSequencerTracks list
+        private var _tracks:Vector.<SiMMLSequencerTrack>;
         // Processed sample count
         private var _processedSampleCount:int;
         
@@ -104,22 +104,21 @@ package org.si.sound.driver {
     // constructor
     //--------------------------------------------------
         /** Create new sequencer. */
-        function SiMMLSequencer()
+        function SiMMLSequencer(module:SiOPMModule)
         {
             super();
             
             var i:int;
             
             // initialize
-            module = new SiOPMModule();
-            _tracks = [];
+            this.module = module;
+            _tracks = new Vector.<SiMMLSequencerTrack>();
             _trackCount = 0;
             _processedSampleCount = 0;
             connector = new MMLExecutorConnector();
             macroStrings  = new Vector.<String> (MACRO_SIZE, true);
             
             // initialize table once
-            SiOPMTable.initialize(3580000, 44100);
             SiMMLTable.initialize();
             
             // pitch
@@ -208,7 +207,7 @@ package org.si.sound.driver {
             module.initOperatorParam.modLevel   = 5;
             module.initOperatorParam.setPGType(SiOPMTable.PG_SQUARE);
             
-            // parser settings
+            // parsers initial settings
             setting.defaultBPM        = 120;
             setting.defaultLValue     = 4;
             setting.defaultQuantRatio = 6;
@@ -238,11 +237,11 @@ package org.si.sound.driver {
             var i:int, trk:SiMMLSequencerTrack;
             for (i=0; i<_trackCount; i++) {
                 trk = _tracks[i];
-                trk.reset();
-                trk.masterVolume = setting.defaultFineVolume;
-                trk.velocity     = setting.defaultVolume<<3;
-                trk.quantRatio   = setting.defaultQuantRatio / setting.maxQuantRatio;
-                trk.quantCount   = calcSampleCount(setting.defaultQuantCount);
+                trk.reset(0);
+                trk.velocity   = setting.defaultVolume<<3;
+                trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
+                trk.quantCount = calcSampleCount(setting.defaultQuantCount);
+                trk.channel.masterVolume = setting.defaultFineVolume;
             }
             _processedSampleCount = 0;
         }
@@ -263,7 +262,7 @@ package org.si.sound.driver {
         }
         
         
-        /** Get free controlable track */
+        /** Find controlable track by note */
         public function findControlableTrack(note:int) : SiMMLSequencerTrack
         {
             var i:int;
@@ -279,14 +278,31 @@ package org.si.sound.driver {
         {
             var trk:SiMMLSequencerTrack = (_trackCount < _tracks.length) ? _tracks[_trackCount] : (new SiMMLSequencerTrack());
             trk._initialize(null, 60, _trackCount);
-            trk.reset();
-            trk.masterVolume = setting.defaultFineVolume;
-            trk.velocity     = setting.defaultVolume<<3;
-            trk.quantRatio   = setting.defaultQuantRatio / setting.maxQuantRatio;
-            trk.quantCount   = calcSampleCount(setting.defaultQuantCount);
+            trk.reset(0);
+            
+            trk.velocity   = setting.defaultVolume<<3;
+            trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
+            trk.quantCount = calcSampleCount(setting.defaultQuantCount);
+            trk.channel.masterVolume = setting.defaultFineVolume;
             _tracks[_trackCount] = trk;
             _trackCount++;
             return trk;
+        }
+                
+        
+        
+        
+    // compile
+    //--------------------------------------------------
+        /** Prepare to compile mml string. Calls onBeforeCompile() inside.
+         *  @param data Data instance.
+         *  @param mml MML String.
+         *  @return Returns false when it's not necessary to compile.
+         */
+        override public function prepareCompile(data:MMLData, mml:String) : Boolean
+        {
+            _trackCount = 0;
+            return super.prepareCompile(data, mml);
         }
         
         
@@ -295,19 +311,17 @@ package org.si.sound.driver {
     // process
     //--------------------------------------------------
         /** Prepare to process audio.
-         *  @param bufferSize Buffering size of processing samples at once.
+         *  @param bufferLength Buffering length of processing samples at once.
          *  @param resetParams Reset all channel parameters.
          */
-        override public function prepareProcess(data:MMLData, bufferSize:int) : void
+        override public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
-            // initialize module and all channels
-            module.initialize(bufferSize);
-            module.reset();
+            // initialize all channels
             _trackCount = 0;
             _processedSampleCount = 0;
             
-            // call super function
-            super.prepareProcess(data, bufferSize);
+            // call super function (set mmlData/grobalSequence/defaultBPM inside)
+            super.prepareProcess(data, sampleRate, bufferLength);
             
             if (mmlData) {
                 // initialize all tracks
@@ -338,9 +352,10 @@ package org.si.sound.driver {
             var ret:Boolean = true, i:int, bufferingTick:int;
             
             // prepare buffering
-            for (i=0; i<_trackCount; i++) {
-                _tracks[i].channel.prepareBuffer();
-            }
+            for (i=0; i<_trackCount; i++) _tracks[i].channel.prepareBuffer();
+
+            // clear all buffers
+            module.clearAllBuffers();
             
             // buffering
             startGlobalSequence();
@@ -399,12 +414,6 @@ package org.si.sound.driver {
         
     // implements
     //--------------------------------------------------
-        /** onInitialize */
-        override protected function onInitialize() : void
-        {
-        }
-        
-
         /** Preprocess mml string */
         override protected function onBeforeCompile(mml:String) : String
         {
@@ -611,7 +620,7 @@ package org.si.sound.driver {
                 noData:Boolean = (res[2] == undefined),             // true when no {...} block
                 dat:String     = (noData) ? "" : String(res[3]),    // data string (inside of {...} block)
                 pfx:String     = String(res[4]);                    // postfix string
-            
+
             // executing
             switch (cmd) {
                 // tone settings
@@ -674,8 +683,8 @@ package org.si.sound.driver {
                     mmlData.setWaveTable(num, _parseWavbMacro((noData) ? pfx : dat), 5);
                     return true;
                 }
-                case '#PRPCM': {
-                    if (num < 0 || num > 255) throw _errorParameterNotValid("#PRPCM", String(num));
+                case '#RENDER': {
+                    if (num < 0 || num > 255) throw _errorParameterNotValid("#RENDER", String(num));
                     _parsePreRenderPCM(dat, pfx);
                     return true;
                 }
@@ -690,9 +699,10 @@ package org.si.sound.driver {
                 case '#PCMC':
                     throw _errorSystemCommand("#" + cmd + " is not supported currently.");
                     
-                // error
+                // user defined system commands ?
                 default:
-                    throw _errorSystemCommand("#" + cmd + " is not supported.");
+                    mmlData.systemCommands.push({command:cmd, number:num, content:dat, postfix:pfx});
+                    return true;
             }
             
             throw _errorUnknown("@_parseSystemCommandBefore()");
@@ -782,7 +792,7 @@ package org.si.sound.driver {
         }
         
         
-        // #PRPCM
+        // #RENDER
         private function _parsePreRenderPCM(dat:String, pfx:String) : void
         {
             return;
@@ -1278,24 +1288,25 @@ package org.si.sound.driver {
         // @v
         private function _onMasterVolume(e:MMLEvent) : MMLEvent
         {
+            e = e.getParameters(_p, SiOPMModule.STREAM_SIZE_MAX);
             if (currentTrack.eventMask & MASK_VOLUME) return e.next;    // check mask
-            currentTrack.masterVolume = e.data;                         // master volume
+            currentTrack.channel.setAllStreamSendLevels(_p);            // master volume
             return e.next;
         }
         
         // p
         private function _onPan(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_PAN) return e.next;               // check mask
-            currentTrack.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data<<4)-64;  // pan
+            if (currentTrack.eventMask & MASK_PAN) return e.next;                       // check mask
+            currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data<<4)-64;  // pan
             return e.next;
         }
 
         // @p
         private function _onFinePan(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_PAN) return e.next;         // check mask
-            currentTrack.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data);  // pan
+            if (currentTrack.eventMask & MASK_PAN) return e.next;                 // check mask
+            currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data);  // pan
             return e.next;
         }
         
@@ -1346,7 +1357,7 @@ package org.si.sound.driver {
         {
             e = e.getParameters(_p, 2);
             var id:int = _p[0] + SiMMLTable.MT_EFFECT;
-            if (id < SiMMLTable.MT_EFFECT || id >= SiMMLTable.MT_EFFECT_MAX) _p[0] = SiMMLTable.MT_DELAY;
+            if (id < SiMMLTable.MT_EFFECT || id >= SiMMLTable.MT_EFFECT_MAX) id = SiMMLTable.MT_DELAY;
             currentTrack.setChannelModuleType(id, _p[1]);
             return e.next;
         }

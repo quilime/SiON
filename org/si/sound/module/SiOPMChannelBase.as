@@ -43,8 +43,6 @@ package org.si.sound.module {
         protected var _table:SiOPMTable;
         /** chip */
         protected var _chip:SiOPMModule;
-        /** standard stereo out (_chip.outputBuffer) */
-        protected var _output:SLLNumber;
         /** functor to process */
         protected var _funcProcess:Function = _nop;
         
@@ -60,8 +58,10 @@ package org.si.sound.module {
         /** out pipe */         protected var _outPipe :SLLint;
         
         // Volume
-        /** left volume */      protected var _left_volume :Number;
-        /** right volume */     protected var _right_volume:Number;
+        /** idling flag */      protected var _isIdling:Boolean;
+        /** volume */           protected var _volume:Vector.<Number>;
+        /** pan */              protected var _pan:int;
+        /** effect send flag */ protected var _hasEffectSend:Boolean;
         
         // LPFilter
         /** filter switch */    protected var _filterOn:Boolean;
@@ -97,8 +97,9 @@ package org.si.sound.module {
         {
             _table = SiOPMTable.instance;
             _chip = chip;
-            _isActive = false;
+            _isFree = true;
             
+            _volume = new Vector.<Number>(SiOPMModule.STREAM_SIZE_MAX, true);
             _filter_eg_time   = new Vector.<int>(6, true);
             _filter_eg_cutoff = new Vector.<int>(6, true);
         }
@@ -123,6 +124,23 @@ package org.si.sound.module {
         public function setType(pgType:int, ptType:int) : void {}
         /** Release rate (s) */
         public function setAllReleaseRate(rr:int) : void {}
+        
+        /** Master volume (0-128) */
+        public function get masterVolume() : int { return _volume[0]*128; }
+        public function set masterVolume(v:int) : void {
+            v = (v<0) ? 0 : (v>128) ? 128 : v;
+            _volume[0] = v * 0.0078125;     // 0.0078125 = 1/128
+        }
+        
+        
+        /** Pan (-64-64 left=-64, center=0, right=64).<br/>
+         *  [left volume]  = cos((pan+64)/128*PI*0.5) * volume;<br/>
+         *  [right volume] = sin((pan+64)/128*PI*0.5) * volume;
+         */
+        public function get pan() : int { return _pan-64; }
+        public function set pan(p:int) : void {
+            _pan = (p<-64) ? 0 : (p>64) ? 128 : (p+64);
+        }
         
         /** active operator index (i). */
         public function set activeOperatorIndex(i:int) : void { }
@@ -153,11 +171,35 @@ package org.si.sound.module {
         
     // volume control
     //--------------------------------------------------
-        /** Stereo volume */
-        public function setStereoVolume(l:Number, r:Number) : void
+        /** set all stream send levels */
+        public function setAllStreamSendLevels(param:Vector.<int>) : void
         {
-            _left_volume  = l;
-            _right_volume = r;
+            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX, v:int;
+            for (i=0; i<imax; i++) {
+                v = param[i];
+                _volume[i] = (v != int.MIN_VALUE) ? (v * 0.0078125) : 0;
+            }
+            for (_hasEffectSend=false, i=1; i<imax; i++) {
+                if (_volume[i] > 0) _hasEffectSend = true;
+            }
+        }
+        
+        
+        /** set stream send.
+         *  @param streamNum stream number[0-7]. The streamNum of 0 means master volume.
+         *  @param volume send level[0-1].
+         */
+        public function setStreamSend(streamNum:int, volume:Number) : void
+        {
+            _volume[streamNum] = volume;
+            if (streamNum == 0) return;
+            if (volume > 0) _hasEffectSend = true;
+            else {
+                var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
+                for (_hasEffectSend=false, i=1; i<imax; i++) {
+                    if (_volume[i] > 0) _hasEffectSend = true;
+                }
+            }
         }
         
         
@@ -195,7 +237,7 @@ package org.si.sound.module {
         {
             _lfo_timer = 0;
             // 0.17294117647058824 = 44100/(1000*255)
-            _lfo_timer_step = SiOPMTable.LFO_TIMER_INITIAL/(ms*0.17294117647058824);
+            _lfo_timer_step = (SiOPMTable.LFO_TIMER_INITIAL/(ms*0.17294117647058824)) << _table.sampleRatePitchShift;
             
             //set OPM LFO frequency
             //_lfo_timer = 0;
@@ -285,8 +327,7 @@ package org.si.sound.module {
             
             // set pipe
             if (level > 0) {
-                _inPipe = _chip.getPipe(pipeIndex);
-                for (i=0; i<_bufferIndex; i++) { _inPipe = _inPipe.next; }
+                _inPipe = _chip.getPipe(pipeIndex, _bufferIndex);
                 _inputMode = INPUT_PIPE;
             } else {
                 _inPipe = _chip.zeroBuffer;
@@ -310,28 +351,23 @@ package org.si.sound.module {
             _ringmodLevel = level*4/Number(1<<SiOPMTable.LOG_VOLUME_BITS);
             
             // set pipe
-            if (level > 0) {
-                _ringPipe = _chip.getPipe(pipeIndex);
-                for (i=0; i<_bufferIndex; i++) { _ringPipe = _ringPipe.next; }
-            } else {
-                _ringPipe = null;
-            }
+            _ringPipe = (level > 0) ? _chip.getPipe(pipeIndex, _bufferIndex) : null;
         }
         
         
         /** Set output pipe  (@o).
          *  @param outputMode Output mode. 0=standard stereo out, 1=overwrite pipe. 2=add pipe.
-         *  @param pipeIndex Output pipe index (0-3).
+         *  @param outputIndex Output stream/pipe index (0-3).
          */
-        public function setOutput(outputMode:int, pipeIndex:int) : void
+        public function setOutput(outputMode:int, outputIndex:int) : void
         {
-            if (pipeIndex > 3) return;
+            if (outputIndex > 3) return;
             var i:int, flagAdd:Boolean;
 
             // set pipe
             if (outputMode == OUTPUT_STANDARD) {
-                flagAdd = false;        // ovewrite mode
-                pipeIndex = 4;          // pipe[4] is used.
+                outputIndex = 4;                  // pipe[4] is used.
+                flagAdd = false;                  // ovewrite mode
             } else {
                 flagAdd = (outputMode == OUTPUT_ADD);  // ovewrite/additional mode
             }
@@ -340,9 +376,8 @@ package org.si.sound.module {
             _outputMode = outputMode;
 
             // set output pipe
-            _outPipe = _chip.getPipe(pipeIndex);
-            for (i=0; i<_bufferIndex; i++) { _outPipe = _outPipe.next; }
-            
+            _outPipe = _chip.getPipe(outputIndex, _bufferIndex);
+
             // set base pipe
             _basePipe = (flagAdd) ? (_outPipe) : (_chip.zeroBuffer);
         }
@@ -353,19 +388,24 @@ package org.si.sound.module {
     // operations
     //--------------------------------------------------
         /** Initialize. */
-        public function initialize(prev:SiOPMChannelBase) : void
+        public function initialize(prev:SiOPMChannelBase, bufferIndex:int) : void
         {
+            // volume
+            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
             if (prev) {
-                _output = prev._output;
-                _bufferIndex = prev._bufferIndex;
-                _left_volume  = prev._left_volume;
-                _right_volume = prev._right_volume;
+                for (i=0; i<imax; i++) _volume[i] = prev._volume[i];
+                _pan = prev._pan;
+                _hasEffectSend = prev._hasEffectSend;
             } else {
-                _output = _chip.outputBuffer;
-                _bufferIndex = 0;
-                _left_volume  = 1;
-                _right_volume = 1;
+                _volume[0] = 0.5;
+                for (i=1; i<imax; i++) _volume[i] = 0;
+                _pan = 64;
+                _hasEffectSend = false;
             }
+            
+            // buffer index
+            _isIdling = false;
+            _bufferIndex  = bufferIndex;
             
             // LFO
             initializeLFO(SiOPMTable.LFO_WAVE_TRIANGLE);
@@ -431,43 +471,38 @@ package org.si.sound.module {
         public function prepareBuffer() : void
         {
             _bufferIndex = 0;
+            _isIdling = false;
         }
         
         
         /** Buffering */
         public function buffer(len:int) : void
         {
-            var i:int, n:Number;
-            
-            // preserve _outPipe
-            var monoOut:SLLint = _outPipe;
-            
-            // processing (update _outPipe inside)
-            _funcProcess(len);
-            
-            // ring modulation here
-            if (_ringPipe) _ringModulation(monoOut, len);
-            
-            // overwrite standard stereo output
-            var stereoOut:SLLNumber = _output;
-            if (_outputMode == OUTPUT_STANDARD) {
-                if (_filterOn) {
-                    _LPFilter(monoOut, stereoOut, len);
-                } else {
-                    for (i=0; i<len; i++) {
-                        n = Number(monoOut.i);
-                        stereoOut.n      += n * _left_volume;
-                        stereoOut.next.n += n * _right_volume;
-                        monoOut   = monoOut.next;
-                        stereoOut = stereoOut.next.next;
-                    }
-                    _output = stereoOut;
-                }
+            if (_isIdling) {
+                // idling process
+                _nop(len);
             } else {
-                for (i=0; i<len; i++) {
-                    stereoOut = stereoOut.next.next;
+                // preserve _outPipe
+                var monoOut:SLLint = _outPipe;
+                
+                // processing (update _outPipe inside)
+                _funcProcess(len);
+                
+                // ring modulation / LPFilter
+                if (_ringPipe) _applyRingModulation(monoOut, len);
+                if (_filterOn) _applyLPFilter(monoOut, len);
+                
+                // standard output
+                if (_outputMode == OUTPUT_STANDARD) {
+                    if (_hasEffectSend) {
+                        var i:int, imax:int = _chip.streamBuffer.length;
+                        for (i=0; i<imax; i++) {
+                            if (_volume[i]>0) _chip.streamBuffer[i].write(monoOut, _bufferIndex, len, _volume[i], _pan);
+                        }
+                    } else {
+                        _chip.streamBuffer[0].write(monoOut, _bufferIndex, len, _volume[0], _pan);
+                    }
                 }
-                _output = stereoOut;
             }
             
             // update buffer index
@@ -476,22 +511,24 @@ package org.si.sound.module {
         
         
         // ring modulation
-        private function _ringModulation(op:SLLint, len:int) : void
+        private function _applyRingModulation(pointer:SLLint, len:int) : void
         {
             var i:int, rp:SLLint = _ringPipe;
             for (i=0; i<len; i++) {
-                op.i *= rp.i * _ringmodLevel;
-                rp   = rp.next;
-                op   = op.next;
+                pointer.i *= rp.i * _ringmodLevel;
+                rp = rp.next;
+                pointer = pointer.next;
             }
             _ringPipe = rp;
         }
         
         
         // low-pass filter
-        private function _LPFilter(monoOut:SLLint, stereoOut:SLLNumber, len:int) : void
+        private function _applyLPFilter(pointer:SLLint, len:int) : void
         {
-            var i:int, step:int, I:int, V:int, out:int, cut:Number, fb:Number;
+            var i:int, imax:int, step:int, I:int, V:int, out:int, cut:Number, fb:Number;
+            
+            // initialize
             out = _cutoff + _cutoff_offset;
             if (out<0) out=0 
             else if (out>128) out=128;
@@ -506,12 +543,10 @@ package org.si.sound.module {
             while (len >= step) {
                 // processing
                 for (i=0; i<step; i++) {
-                    I += (Number(monoOut.i) - V - I * fb) * cut;
+                    I += (Number(pointer.i) - V - I * fb) * cut;
                     V += I * cut;
-                    stereoOut.n      += V * _left_volume;
-                    stereoOut.next.n += V * _right_volume;
-                    monoOut   = monoOut.next;
-                    stereoOut = stereoOut.next.next;
+                    pointer.i = int(V);
+                    pointer   = pointer.next;
                 }
                 len -= step;
                 
@@ -530,14 +565,11 @@ package org.si.sound.module {
             
             // process remains
             for (i=0; i<len; i++) {
-                I += (Number(monoOut.i) - V - I * fb) * cut;
+                I += (Number(pointer.i) - V - I * fb) * cut;
                 V += I * cut;
-                stereoOut.n      += V * _left_volume;
-                stereoOut.next.n += V * _right_volume;
-                monoOut   = monoOut.next;
-                stereoOut = stereoOut.next.next;
+                pointer.i = int(V);
+                pointer   = pointer.next;
             }
-            _output = stereoOut;
             
             // next setting
             _prevStepRemain = _filter_eg_step - len;
@@ -627,7 +659,7 @@ package org.si.sound.module {
     // for channel manager operation [internal use]
     //--------------------------------------------------
         /** @private [internal use] DLL of channels */
-        internal var _isActive:Boolean = false;
+        internal var _isFree:Boolean = true;
         /** @private [internal use] DLL of channels */
         internal var _channelType:int = -1;
         /** @private [internal use] DLL of channels */

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// SiOPM data
+// SiON data
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -8,14 +8,17 @@
 
 
 package org.si.sound {
+    import flash.media.*;
+    import flash.utils.ByteArray;
     import org.si.sound.driver.SiMMLData;
+    import org.si.sound.module.SiOPMTable;
     import org.si.utils.SLLint;
     
     
     
-    /** SiOPM data class.
+    /** SiON data class.
      */
-    public class SiOPMData extends SiMMLData
+    public class SiONData extends SiMMLData
     {
     // valiables
     //----------------------------------------
@@ -25,15 +28,9 @@ package org.si.sound {
         
     // constructor
     //----------------------------------------
-        function SiOPMData()
+        function SiONData()
         {
         }
-        
-        
-        
-        
-    // operations
-    //----------------------------------------
     }
 }
 

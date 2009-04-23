@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// Events for SiOPM
+// Events for SiON
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -15,9 +15,9 @@ package org.si.sound {
     
     
     
-    /** SiOPM Event class.
+    /** SiON Event class.
      */
-    public class SiOPMEvent extends Event 
+    public class SiONEvent extends Event 
     {
     // constants
     //----------------------------------------
@@ -33,7 +33,7 @@ package org.si.sound {
     // valiables
     //----------------------------------------
         // driver
-        private var _driver:SiOPMDriver;
+        private var _driver:SiONDriver;
         
         // streaming buffer
         private var _streamBuffer:ByteArray;
@@ -44,10 +44,10 @@ package org.si.sound {
     // properties
     //----------------------------------------
         /** Sound driver. */
-        public function get driver():SiOPMDriver { return _driver; }
+        public function get driver():SiONDriver { return _driver; }
         
         /** Sound data. */
-        public function get data():SiOPMData { return _driver.data; }
+        public function get data():SiONData { return _driver.data; }
         
         /** ByteArray of sound stream. This is available only in STREAM event. */
         public function get streamBuffer():ByteArray { return _streamBuffer; }
@@ -57,8 +57,8 @@ package org.si.sound {
         
     // functions
     //----------------------------------------
-        /** Creates an SiOPMEvent object to pass as a parameter to event listeners. */
-        public function SiOPMEvent(type:String, driver:SiOPMDriver, streamBuffer:ByteArray = null, bubbles:Boolean = false, cancelable:Boolean = false)
+        /** Creates an SiONEvent object to pass as a parameter to event listeners. */
+        public function SiONEvent(type:String, driver:SiONDriver, streamBuffer:ByteArray = null, bubbles:Boolean = false, cancelable:Boolean = false)
         {
             super(type, bubbles, cancelable);
             _driver = driver;
@@ -69,7 +69,7 @@ package org.si.sound {
         /** clone. */
         override public function clone() : Event
         { 
-            return new SiOPMEvent(type, driver, streamBuffer, bubbles, cancelable);
+            return new SiONEvent(type, driver, streamBuffer, bubbles, cancelable);
         }
     }
 }

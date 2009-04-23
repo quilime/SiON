@@ -14,8 +14,9 @@ package org.si.sound.module {
     // constants
     //--------------------------------------------------
         static public const CT_CHANNEL_FM:int = 0;
-        static public const CT_EFFECT_DELAY:int = 1;
-        static public const CT_MAX:int = 2;
+        static public const CT_CHANNEL_SAMPLER:int = 1;
+        static public const CT_EFFECT_DELAY:int = 2;
+        static public const CT_MAX:int = 3;
         
         
         
@@ -49,7 +50,7 @@ package org.si.sound.module {
             _channelType  = channelType;
             _channelClass = channelClass;
             _term = new SiOPMChannelBase(_chip);
-            _term._isActive = true;
+            _term._isFree = false;
             _term._next = _term;
             _term._prev = _term;
             _length = 0;
@@ -68,7 +69,7 @@ package org.si.sound.module {
             for (i=0; i<imax; i++) {
                 newInstance = new _channelClass(_chip);
                 newInstance._channelType = _channelType;
-                newInstance._isActive = false;
+                newInstance._isFree = true;
                 newInstance._prev = _term._prev;
                 newInstance._next = _term;
                 newInstance._prev._next = newInstance;
@@ -79,41 +80,41 @@ package org.si.sound.module {
         
         
         // get new channel. returns null when the channel count is overflow.
-        private function _newChannel(prev:SiOPMChannelBase) : SiOPMChannelBase
+        private function _newChannel(prev:SiOPMChannelBase, bufferIndex:int) : SiOPMChannelBase
         {
-            var newInstance:SiOPMChannelBase;
-            if (_term._next._isActive) {
+            var newChannel:SiOPMChannelBase;
+            if (_term._next._isFree) {
+                // The head channel is free -> The head will be a new channel.
+                newChannel = _term._next;
+                newChannel._prev._next = newChannel._next;
+                newChannel._next._prev = newChannel._prev;
+            } else {
                 // The head channel is active -> channel overflow.
                 if (!_enableExpand) return null;
                 // create new channel.
-                newInstance = new _channelClass(_chip);
-                newInstance._channelType = _channelType;
+                newChannel = new _channelClass(_chip);
+                newChannel._channelType = _channelType;
                 _length++;
-            } else {
-                // The head channel isn't active -> The head is made into a new channel.
-                newInstance = _term._next;
-                newInstance._prev._next = newInstance._next;
-                newInstance._next._prev = newInstance._prev;
             }
             
-            // set newInstance to tail and activate.
-            newInstance._isActive = true;
-            newInstance._prev = _term._prev;
-            newInstance._next = _term;
-            newInstance._prev._next = newInstance;
-            newInstance._next._prev = newInstance;
+            // set newChannel to tail and activate.
+            newChannel._isFree = false;
+            newChannel._prev = _term._prev;
+            newChannel._next = _term;
+            newChannel._prev._next = newChannel;
+            newChannel._next._prev = newChannel;
             
             // initialize
-            newInstance.initialize(prev);
+            newChannel.initialize(prev, bufferIndex);
             
-            return newInstance;
+            return newChannel;
         }
         
         
         // delete channel.
         private function _deleteChannel(ch:SiOPMChannelBase) : void
         {
-            ch._isActive = false;
+            ch._isFree = true;
             ch._prev._next = ch._next;
             ch._next._prev = ch._prev;
             ch._prev = _term;
@@ -128,8 +129,8 @@ package org.si.sound.module {
         {
             var ch:SiOPMChannelBase;
             for (ch=_term._next; ch!=_term; ch=ch._next) {
-                ch._isActive = false;
-                ch.initialize(null);
+                ch._isFree = true;
+                ch.initialize(null, 0);
             }
         }
         
@@ -139,7 +140,7 @@ package org.si.sound.module {
         {
             var ch:SiOPMChannelBase;
             for (ch=_term._next; ch!=_term; ch=ch._next) {
-                ch._isActive = false;
+                ch._isFree = true;
                 ch.reset();
             }
         }
@@ -163,8 +164,9 @@ package org.si.sound.module {
             _chip         = chip;
             _enableExpand = enableExpand;
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
-            _channelManagers[CT_CHANNEL_FM]   = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
-            _channelManagers[CT_EFFECT_DELAY] = new SiOPMChannelManager(SiOPMChannelEffectDelay, CT_EFFECT_DELAY);
+            _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
+            _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler,     CT_CHANNEL_SAMPLER);
+            _channelManagers[CT_EFFECT_DELAY]    = new SiOPMChannelManager(SiOPMChannelEffectDelay, CT_EFFECT_DELAY);
         }
         
         
@@ -189,9 +191,9 @@ package org.si.sound.module {
         
         
         /** New channel with initializing. */
-        static public function newChannel(type:int, prev:SiOPMChannelBase) : SiOPMChannelBase
+        static public function newChannel(type:int, prev:SiOPMChannelBase, bufferIndex:int) : SiOPMChannelBase
         {
-            return _channelManagers[type]._newChannel(prev);
+            return _channelManagers[type]._newChannel(prev, bufferIndex);
         }
         
         

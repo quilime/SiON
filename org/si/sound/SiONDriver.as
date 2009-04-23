@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// SiOPM driver
+// SiON driver
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -21,48 +21,62 @@ package org.si.sound {
     import org.si.utils.SLLNumber;
     import org.si.sound.driver.SiMMLSequencer;
     import org.si.sound.driver.SiMMLSequencerTrack;
+    import org.si.sound.module.SiOPMTable;
+    import org.si.sound.module.SiOPMModule;
     import org.si.sound.module.SiOPMChannelParam;
+    import org.si.sound.effect.SiEffectModule;
     
     
     
     
-    /** SiOPM driver class.<br/>
+    /** SiON driver class.<br/>
      *  -- BASIC USAGE --<br/>
-     *  1) Create new SiOPMDriver.<br/>
-     *  2) addChild the instance of SiOPMDriver onto the stage or stage's descendant.<br/>
-     *  3) addEventListner(SiOPMEvent.COMPILE_COMPLETE) to catch the finished timing of compile, and call compile("mmlString").<br/>
-     *  4) After the compiling (lets say, in the callback of the SiOPMEvent.COMPILE_COMPLETE event), call play() to start playing sound.<br/>
+     *  1) Create new SiONDriver.<br/>
+     *  2) addChild the instance of SiONDriver onto the stage or stage's descendant.<br/>
+     *  3) addEventListner(SiONEvent.COMPILE_COMPLETE) to catch the finished timing of compile, and call compile("mmlString").<br/>
+     *  4) After the compiling (lets say, in the callback of the SiONEvent.COMPILE_COMPLETE event), call play() to start playing sound.<br/>
      *  5) Call stop() to stop the sound.<br/>
      */
-    public class SiOPMDriver extends Sprite
+    public class SiONDriver extends Sprite
     {
     // constants
     //----------------------------------------
-        static public const VERSION:String = "0.4.1";
+        /** version number */
+        static public const VERSION:String = "0.5.0";
         
+        // event listener type
+        private const NO_LISTEN:int = 0;
+        private const LISTEN_COMPILE:int = 1;
+        private const LISTEN_PROCESS:int = 2;
         
-        protected const NO_LISTEN:int = 0;
-        protected const LISTEN_COMPILE:int = 1;
-        protected const LISTEN_PROCESS:int = 2;
-        
-        protected const TIME_AVARAGING_SIZE:int = 8;
+        // time avaraging sample count
+        private const TIME_AVARAGING_COUNT:int = 8;
         
         
         
         
     // valiables
     //----------------------------------------
-        /** SiMMLSequencer instance. */
+        /** sound module. */
+        public var module:SiOPMModule;
+        
+        /** effector. */
+        public var effector:SiEffectModule;
+        
+        /** mml sequencer. */
         public var sequencer:SiMMLSequencer;
         
-        protected var _data:SiOPMData;            // data to compile or process
+        // protected:
+        protected var _data:SiONData;             // data to compile or process
         protected var _mmlString:String;          // mml string of previous compiling
         protected var _sound:Sound;               // sound stream instance
         protected var _soundChannel:SoundChannel;     // sound channel instance
         protected var _soundTransform:SoundTransform; // sound transform
         
-        protected var _freqRatio:int;             // module output frequency ratio (44100 or 22050)
-        protected var _bufferSize:int;            // module and streaming buffer size (8192, 4096 or 2048)
+        protected var _channelCount:int;          // module output channels (1 or 2)
+        protected var _sampleRate:int;            // module output frequency ratio (44100 or 22050)
+        protected var _bitRate:int;               // module output bitrate (0 or 8 or 16)
+        protected var _bufferLength:int;          // module and streaming buffer size (8192, 4096 or 2048)
         protected var _throwErrorEvent:Boolean;   // true; throw ErrorEvent, false; throw Error
         
         protected var _compileInterval:int        // interrupting interval in compile
@@ -80,7 +94,7 @@ package org.si.sound {
         
         protected var _listenEvent:int;           // current lintening event
         
-        static protected var _compileQue:Vector.<SiOPMCompileQue> = null;   // compiling que
+        static protected var _compileQue:Vector.<SiONCompileQue> = null;   // compiling que
         
         
         
@@ -92,7 +106,7 @@ package org.si.sound {
         public function get mmlString() : String { return _mmlString; }
         
         /** Data to compile and process. */
-        public function get data() : SiOPMData { return _data; }
+        public function get data() : SiONData { return _data; }
         
         /** Sound instance. */
         public function get sound() : Sound { return _sound; }
@@ -148,13 +162,13 @@ package org.si.sound {
         // operation
         /** Buffering position[ms] on mml data. */
         public function get position() : Number {
-            return sequencer.processedSampleCount * 1000 / _freqRatio;
+            return sequencer.processedSampleCount * 1000 / _sampleRate;
         }
         public function set position(pos:Number) : void {
             _position = pos;
             if (sequencer.isReadyToProcess) {
                 sequencer.resetAllTracks();
-                sequencer.dummyProcess(_position * _freqRatio * 0.001);
+                sequencer.dummyProcess(_position * _sampleRate * 0.001);
             }
         }
         
@@ -166,24 +180,27 @@ package org.si.sound {
         /** Create driver to manage the SiOPM module, compiler and sequencer.
          *  @param channel Channel count. 1 or 2 is available.
          *  @param sampleRate Sampling ratio of wave. 22050 or 44100 is available.
-         *  @param bitRate Bit ratio of wave. 8 or 16 is available.
-         *  @param bufferSize Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
+         *  @param bitRate Bit ratio of wave. 0, 8 or 16 is available. 0 means float value [-1 to 1].
+         *  @param bufferLength Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
          *  @param throwErrorEvent true; throw ErrorEvent when it errors. false; throw Error when it errors.
          */
-        function SiOPMDriver(channelCount:int=2, sampleRate:int=44100, bitRate:int=16, bufferSize:int=8192, throwErrorEvent:Boolean=true)
+        function SiONDriver(channelCount:int=2, sampleRate:int=44100, bitRate:int=0, bufferLength:int=8192, throwErrorEvent:Boolean=true)
         {
-            if (!_compileQue) _compileQue = new Vector.<SiOPMCompileQue>();
+            if (!_compileQue) _compileQue = new Vector.<SiONCompileQue>();
             
-            sequencer = new SiMMLSequencer();
+            module = new SiOPMModule();
+            effector = new SiEffectModule(module);
+            sequencer = new SiMMLSequencer(module);
             _sound = new Sound();
             _soundTransform = new SoundTransform();
 
             // initialize
             _throwErrorEvent = throwErrorEvent;
             
-            sequencer.initialize(channelCount, sampleRate, bitRate);
-            _bufferSize = bufferSize;
-            _freqRatio  = sampleRate;
+            _channelCount = channelCount;
+            _sampleRate = 44100; // sampleRate; 44100 is only available now.
+            _bitRate = bitRate;
+            _bufferLength = bufferLength;
             _listenEvent = NO_LISTEN;
             
             _soundTransform.volume = 1;
@@ -195,8 +212,8 @@ package org.si.sound {
             
             _timeCompile = 0;
             _timeProcessTotal = 0;
-            _timeProcessData = SLLint.allocRing(TIME_AVARAGING_SIZE);
-            _timeProcessAveRatio = _freqRatio / (_bufferSize * TIME_AVARAGING_SIZE);
+            _timeProcessData = SLLint.allocRing(TIME_AVARAGING_COUNT);
+            _timeProcessAveRatio = _sampleRate / (_bufferLength * TIME_AVARAGING_COUNT);
             _timePrevStream = 0;
             _latency = 0;
             
@@ -214,16 +231,16 @@ package org.si.sound {
     // operations for data
     //----------------------------------------
         /** Compile the MML string. 
-         *  After calling this function, the SiOPMEvent.COMPILE_PROGRESS, SiOPMEvent.COMPILE_COMPLETE and ErrorEvent.ERROR events will be dispatched.<br/>
-         *  The SiOPMEvent.COMPILE_PROGRESS is dispatched when it's compiling in the interval of the argument "interval".<br/>
-         *  The SiOPMEvent.COMPILE_COMPLETE is dispatched when the compile is finished successfully.<br/>
+         *  After calling this function, the SiONEvent.COMPILE_PROGRESS, SiONEvent.COMPILE_COMPLETE and ErrorEvent.ERROR events will be dispatched.<br/>
+         *  The SiONEvent.COMPILE_PROGRESS is dispatched when it's compiling in the interval of the argument "interval".<br/>
+         *  The SiONEvent.COMPILE_COMPLETE is dispatched when the compile is finished successfully.<br/>
          *  The ErrorEvent.ERROR is dispatched when some error appears during the compile.<br/>
          *  @param mml MML string to compile.
-         *  @param interavl Interval to interrupt compiling [ms]. The value of 0 sets no interruption and returns SiOPMData immediately.
-         *  @param data SiOPMData to compile. The SiOPMDriver creates new SiOPMData When this argument is null.
-         *  @return This function returns compiled data only when the argument "interval" set to 0, and returns null in other case.
+         *  @param interavl Interval to interrupt compiling [ms]. The value of 0 sets no interruption and returns SiONData immediately.
+         *  @param data SiONData to compile. The SiONDriver creates new SiONData instance when this argument is null.
+         *  @return This function returns compiled data only when the argument "interval" set to 0, and returns null in other cases.
          */
-        public function compile(mml:String, interval:int=0, data:SiOPMData=null) : SiOPMData
+        public function compile(mml:String, interval:int=0, data:SiONData=null) : SiONData
         {
             // stop sound
             stop();
@@ -257,38 +274,44 @@ package org.si.sound {
     //----------------------------------------
         /** Play sound.
          *  @param data Data to play. You can pass null when resume after pause.
+         *  @param resetEffector Reset effector before play data.
          */
-        public function play(data:SiOPMData=null) : void
+        public function play(data:SiONData=null, resetEffector:Boolean=true) : void
         {
             if (_isPaused) {
                 _isPaused = false;
-            } else 
-            if (data) {
+            } else {
                 _data = data;
-                if (_data) {
-                    // stop sound
-                    stop();
-                    
-                    // preparation
-                    sequencer.prepareProcess(_data, _bufferSize);
-                    if (_position > 0) { sequencer.dummyProcess(_position * _freqRatio * 0.001); }
-                    
-                    // dispatch streaming start event
-                    dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM_START, this));
-                    
-                    // start stream
-                    _process_addAllEventListners();
-                    _soundChannel = _sound.play();
-                    _soundChannel.soundTransform = _soundTransform;
-                    
-                    // initialize
-                    _timeProcessTotal = 0;
-                    for (var i:int=0; i<TIME_AVARAGING_SIZE; i++) {
-                        _timeProcessData.i = 0;
-                        _timeProcessData = _timeProcessData.next;
-                    }
-                    _isPaused = false;
+                
+                // stop sound
+                stop();
+                
+                // preparation
+                if (resetEffector) effector.initialize();
+                module.initialize(_channelCount, _bufferLength);
+                sequencer.prepareProcess(_data, _sampleRate, _bufferLength); // set tables inside
+                if (_data) _parseSystemCommand(_data.systemCommands);        // parse #EFFECT
+                effector.prepareProcess();                                   // set stream number inside
+                module.reset();
+                
+                // set position
+                if (_data && _position > 0) { sequencer.dummyProcess(_position * _sampleRate * 0.001); }
+                
+                // dispatch streaming start event
+                dispatchEvent(new SiONEvent(SiONEvent.STREAM_START, this));
+                
+                // start stream
+                _process_addAllEventListners();
+                _soundChannel = _sound.play();
+                _soundChannel.soundTransform = _soundTransform;
+                
+                // initialize
+                _timeProcessTotal = 0;
+                for (var i:int=0; i<TIME_AVARAGING_COUNT; i++) {
+                    _timeProcessData.i = 0;
+                    _timeProcessData = _timeProcessData.next;
                 }
+                _isPaused = false;
             }
         }
         
@@ -302,7 +325,7 @@ package org.si.sound {
                 _soundChannel = null;
                 _latency = 0;
                 // dispatch streaming stop event
-                dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM_STOP, this));
+                dispatchEvent(new SiONEvent(SiONEvent.STREAM_STOP, this));
             }
         }
         
@@ -315,7 +338,7 @@ package org.si.sound {
         
         
         /** Get track instance. This function only is available after play().
-         *  Most common timing to call is in the event handler of SiOPMEvent.STREAM_START.
+         *  Most common timing to call is in the event listener of SiONEvent.STREAM_START.
          *  @param trackIndex Track index. This must be less than SiMMLDriver.trackCount.
          *  @return Track instance. When the trackIndex is out of range, returns null.
          */
@@ -325,37 +348,49 @@ package org.si.sound {
         }
         
         
-        
-        
-    // MIDI interface
-    //----------------------------------------
-        /** Start null stream */
-        public function startStream() : void
+        // parse system command on SiONDriver
+        private function _parseSystemCommand(systemCommands:Array) : void
         {
-            // stop sound
-            stop();
-            
-            // preparation
-            sequencer.prepareProcess(null, _bufferSize);
-            
-            // dispatch streaming start event
-            dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM_START, this));
-            
-            // start stream
-            _process_addAllEventListners();
-            _soundChannel = _sound.play();
-            _soundChannel.soundTransform = _soundTransform;
-            
-            // initialize
-            _timeProcessTotal = 0;
-            for (var i:int=0; i<TIME_AVARAGING_SIZE; i++) {
-                _timeProcessData.i = 0;
-                _timeProcessData = _timeProcessData.next;
+            var id:int;
+            for each (var cmd:* in systemCommands) {
+                switch(cmd.command){
+                case "#EFFECT":
+                    effector.parseMML(cmd.number, cmd.content);
+                    break;
+                }
             }
-            _isPaused = false;
         }
         
         
+        
+        
+    // Data register
+    //----------------------------------------
+        /** Set wave table data */
+        public function setWaveTable(index:int, table:Vector.<Number>, bits:int) : void
+        {
+            //SiOPMTable.registerWaveTable(index, table, bits);
+        }
+        
+        
+        /** Set PCM data */
+        public function setPCMData(index:int, serialized:Vector.<int>, samplingOctave:int=5) : void
+        {
+            SiOPMTable.registerPCMData(index, serialized, samplingOctave);
+        }
+        
+        
+        /** Set wave data */
+        public function setWaveData(index:int, rawData:Vector.<int>, channelCount:int=1) : void
+        {
+            SiOPMTable.registerSample(index, rawData, channelCount);
+        }
+        
+        
+        
+        
+    // MIDI interface (still in a planning stage)
+    //----------------------------------------
         /** Note on. This function only is available after play().
          *  @param channel Channel to switch key on.
          *  @param note Note number to switch key on.
@@ -388,7 +423,7 @@ package org.si.sound {
         
         
         
-    // operate event listner
+    // operate event listener
     //----------------------------------------
         // add all event listners
         private function _compile_addAllEventListners() : void
@@ -426,11 +461,11 @@ package org.si.sound {
     // compile
     //----------------------------------------
         // Stac que
-        private function _pushCompileQue(mml:String, interval:int, data:SiOPMData) : void
+        private function _pushCompileQue(mml:String, interval:int, data:SiONData) : void
         {
             try {
                 if (isCompiling) {
-                    _compileQue.push(new SiOPMCompileQue(mml, interval, data));
+                    _compileQue.push(new SiONCompileQue(mml, interval, data));
                 } else {
                     _prepareCompile(mml, interval, data);
                 }
@@ -446,16 +481,16 @@ package org.si.sound {
         private function _execCompileQue() : Boolean
         {
             if (_compileQue.length == 0) return false;
-            var que:SiOPMCompileQue = _compileQue.shift();
+            var que:SiONCompileQue = _compileQue.shift();
             _prepareCompile(que.mml, que.interval, que.data);
             return true;
         }
         
         
         // prepare to compile
-        private function _prepareCompile(mml:String, interval:int, data:SiOPMData) : void
+        private function _prepareCompile(mml:String, interval:int, data:SiONData) : void
         {
-            _data = data || new SiOPMData();
+            _data = data || new SiONData();
             _mmlString = mml;
             _compileInterval = interval;
             sequencer.prepareCompile(_data, _mmlString);
@@ -474,7 +509,7 @@ package org.si.sound {
                 
                 if (_compileProgress == 1) {
                     // complete
-                    dispatchEvent(new SiOPMEvent(SiOPMEvent.COMPILE_COMPLETE, this));
+                    dispatchEvent(new SiONEvent(SiONEvent.COMPILE_COMPLETE, this));
                     // execute next que
                     if (!_execCompileQue()) {
                         // finished
@@ -484,7 +519,7 @@ package org.si.sound {
                     }
                 } else {
                     // progress
-                    dispatchEvent(new SiOPMEvent(SiOPMEvent.COMPILE_PROGRESS, this));
+                    dispatchEvent(new SiONEvent(SiONEvent.COMPILE_PROGRESS, this));
                 }
             } catch (e:Error) {
                 // error
@@ -508,10 +543,7 @@ package org.si.sound {
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
-            var buf:ByteArray = e.data,
-                dat:SLLNumber = sequencer.module.outputBuffer, 
-                imax:int      = sequencer.module.bufferLength, 
-                i:int;
+            var buffer:ByteArray = e.data, output:Vector.<Number> = module.output, imax:int, i:int;
 
             // calculate latency (0.022675736961451247 = 1/44.1)
             if (_soundChannel) {
@@ -521,14 +553,17 @@ package org.si.sound {
             try {
                 if (_isPaused) {
                     // paused -> 0 filling
+                    buffer = e.data;
+                    imax = module.bufferLength;
                     for (i=0; i<imax; i++) {
-                        buf.writeFloat(0);
-                        buf.writeFloat(0);
+                        buffer.writeFloat(0);
+                        buffer.writeFloat(0);
                     }
                 } else {
                     // processing
                     var t:int = getTimer();
                     sequencer.process();
+                    effector.process();
                     
                     // calculate the average of processing time
                     _timePrevStream = t;
@@ -539,16 +574,11 @@ package org.si.sound {
                     _timeProcess = _timeProcessTotal * _timeProcessAveRatio;
                     
                     // write samples
-                    for (i=0; i<imax; i++) {
-                        buf.writeFloat(dat.n);
-                        buf.writeFloat(dat.next.n);
-                        dat.n = 0;
-                        dat.next.n = 0;
-                        dat = dat.next.next;
-                    }
+                    imax = output.length;
+                    for (i=0; i<imax; i++) buffer.writeFloat(output[i]);
                     
                     // dispatch streaming event
-                    dispatchEvent(new SiOPMEvent(SiOPMEvent.STREAM, this, buf));
+                    dispatchEvent(new SiONEvent(SiONEvent.STREAM, this, buffer));
                 }
             } catch (e:Error) {
                 // error
@@ -563,19 +593,19 @@ package org.si.sound {
 
 
 
-import org.si.sound.SiOPMData;
+import org.si.sound.SiONData;
 
-class SiOPMCompileQue
+class SiONCompileQue
 {
     public var mml:String;
     public var interval:int;
-    public var data:SiOPMData;
+    public var data:SiONData;
     
-    function SiOPMCompileQue(mml_:String, interval_:int, data_:SiOPMData) 
+    function SiONCompileQue(mml_:String, interval_:int, data_:SiONData) 
     {
         mml = mml_;
         interval = interval_;
-        data = data_ || new SiOPMData();
+        data = data_ || new SiONData();
     }
 }
 

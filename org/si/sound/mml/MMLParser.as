@@ -51,6 +51,7 @@ package org.si.sound.mml {
         
         // system event strings
         static private var _systemEventStrings:Vector.<String> = new Vector.<String>(32);
+        static private var _sequenceMMLStrings:Vector.<String> = new Vector.<String>(32);
         
         // flag list of global event
         static private var _globalEventFlags:Vector.<Boolean> = null;
@@ -67,6 +68,9 @@ package org.si.sound.mml {
         static private var _staticNoteShift:int       = 0;
         static private var _isLastEventLength:Boolean = false;
         static private var _systemEventIndex:int      = 0;
+        static private var _sequenceMMLIndex:int      = 0;
+        static private var _headMMLIndex:int          = 0;
+        static private var _cacheMMLString:Boolean    = false;
         
         static private var _keyScale    :Vector.<int> = Vector.<int>([0,2,4,5,7,9,11]);
         static private var _keySigniture:Vector.<int> = _keySignitureTable[0];
@@ -214,7 +218,7 @@ package org.si.sound.mml {
                 // Make channel data chain
                 if (id == MMLEvent.SEQUENCE_HEAD) {
                     _lastSequenceHead.jump = _lastEvent;
-                    _lastSequenceHead = _pushMMLEvent(id, 0, 0);
+                    _lastSequenceHead = _pushMMLEvent(id, data, length);
                     _initialize_track();
                 } else
                 // Concatinate REST event
@@ -248,6 +252,13 @@ package org.si.sound.mml {
             return _systemEventStrings[e.data];
         }
         
+        
+        /** @private [internal use] get sequence mml string */
+        static internal function _getSequenceMML(e:MMLEvent) : String
+        {
+            return (e.length == -1) ? "" : _sequenceMMLStrings[e.length];
+        }
+        
 
         // push event
         static private function _pushMMLEvent(id:int, data:int, length:int) : MMLEvent
@@ -266,6 +277,14 @@ package org.si.sound.mml {
             return _systemEventIndex - 1;
         }
         
+        
+        // register sequence MML string
+        static private function _regSequenceMMLStrings(str:String) : int
+        {
+            if (_sequenceMMLStrings.length <= _sequenceMMLIndex) _sequenceMMLStrings.length = _sequenceMMLStrings.length * 2;
+            _sequenceMMLStrings[_sequenceMMLIndex++] = str;
+            return _sequenceMMLIndex - 1;
+        }
         
         
         
@@ -473,9 +492,11 @@ package org.si.sound.mml {
             while (e) { e = _freeEvent(e); }
             
             // initialize tempraries
-            _systemEventIndex = 0;                                           // system event index
-            _lastEvent        = _terminator;                                 // clear event chain
-            _lastSequenceHead = _pushMMLEvent(MMLEvent.SEQUENCE_HEAD, 0, 0); // add first event (SEQUENCE_HEAD).
+            _systemEventIndex = 0;                                            // system event index
+            _sequenceMMLIndex = 0;                                            // sequence mml index
+            _lastEvent        = _terminator;                                  // clear event chain
+            _lastSequenceHead = _pushMMLEvent(MMLEvent.SEQUENCE_HEAD, 0, 0);  // add first event (SEQUENCE_HEAD).
+            if (_cacheMMLString) addMMLEvent(MMLEvent.DEBUG_INFO, -1);
             _initialize_track();
         }
         
@@ -488,6 +509,7 @@ package org.si.sound.mml {
             _staticNoteShift   = 0;                         // initialize note shift
             _isLastEventLength = false;                     // initialize l command flag
             _repeatStac.length = 0;                         // clear repeating pointer stac
+            _headMMLIndex      = _mmlRegExp.lastIndex;      // mml index of sequence head
         }
         
         
@@ -739,7 +761,12 @@ package org.si.sound.mml {
         static private function _end_sequence() : Boolean
         {
             if (_lastEvent.id != MMLEvent.SEQUENCE_HEAD) {
+                if (_lastSequenceHead.next && _lastSequenceHead.next.id == MMLEvent.DEBUG_INFO) {
+                    // memory sequence MMLs id in _lastSequenceHead.next.data
+                    _lastSequenceHead.next.data = _regSequenceMMLStrings(_mmlString.substring(_headMMLIndex, _mmlRegExp.lastIndex));
+                }
                 addMMLEvent(MMLEvent.SEQUENCE_HEAD, 0);
+                if (_cacheMMLString) addMMLEvent(MMLEvent.DEBUG_INFO, -1);
                 // Returns true when it has to interrupt.
                 if (_interruptInterval == 0) return false;
                 return (_interruptInterval < (getTimer() - _startTime));
