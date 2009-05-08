@@ -20,7 +20,9 @@ package org.si.sound.module {
     {
     // constants
     //--------------------------------------------------
+        /** maximum value of stream buffer size */
         static public const STREAM_SIZE_MAX:int = 8;
+        /** pipe size */
         static public const PIPE_SIZE:int = 5;
         
         
@@ -35,10 +37,8 @@ package org.si.sound.module {
         /** stereo output buffer */
         public var streamBuffer:Vector.<SiOPMStream>;
         
-        /** Operator */
-        protected var _freeOperators:Vector.<SiOPMOperator>;
-        /** buffer length */
-        protected var _bufferLength:int;
+        private var _freeOperators:Vector.<SiOPMOperator>;   // Free list for SiOPMOperator
+        private var _bufferLength:int;                       // buffer length
         
         // pipes
         private var _pipeBuffer:Vector.<SLLint>;
@@ -53,7 +53,7 @@ package org.si.sound.module {
         public function get bufferLength() : int { return _bufferLength; }
         
         
-        /** stream count */
+        /** stream buffer count */
         public function set streamCount(count:int) : void 
         {
             var i:int;
@@ -145,6 +145,7 @@ package org.si.sound.module {
             // reset all channels
             SiOPMChannelManager.resetAllChannels();
         }
+        
         
         /** Clear all buffer. */
         public function clearAllBuffers() : void

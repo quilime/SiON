@@ -15,8 +15,7 @@ package org.si.sound.module {
     //--------------------------------------------------
         static public const CT_CHANNEL_FM:int = 0;
         static public const CT_CHANNEL_SAMPLER:int = 1;
-        static public const CT_EFFECT_DELAY:int = 2;
-        static public const CT_MAX:int = 3;
+        static public const CT_MAX:int = 2;
         
         
         
@@ -61,7 +60,7 @@ package org.si.sound.module {
         
     // operations
     //--------------------------------------------------
-        /** allocate channels */
+        // allocate channels.
         private function _alloc(count:int) : void
         {
             var i:int, newInstance:SiOPMChannelBase, imax:int = count - _length;
@@ -166,7 +165,6 @@ package org.si.sound.module {
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
             _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
             _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler,     CT_CHANNEL_SAMPLER);
-            _channelManagers[CT_EFFECT_DELAY]    = new SiOPMChannelManager(SiOPMChannelEffectDelay, CT_EFFECT_DELAY);
         }
         
         

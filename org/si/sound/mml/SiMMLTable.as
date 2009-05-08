@@ -7,7 +7,7 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import org.si.utils.SLLint;
     import org.si.sound.module.SiOPMTable;
     import org.si.sound.module.SiOPMChannelParam;
@@ -34,11 +34,10 @@ package org.si.sound.driver {
         static public const MT_SAMPLE:int = 10; // sampler
         static public const MT_MAX   :int = 11;
         
-        static public const MT_EFFECT:int = 11; // first effect module id
-        static public const MT_DELAY :int = 11; // delay
-        static public const MT_EFFECT_MAX:int = 12;
-        static private const MT_ARRAY_SIZE:int = 12;
+        static private const MT_ARRAY_SIZE:int = 11;
         
+        static public const ENV_TABLE_MAX:int = 512;
+        static public const FM_PARAM_MAX:int = 256;
         
         
         
@@ -116,18 +115,17 @@ package org.si.sound.driver {
             // Channel module setting
             var ms:SiMMLChannelSetting;
             channelModuleSetting = new Array(MT_ARRAY_SIZE);
-            channelModuleSetting[MT_PSG]    = new SiMMLChannelSetting(MT_PSG,    SiOPMTable.PG_SQUARE,      3,   1, 4); // PSG
-            channelModuleSetting[MT_APU]    = new SiMMLChannelSetting(MT_APU,    SiOPMTable.PG_PULSE,       12,  2, 5); // FC pAPU
-            channelModuleSetting[MT_NOISE]  = new SiMMLChannelSetting(MT_NOISE,  SiOPMTable.PG_NOISE_WHITE, 16,  1, 1); // noise
-            channelModuleSetting[MT_MA3]    = new SiMMLChannelSetting(MT_MA3,    SiOPMTable.PG_MA3_WAVE,    32,  1, 1); // MA3
-            channelModuleSetting[MT_CUSTOM] = new SiMMLChannelSetting(MT_CUSTOM, SiOPMTable.PG_CUSTOM,      256, 1, 1); // SCC / custom wave table
-            channelModuleSetting[MT_ALL]    = new SiMMLChannelSetting(MT_ALL,    SiOPMTable.PG_SINE,        512, 1, 1); // all pgTypes
-            channelModuleSetting[MT_FM]     = new SiMMLChannelSetting(MT_FM,     SiOPMTable.PG_SINE,        1,   1, 1); // FM sound module
-            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         256, 1, 1); // PCM
-            channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 1); // pulse
-            channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 1); // ramp
-            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, SiOPMTable.PG_SAMPLE,      256, 1, 1); // sampler
-            channelModuleSetting[MT_DELAY]  = new SiMMLChannelSetting(MT_DELAY,  SiOPMTable.PG_SINE, 1, 1, 1);
+            channelModuleSetting[MT_PSG]    = new SiMMLChannelSetting(MT_PSG,    SiOPMTable.PG_SQUARE,      3,   1, 4);   // PSG
+            channelModuleSetting[MT_APU]    = new SiMMLChannelSetting(MT_APU,    SiOPMTable.PG_PULSE,       12,  2, 5);   // FC pAPU
+            channelModuleSetting[MT_NOISE]  = new SiMMLChannelSetting(MT_NOISE,  SiOPMTable.PG_NOISE_WHITE, 16,  1, 16);  // noise
+            channelModuleSetting[MT_MA3]    = new SiMMLChannelSetting(MT_MA3,    SiOPMTable.PG_MA3_WAVE,    32,  1, 32);  // MA3
+            channelModuleSetting[MT_CUSTOM] = new SiMMLChannelSetting(MT_CUSTOM, SiOPMTable.PG_CUSTOM,      256, 1, 256); // SCC / custom wave table
+            channelModuleSetting[MT_ALL]    = new SiMMLChannelSetting(MT_ALL,    SiOPMTable.PG_SINE,        512, 1, 512); // all pgTypes
+            channelModuleSetting[MT_FM]     = new SiMMLChannelSetting(MT_FM,     SiOPMTable.PG_SINE,        1,   1, 1);   // FM sound module
+            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         256, 1, 256); // PCM
+            channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 32);  // pulse
+            channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
+            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         2,   1, 2);   // sampler. this is based on SiOPMChannelSampler
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -160,10 +158,7 @@ package org.si.sound.driver {
             // Sampler
             channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
-            // Delay
-            channelModuleSetting[MT_DELAY]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
-            channelModuleSetting[MT_DELAY]._channelType    = SiOPMChannelManager.CT_EFFECT_DELAY;
-            
+           
             
             // These tables are just depended on my ear ... ('A`)
             tss_s2ar = _logTable(41, -4, 63, 9);
@@ -192,11 +187,11 @@ package org.si.sound.driver {
             }
             
             // envelop table
-            envelopTables = new Array(512);
-            for (i=0; i<256; i++) { envelopTables[i] = null; }
+            envelopTables = new Array(ENV_TABLE_MAX);
+            for (i=0; i<ENV_TABLE_MAX; i++) { envelopTables[i] = null; }
             // FM parameter settings
-            fmParameters = new Array(256);
-            for (i=0; i<256; i++) { fmParameters[i] = null; }
+            fmParameters = new Array(FM_PARAM_MAX);
+            for (i=0; i<FM_PARAM_MAX; i++) { fmParameters[i] = null; }
         }
         
         
@@ -222,6 +217,7 @@ package org.si.sound.driver {
         /** Register envelop table */
         static public function registerEnvelopTable(index:int, table:SiMMLEnvelopTable) : void
         {
+            if ((index<0 && index>=ENV_TABLE_MAX) || index == 255) return;
             instance.envelopTables[index] = table;
         }
         
@@ -229,6 +225,7 @@ package org.si.sound.driver {
         /** Register SiOPMChannelParam */
         static public function registerChannelParam(index:int, param:SiOPMChannelParam) : void
         {
+            if (index<0 && index>=FM_PARAM_MAX) return;
             instance.fmParameters[index] = param;
         }
         
@@ -236,6 +233,7 @@ package org.si.sound.driver {
         /** Get SiOPMChannelParam */
         static public function getSiOPMChannelParam(index:int) : SiOPMChannelParam
         {
+            if (index<0 && index>=FM_PARAM_MAX) return null;
             return instance.fmParameters[index];
         }
     }

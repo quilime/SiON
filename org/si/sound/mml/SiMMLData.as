@@ -7,9 +7,9 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import org.si.sound.module.SiOPMChannelParam;
-    import org.si.sound.mml.MMLData;
+    import org.si.sound.mml.base.MMLData;
     import org.si.utils.SLLint;
     
     
@@ -81,8 +81,8 @@ package org.si.sound.driver {
 
 
 import org.si.sound.module.SiOPMChannelParam;
-import org.si.sound.driver.SiMMLTable;
-import org.si.sound.driver.SiMMLEnvelopTable;
+import org.si.sound.mml.SiMMLTable;
+import org.si.sound.mml.SiMMLEnvelopTable;
 import org.si.utils.SLLint;
 
 

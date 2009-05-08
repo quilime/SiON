@@ -8,7 +8,10 @@
 
 
 package org.si.sound.module {
-    /** OPM Parameters */
+    /** OPM Parameters. This is a member of SiOPMChannelParam. 
+     *  @see org.si.sound.SiONToneSetting
+     *  @see org.si.sound.module.SiOPMChannelParam
+     */
     public class SiOPMOperatorParam
     {
     // valiables
@@ -69,12 +72,14 @@ package org.si.sound.module {
         }
         
         
+        /** constructor */
         function SiOPMOperatorParam()
         {
             initialize();
         }
         
         
+        /** intialize all parameters. */
         public function initialize() : void
         {
             pgType = SiOPMTable.PG_SINE;
@@ -99,6 +104,7 @@ package org.si.sound.module {
         }
         
         
+        /** copy all parameters. */
         public function copyFrom(org:SiOPMOperatorParam) : void
         {
             pgType = org.pgType;
@@ -123,6 +129,7 @@ package org.si.sound.module {
         }
         
         
+        /** all parameters in 1line. */
         public function toString() : String
         {
             var str:String = "SiOPMOperatorParam : "

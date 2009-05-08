@@ -10,9 +10,13 @@
 package org.si.sound.effect {
     import org.si.utils.SLLNumber;
     
+    
+    
     /** Compressor. */
     public class SiEffectCompressor extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         private var _windowRMSList:SLLNumber = null;
         private var _windowSamples:int;
         private var _windowRMSTotal:Number;
@@ -23,13 +27,19 @@ package org.si.sound.effect {
         private var _relRate:Number;    // release rate (per sample decay)
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
         /** constructor */
-        function SiEffectCompressor()
-        {
-        }
+        function SiEffectCompressor() {}
         
         
-        /** constructor
+        
+        
+    // operation
+    //------------------------------------------------------------
+        /** set parameters.
          *  @param thres threshold(0-1).
          *  @param slope slope(0-1).
          *  @param wndTime window to calculate gain[ms].
@@ -46,14 +56,18 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             setParameters();
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0]*0.01 : 0.5,
@@ -64,6 +78,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             if (_windowRMSList) SLLNumber.freeRing(_windowRMSList);
@@ -73,6 +88,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;

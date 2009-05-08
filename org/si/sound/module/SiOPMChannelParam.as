@@ -8,10 +8,13 @@
 
 
 package org.si.sound.module {
-    import org.si.sound.mml.MMLSequence;
+    import org.si.sound.mml.base.MMLSequence;
     
     
-    /** SiOPM Parameters */
+    /** SiOPM Channel Parameters. This is a member of SiONToneSetting. 
+     *  @see org.si.sound.SiONToneSetting
+     *  @see org.si.sound.module.SiOPMOperatorParam
+     */
     public class SiOPMChannelParam
     {
     // valiables 11 parameters
@@ -73,13 +76,13 @@ package org.si.sound.module {
         {
             lfoFreqStep = SiOPMTable.LFO_TIMER_INITIAL/(fps*2.882352941176471);
         }
-        
         public function get lfoFrame() : int
         {
             return int(SiOPMTable.LFO_TIMER_INITIAL * 0.346938775510204 / lfoFreqStep);
         }
         
         
+        /** constructor */
         function SiOPMChannelParam()
         {
             initSequence = new MMLSequence();
@@ -93,6 +96,7 @@ package org.si.sound.module {
         }
         
         
+        /** initializer */
         public function initialize() : SiOPMChannelParam
         {
             var i:int;
@@ -132,6 +136,7 @@ package org.si.sound.module {
         }
         
         
+        /** copier */
         public function copyFrom(org:SiOPMChannelParam) : SiOPMChannelParam
         {
             var i:int;
@@ -170,6 +175,7 @@ package org.si.sound.module {
         }
         
         
+        /** information */
         public function toString() : String
         {
             var str:String = "SiOPMChannelParam : opeCount=";

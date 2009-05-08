@@ -3,6 +3,7 @@
 	import flash.display.Loader;
     import flash.events.Event;
     import flash.utils.ByteArray;
+    import flash.media.Sound;
     
     
 	/**
@@ -48,10 +49,7 @@
 	        loader.contentLoaderInfo.addEventListener(Event.COMPLETE, _onComplete);
 	        loader.loadBytes(bytes);
 	        
-    	    function _write(vu:Vector.<uint>) : ByteArray {
-    	        for (var ui:uint in vu) { bytes.writeUnsignedInt(ui); }
-    	        return ba;
-    	    }
+    	    function _write(vu:Vector.<uint>) : void { for each (var ui:uint in vu) { bytes.writeUnsignedInt(ui); } }
 	        
 	        function _onComplete(e:Event) : void {
     			var soundClass:Class = loader.contentLoaderInfo.applicationDomain.getDefinition("SoundClass") as Class;

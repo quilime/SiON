@@ -7,12 +7,12 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import org.si.sound.module.SiOPMChannelBase;
     import org.si.sound.module.SiOPMTable;
-    import org.si.sound.mml.MMLEvent;
-    import org.si.sound.mml.MMLSequence;
-    import org.si.sound.mml.MMLExecutor;
+    import org.si.sound.mml.base.MMLEvent;
+    import org.si.sound.mml.base.MMLSequence;
+    import org.si.sound.mml.base.MMLExecutor;
     
     import org.si.utils.SLLint;
     
@@ -20,10 +20,10 @@ package org.si.sound.driver {
 
 
     /** Track for SiMMLSequencer. <br/>
-     *  There are 2 types of SiMMLSequencerTrack. One is "sequence track", and other is "controlable track". 
+     *  There are 2 types of SiMMLTrack. One is "sequence track", and another is "controlable track". 
      *  The "sequence track" plays a sequence in the mml data, and the "controlable track" plays interavtive sound.
      */
-    public class SiMMLSequencerTrack
+    public class SiMMLTrack
     {
     // constants
     //--------------------------------------------------
@@ -33,6 +33,15 @@ package org.si.sound.driver {
         static public const FIXED_BITS:int = 16;
         /** Maximum value of _sweep */
         static private const SWEEP_MAX:int = 8192<<FIXED_BITS;
+        
+        /** track id filter */
+        static public const TRACK_ID_FILTER:int = 0xffff;
+        /** MML track id offset */
+        static public const MML_TRACK_ID_OFFSET:int = 0x10000;
+        /** MIDI track id offset */
+        static public const MIDI_TRACK_ID_OFFSET:int = 0x20000;
+        /** driver track id offset */
+        static public const DRIVER_TRACK_ID_OFFSET:int = 0x30000;
         
         // _processMode
         static private const NORMAL  :int = 0;
@@ -64,11 +73,21 @@ package org.si.sound.driver {
         public var quantCount:int = 0;
         /** Event mask */
         public var eventMask:int = 0;
+        /** Channel number */
+        public var channelNumber:int = 0;
         
-        /** call back function before noteOn */
+        // call back function before noteOn/noteOff
         private var _callbackBeforeNoteOn:Function = null;
-        /** call back function before noteOff */
         private var _callbackBeforeNoteOff:Function = null;
+        
+        // event trriger
+        private var _eventTriggerOn:Function = null;
+        private var _eventTriggerOff:Function = null;
+        private var _eventTriggerID:int;
+        private var _eventTriggerTypeOn:int;
+        private var _eventTriggerTypeOff:int;
+        
+        private var _trackID:int;           // track ID number
 
         // internal use
         private var _table:SiMMLTable;      // table
@@ -77,20 +96,14 @@ package org.si.sound.driver {
         private var _flagNoKeyOn:Boolean;   // key on flag
         private var _processMode:int;       // processing mode
         private var _newPitch:int;          // new pitch after key on
-
+        private var _trackDelay:int;        // track delay
 
         // settings
-        // velocity
-        private var _velocity:int;
-        // expression
-        private var _expression:int;
-        // tone number
-        private var _tone:int;
-        // note number
-        private var _note:int;
-        // default fps
-        private var _defaultFPS:int;
-
+        private var _velocity:int;      // velocity
+        private var _expression:int;    // expression
+        private var _tone:int;          // tone number
+        private var _note:int;          // note number
+        private var _defaultFPS:int;    // default fps
         
         // setting
         private var _set_processMode:Vector.<int>;
@@ -137,32 +150,43 @@ package org.si.sound.driver {
         private var _env_exp_offset:int;
         private var _env_pitch_active:Boolean;
         
+        private var _residue:int;   // residue of previous envelop process 
+        
         // zero table
         static private var _env_zero_table:SLLint = SLLint.allocRing(1);
-        
-        // residue of previous envelop process 
-        private var _residue:int;
-        
-        // track number
-        private var _trackNumber:int
         
         
         
         
     // properties
     //--------------------------------------------------
-        /** track number */
-        public function get trackNumber() : int { return _trackNumber; }
+        /** track ID number. trackID=-1 is under MML sequencers control. */
+        public function get trackID() : int { return _trackID; }
+        public function set trackID(id:int) : void {
+            if (_trackID != -1) _trackID = id;
+        }
+
+        /** event trigger ID. eventTriggerID=-1 means tigger not set. */
+        public function get eventTriggerID() : int { return _eventTriggerID; }
+        /** Note on event trigger type. eventTriggerTypeOn=0 means tigger not set. */
+        public function get eventTriggerTypeOn() : int { return _eventTriggerTypeOn; }
+        /** Note off event trigger type. eventTriggerTypeOff=0 means tigger not set. */
+        public function get eventTriggerTypeOff() : int { return _eventTriggerTypeOff; }
         
         /** Note number */
-        public function get note() : int { return (channel.isNoteOn()) ? _note : -1; }
+        public function get note() : int { return _note; }
         
+        /** Delaying sample count. Ussualy this returns 0 except after SiONDriver.noteOn. */
+        public function get trackDelay() : int { return _trackDelay; }
         
         /** Is controlable ? */
-        public function get isControlable() : Boolean { return (!executor.pointer); }
+        public function get isControlable() : Boolean { return (_trackID != -1); }
         
         /** Is activate ? In the sequence track, this function always returns true. */
-        public function get isActive() : Boolean { return (executor.pointer || channel.isNoteOn() || _keyOnCounter); }
+        public function get isActive() : Boolean { return (_trackID==-1 || channel.isNoteOn() || _keyOnCounter>0 || _trackDelay>0); }
+        
+        /** Is finish to buffering ? */
+        public function get isFinished() : Boolean { return (executor.pointer==null && channel.isIdling && _keyOnCounter==0 && _trackDelay==0); }
         
         
         /** velocity(0-256). linked to operator's total level. */
@@ -183,7 +207,7 @@ package org.si.sound.driver {
         
     // constructor
     //--------------------------------------------------
-        function SiMMLSequencerTrack() 
+        function SiMMLTrack() 
         {
             _table = SiMMLTable.instance;
             executor = new MMLExecutor();
@@ -214,10 +238,15 @@ package org.si.sound.driver {
     // operations
     //--------------------------------------------------
         /** @private [internal use] initialize track. [NOTE] Have to call reset() after this. */
-        internal function _initialize(seq:MMLSequence, fps:int, trackNumber:int) : SiMMLSequencerTrack
+        internal function _initialize(seq:MMLSequence, fps:int, trackID:int, eventTriggerOn:Function, eventTriggerOff:Function) : SiMMLTrack
         {
-            _trackNumber = trackNumber;
+            _trackID = trackID;
             _defaultFPS = fps;
+            _eventTriggerOn = eventTriggerOn;
+            _eventTriggerOff = eventTriggerOff;
+            _eventTriggerID = -1;
+            _eventTriggerTypeOn = 0;
+            _eventTriggerTypeOff = 0;
             executor.initialize(seq);
             
             return this;
@@ -231,6 +260,7 @@ package org.si.sound.driver {
             
             // channel module setting
             channelModuleSetting = _table.channelModuleSetting[SiMMLTable.MT_PSG];
+            channelNumber = 0;
             
             // initialize channel by channelModuleSetting
             _velocity = 128;
@@ -247,6 +277,7 @@ package org.si.sound.driver {
             _flagNoKeyOn = false;
             _processMode = NORMAL;
             _newPitch = 0;
+            _trackDelay = 0;
             keyOnDelay = 0;
             quantRatio = 0;
             quantCount = 0;
@@ -287,45 +318,323 @@ package org.si.sound.driver {
         
         
         
+    // interfaces for intaractive operations
+    //--------------------------------------------------
+        /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
+         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8192) as an arguments. When the function returns false, noteOn will be canceled.</br>
+         *  function callbackNoteOn(track:SiMMLTrack, newPitch:int) : Boolean { return true; }
+         *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
+         *  function callbackNoteOff(track:SiMMLTrack) : Boolean { return true; }
+         */
+        public function setTrackCallback(noteOn:Function=null, noteOff:Function=null) : void
+        {
+            _callbackBeforeNoteOn  = noteOn;
+            _callbackBeforeNoteOff = noteOff;
+        }
+
+        
+        /** Key on. 
+         *  @param note Note number.
+         *  @param length Length in samples. The argument of 0 sets no key off.
+         *  @param delay Delaying time (in sample count).
+         */
+        public function keyOn(note:int, length:int=0, delay:int=0) : void
+        {
+            _note = note;
+            _newPitch = ((note + noteShift)<<6) + pitchShift;
+            _keyOnLength = length;
+            _trackDelay = delay;
+            
+            if (length > 0) {
+                if (keyOnDelay) {
+                    _keyOff();
+                    _keyOnCounter = keyOnDelay;
+                } else {
+                    _keyOn();
+                }
+            } else {
+                _keyOnLength = 1;   // not to switch key off in _keyOn().
+                _keyOn();           // key on
+                _keyOnCounter = 0;  // keep key on in process
+            }
+        }
+        
+        
+        /** Force key off */
+        public function keyOff() : void
+        {
+            _keyOff();
+            _note = -1;
+        }
+        
+        
+        /** Play sequence.
+         *  @param seq Sequence to play.
+         *  @param delay Delaying time (in sample count).
+         */
+        public function sequenceOn(seq:MMLSequence, delay:int=0) : void
+        {
+            _trackDelay = delay;
+            executor.initialize(seq);
+        }
+        
+        
+        /** Force stop sequence. */
+        public function sequenceOff() : void
+        {
+            executor.clear();
+        }
+        
+        
+        
+    // interfaces for mml command
+    //--------------------------------------------------
+        /** Channel module type (%) and select tone (1st argument of '@').
+         *  @param type Channel module type
+         *  @param channelNum Channel number. For %2-5 and %7-10, this value is same as 1st argument of '@'.
+         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG, %1;APU and %6;FM.
+         */
+        public function setChannelModuleType(type:int, channelNum:int, toneNum:int=-1) : void
+        {
+            // change module type
+            channelModuleSetting = _table.channelModuleSetting[type];
+            
+            // reset operator pgType
+            _tone = channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
+            
+            // select tone
+            if (toneNum != -1) channelModuleSetting.selectTone(this, toneNum);
+        }
+        
+        
+        /** portament (po) [NOT IMPLEMENTED] */
+        public function setPortament(frame:int) : void
+        {
+            _set_sweep_step[1] = frame;
+            if (frame) {
+                _pns_or[1] = true;
+                _envelopOn(1);
+            } else {
+                _envelopOff(1);
+            }
+        }
+        
+        
+        /** set event trigger (%t) */
+        public function setEventTrigger(id:int, noteOnType:int=1, noteOffType:int=0) : void
+        {
+            _eventTriggerID = id;
+            _eventTriggerTypeOn  = noteOnType;
+            _eventTriggerTypeOff = noteOffType;
+            _callbackBeforeNoteOn = (noteOnType) ? _eventTriggerOn : null;
+            _callbackBeforeNoteOff = (noteOffType) ? _eventTriggerOff : null;
+        }
+        
+        
+        /** set envelop step (&#64;fps) 
+         *  @param fps Frame par second
+         */
+        public function setEnvelopFPS(fps:int) : void
+        {
+            _env_internval = SiOPMTable.instance.rate / fps;
+        }
+        
+        
+        /** release sweep (2nd argument of "s")
+         *  @param sweep sweeping speed
+         */
+        public function setReleaseSweep(sweep:int) : void
+        {
+            _set_sweep_step[0] = sweep << FIXED_BITS;
+            _set_sweep_end[0]  = (sweep<0) ? 0 : SWEEP_MAX;
+            if (sweep) {
+                _pns_or[0] = true;
+                _envelopOn(0);
+            } else {
+                _envelopOff(0);
+            }
+        }
+        
+        
+        /** amplitude/pitch modulation envelop (ma, mp) 
+         *  @param isPitchMod The command is 'ma' or 'mp'.
+         *  @param depth start modulation depth (same as 1st argument)
+         *  @param end_depth end modulation depth (same as 2nd argument)
+         *  @param delay changing delay (same as 3rd argument)
+         *  @param term changing term (same as 4th argument)
+         */
+        public function setModulationEnvelop(isPitchMod:Boolean, depth:int, end_depth:int, delay:int, term:int) : void
+        {
+            // select table
+            var table:Vector.<SLLint> = (isPitchMod) ? _table_env_mp : _table_env_ma;
+            
+            // free previous table
+            if (table[1]) SLLint.freeList(table[1]);
+            
+            if (depth < end_depth) {
+                // make table and envelop on
+                table[1] = _makeModulationTable(depth, end_depth, delay, term);
+                _envelopOn(1);
+            } else {
+                // free table and envelop off
+                table[1] = null;
+                if (isPitchMod) channel.setPitchModulation(depth);
+                else            channel.setAmplitudeModulation(depth);
+                _envelopOff(1);
+            }
+        }
+        
+        
+        /** set tone envelop (&#64;&#64;, _&#64;&#64;) 
+         *  @param noteOn 1 for normal envelop, 0 for not-off envelop.
+         *  @param table table SiMMLEnvelopTable
+         *  @param step envelop speed (same as 2nd argument)
+         */
+        public function setToneEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int) : void
+        {
+            if (table==null || step==0) {
+                _set_env_tone[noteOn] = null;
+                _envelopOff(noteOn);
+            } else {
+                _set_env_tone[noteOn] = table.head;
+                _set_cnt_tone[noteOn] = step;
+                _envelopOn(noteOn);
+            }
+        }
+        
+        
+        /** set amplitude envelop (na, _na) 
+         *  @param noteOn 1 for normal envelop, 0 for not-off envelop.
+         *  @param table table SiMMLEnvelopTable
+         *  @param step envelop speed (same as 2nd argument)
+         *  @param offset true for relative control (!na command), false for absolute control.
+         */
+        public function setAmplitudeEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int, offset:Boolean = false) : void
+        {
+            if (table==null || step==0) {
+                _set_env_exp[noteOn] = null;
+                _envelopOff(noteOn);
+            } else {
+                _set_env_exp[noteOn] = table.head;
+                _set_cnt_exp[noteOn] = step;
+                _set_exp_offset[noteOn] = offset;
+                _envelopOn(noteOn);
+            }
+        }
+        
+        
+        /** set filter envelop (nf, _nf)
+         *  @param noteOn 1 for normal envelop, 0 for not-off envelop.
+         *  @param table table SiMMLEnvelopTable
+         *  @param step envelop speed (same as 2nd argument)
+         */
+        public function setFilterEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int) : void
+        {
+            if (table==null || step==0) {
+                _set_env_filter[noteOn] = null;
+                _envelopOff(noteOn);
+            } else {
+                _set_env_filter[noteOn] = table.head;
+                _set_cnt_filter[noteOn] = step;
+                _envelopOn(noteOn);
+            }
+        }
+        
+        
+        /** set pitch envelop (np, _np)
+         *  @param noteOn 1 for normal envelop, 0 for not-off envelop.
+         *  @param table table SiMMLEnvelopTable
+         *  @param step envelop speed (same as 2nd argument)
+         */
+        public function setPitchEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int) : void
+        {
+            if (table==null || step==0) {
+                _set_env_pitch[noteOn] = _env_zero_table;
+                _envelopOff(noteOn);
+            } else {
+                _set_env_pitch[noteOn] = table.head;
+                _set_cnt_pitch[noteOn] = step;
+                _pns_or[noteOn]        = true;
+                _envelopOn(noteOn);
+            }
+        }
+        
+        
+        /** set note envelop (nt, _nt)
+         *  @param noteOn 1 for normal envelop, 0 for not-off envelop.
+         *  @param table table SiMMLEnvelopTable
+         *  @param step envelop speed (same as 2nd argument)
+         */
+        public function setNoteEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int) : void
+        {
+            if (table==null || step==0) {
+                _set_env_note[noteOn] = _env_zero_table;
+                _envelopOff(noteOn);
+            } else {
+                _set_env_note[noteOn] = table.head;
+                _set_cnt_note[noteOn] = step;
+                _pns_or[noteOn]       = true;
+                _envelopOn(noteOn);
+            }
+        }
+        
+        
+        
+        
+    //====================================================================================================
+    // Internal uses
+    //====================================================================================================
     // processing
     //--------------------------------------------------
-        /** @private [internal use] process */
-        internal function process(length:int) : void
+        /** @private [internal use] prepare buffer */
+        internal function prepareBuffer(bufferingTick:int) : int
+        {
+            // almost executing this
+            if (_trackDelay == 0) return bufferingTick;
+            
+            if (bufferingTick <= _trackDelay) {
+                _trackDelay -= bufferingTick;
+                return 0;
+            }
+            
+            var len:int = bufferingTick - _trackDelay;
+            channel.nop(_trackDelay);
+            _trackDelay = 0;
+            return len;
+        }
+        
+        
+        /** @private [internal use] buffering */
+        internal function buffer(length:int) : void
         {
             if (_keyOnCounter == 0) {
                 // no status changing
-                _process(length);
+                $(length);
             } else 
             if (_keyOnCounter > length) {
                 // decrement _keyOnCounter
-                _process(length);
+                $(length);
                 _keyOnCounter -= length;
             } else {
                 // process -> toggle key -> process
                 length -= _keyOnCounter;
-                _process(_keyOnCounter);
+                $(_keyOnCounter);
                 _toggleKey();
-                if (length>0) _process(length);
+                if (length>0) $(length);
+            }
+            
+            // processing inside
+            function $(procLen:int) : void {
+                switch(_processMode) {
+                case NORMAL:    channel.buffer(procLen);                       break;
+                case ENVELOP:   _residue = _bufferEnvelop(procLen, _residue);  break;
+                }
             }
         }
         
         
-        // processing
-        private function _process(length:int) : void
-        {
-            switch(_processMode) {
-            case NORMAL:
-                channel.buffer(length);
-                break;
-            case ENVELOP:
-                _residue = _processEnvelop(length, _residue);
-                break;
-            }
-        }
-        
-        
-        // process envelops
-        private function _processEnvelop(length:int, step:int) : int
+        // buffering with table envelops
+        private function _bufferEnvelop(length:int, step:int) : int
         {
             var x:int;
             
@@ -409,7 +718,7 @@ package org.si.sound.driver {
         
         
         
-    // note on/off
+    // key on/off
     //--------------------------------------------------
         // toggle note
         private function _toggleKey() : void
@@ -445,6 +754,7 @@ package org.si.sound.driver {
             }
             
             // change pitch
+            var oldPitch:int = channel.pitch;
             channel.pitch = _newPitch;
 
             // note on
@@ -466,10 +776,17 @@ package org.si.sound.driver {
                 // note on
                 channel.noteOn();
             } else {
+                // portament
+                if (_set_sweep_step[1]>0) {
+                    channel.pitch = oldPitch;
+                    _sweep_step = ((_newPitch - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
+                    _sweep_end  = _newPitch << FIXED_BITS;
+                    _env_pitch_offset = oldPitch << FIXED_BITS;
+                }
                 // try to set envelop off
                 _envelopOff(1);
             }
-            
+
             _flagNoKeyOn = false;
             
             // set key on counter
@@ -505,8 +822,8 @@ package org.si.sound.driver {
                 _env_ma = _table_env_ma[keyOn];
                 _env_mp = _table_env_mp[keyOn];
                 // set sweep
-                _sweep_step = _set_sweep_step[keyOn];
-                _sweep_end  = _set_sweep_end[keyOn];
+                _sweep_step = (keyOn) ? 0 : _set_sweep_step[keyOn];
+                _sweep_end  = (keyOn) ? 0 : _set_sweep_end[keyOn];
                 // set pitch values
                 _env_pitch_offset = channel.pitch << FIXED_BITS;
                 _env_exp_offset   = (_set_exp_offset[keyOn]) ? _expression : 0;
@@ -523,32 +840,16 @@ package org.si.sound.driver {
         
     // event handlers
     //--------------------------------------------------
-        /** @private [internal use] handler for rest. */
+        /** @private [internal use] handler for MMLEvent.REST. */
         internal function _setRest() : void
         {
         }
         
 
-        /** @private [internal use] handler for note. */
+        /** @private [internal use] handler for MMLEvent.NOTE. */
         internal function _setNote(note:int, length:int) : void
         {
-            _note = note;
-            _newPitch = ((note + noteShift)<<6) + pitchShift;
-            _keyOnLength = int(length * quantRatio) - quantCount - keyOnDelay;
-            
-            if (length) {
-                if (keyOnDelay) {
-                    _keyOff();
-                    _keyOnCounter = keyOnDelay;
-                } else {
-                    _keyOn();
-                }
-            } else {
-                // slur event after this note
-                _keyOnLength = 1;   // not to switch key off in keyOn().
-                _keyOn();           // key on
-                _keyOnCounter = 0;  // keep key on in process
-            }
+            keyOn(note, int(length * quantRatio) - quantCount - keyOnDelay + 1);
         }
         
         
@@ -586,77 +887,8 @@ package org.si.sound.driver {
         }
         
         
-        
-        
-    // interface
-    //--------------------------------------------------
-        /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
-         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8192) as an arguments. When the function returns false, noteOn will be canceled.</br>
-         *  function callbackNoteOn(track:SiMMLSequencerTrack, newPitch:int) : Boolean { return true; }
-         *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
-         *  function callbackNoteOff(track:SiMMLSequencerTrack) : Boolean { return true; }
-         */
-        public function setTrackCallback(noteOn:Function=null, noteOff:Function=null) : void
-        {
-            _callbackBeforeNoteOn  = noteOn;
-            _callbackBeforeNoteOff = noteOff;
-        }
-
-        
-        /** Key on. 
-         *  @param note Note number.
-         *  @param length Length in samples. The argument of 0 sets no key off.
-         */
-        public function keyOn(note:int, length:int=0) : void
-        {
-            _note = note;
-            _newPitch = ((note + noteShift)<<6) + pitchShift;
-            _keyOnLength = length;
-            
-            if (length) {
-                if (keyOnDelay) {
-                    _keyOff();
-                    _keyOnCounter = keyOnDelay;
-                } else {
-                    _keyOn();
-                }
-            } else {
-                _keyOnLength = 1;   // not to switch key off in keyOn().
-                _keyOn();           // key on
-                _keyOnCounter = 0;  // keep key on in process
-            }
-        }
-        
-        
-        /** Force key off */
-        public function keyOff() : void
-        {
-            _keyOff();
-        }
-        
-        
-        
-        
-    // mml events
-    //--------------------------------------------------
-        /** Channel module type (%, %e).
-         *  @param type Channel module type
-         *  @param channelNum Channel number to emulate.
-         */
-        public function setChannelModuleType(type:int, channelNum:int) : void
-        {
-            // change module type
-            channelModuleSetting = _table.channelModuleSetting[type];
-            
-            // reset operator pgType
-            _tone = channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
-        }
-        
-        
-        /** Channel parameters (@)
-         *  @param param Parameters of @ command.
-         */
-        public function setChannelParameters(param:Vector.<int>) : MMLSequence
+        /** @praivate [internal use] Channel parameters (&#64;) */
+        internal function _setChannelParameters(param:Vector.<int>) : MMLSequence
         {
             var ret:MMLSequence = null;
             if (param[0] != int.MIN_VALUE) {
@@ -668,133 +900,6 @@ package org.si.sound.driver {
         }
         
         
-        /** portament (po) */
-        public function setPortament(frame:int) : void
-        {
-        }
-        
-        
-        /** set envelop step (@fps) */
-        public function setEnvelopFPS(fps:int) : void
-        {
-            _env_internval = SiOPMTable.instance.rate / fps;
-        }
-        
-        
-        /** release sweep (s,) */
-        public function setReleaseSweep(sweep:int) : void
-        {
-            _set_sweep_step[0] = sweep << FIXED_BITS;
-            _set_sweep_end[0]  = (sweep<0) ? 0 : SWEEP_MAX;
-            if (sweep) {
-                _pns_or[0] = true;
-                _envelopOn(0);
-            } else {
-                _envelopOff(0);
-            }
-        }
-        
-        
-        /** amplitude/pitch modulation envelop (ma, mp) */
-        public function setModulationEnvelop(isPitchMod:Boolean, depth:int, end_depth:int, delay:int, term:int) : void
-        {
-            // select table
-            var table:Vector.<SLLint> = (isPitchMod) ? _table_env_mp : _table_env_ma;
-            
-            // free previous table
-            if (table[1]) SLLint.freeList(table[1]);
-            
-            if (depth < end_depth) {
-                // make table and envelop on
-                table[1] = _makeModulationTable(depth, end_depth, delay, term);
-                _envelopOn(1);
-            } else {
-                // free table and envelop off
-                table[1] = null;
-                if (isPitchMod) channel.setPitchModulation(depth);
-                else            channel.setAmplitudeModulation(depth);
-                _envelopOff(1);
-            }
-        }
-        
-        
-        
-        
-    // table envelop
-    //--------------------------------------------------
-        /** set tone envelop (@@, _@@) */
-        public function setToneEnvelop(noteOn:int, tableNum:int, step:int) : void
-        {
-            if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
-                _set_env_tone[noteOn] = _table.envelopTables[tableNum].head;
-                _set_cnt_tone[noteOn] = step;
-                _envelopOn(noteOn);
-            } else {
-                _set_env_tone[noteOn] = null;
-                _envelopOff(noteOn);
-            }
-        }
-        
-        
-        /** set amplitude envelop (na, _na) */
-        public function setAmplitudeEnvelop(noteOn:int, tableNum:int, step:int, offset:Boolean = false) : void
-        {
-            if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
-                _set_env_exp[noteOn] = _table.envelopTables[tableNum].head;
-                _set_cnt_exp[noteOn] = step;
-                _set_exp_offset[noteOn] = offset;
-                _envelopOn(noteOn);
-            } else {
-                _set_env_exp[noteOn] = null;
-                _envelopOff(noteOn);
-            }
-        }
-        
-        
-        /** set filter envelop (nf, _nf) */
-        public function setFilterEnvelop(noteOn:int, tableNum:int, step:int) : void
-        {
-            if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
-                _set_env_filter[noteOn] = _table.envelopTables[tableNum].head;
-                _set_cnt_filter[noteOn] = step;
-                _envelopOn(noteOn);
-            } else {
-                _set_env_filter[noteOn] = null;
-                _envelopOff(noteOn);
-            }
-        }
-        
-        
-        /** set pitch envelop (np, _np) */
-        public function setPitchEnvelop(noteOn:int, tableNum:int, step:int) : void
-        {
-            if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
-                _set_env_pitch[noteOn] = _table.envelopTables[tableNum].head;
-                _set_cnt_pitch[noteOn] = step;
-                _pns_or[noteOn]        = true;
-                _envelopOn(noteOn);
-            } else {
-                _set_env_pitch[noteOn] = _env_zero_table;
-                _envelopOff(noteOn);
-            }
-        }
-        
-        
-        /** set note envelop (nt, _nt) */
-        public function setNoteEnvelop(noteOn:int, tableNum:int, step:int) : void
-        {
-            if (tableNum != 255 && step != 0 && tableNum != int.MIN_VALUE && _table.envelopTables[tableNum]) {
-                _set_env_note[noteOn] = _table.envelopTables[tableNum].head;
-                _set_cnt_note[noteOn] = step;
-                _pns_or[noteOn]       = true;
-                _envelopOn(noteOn);
-            } else {
-                _set_env_note[noteOn]  = _env_zero_table;
-                _envelopOff(noteOn);
-            }
-        }
-        
-        
         
         
     // private subs
@@ -803,7 +908,7 @@ package org.si.sound.driver {
         private function _envelopOff(noteOn:int) : void
         {
             // update (pitch || note || sweep)
-            if (_set_sweep_step[0] == 0  && 
+            if (_set_sweep_step[noteOn] == 0  && 
                 _set_env_pitch[noteOn] === _env_zero_table && 
                 _set_env_note[noteOn]  === _env_zero_table)
             {

@@ -14,7 +14,7 @@ package org.si.sound.module {
     
     
     
-    /** FM sound channel. <br/>
+    /** FM sound channel. <p>
      *  The calculation of this class is based on OPM emulation (refer from sources of mame, fmgen and x68sound).
      *  And it has some extension to simulate other sevral fm sound modules (OPNA, OPLL, OPL2, OPL3, OPX, MA3, MA5, MA7, TSS and DX7).
      *  <ul>
@@ -33,6 +33,7 @@ package org.si.sound.module {
      *    <li>flexible fm connections (from TSS)</li>
      *    <li>ring modulation (from C64?)</li>
      *  </ul>
+     *  </p>
      */
     public class SiOPMChannelFM extends SiOPMChannelBase
     {
@@ -296,7 +297,7 @@ package org.si.sound.module {
         
     // interfaces
     //--------------------------------------------------
-        /** Set algorism (@al) 
+        /** Set algorism (&#64;al) 
          *  @param cnt Operator count.
          *  @param alg Algolism number of the operator's connection.
          */
@@ -314,7 +315,7 @@ package org.si.sound.module {
         }
         
         
-        /** Set feedback(@fb). This also initializes the input mode(@i). 
+        /** Set feedback(&#64;fb). This also initializes the input mode(&#64;i). 
          *  @param fb Feedback level. Ussualy in the range of 0-7.
          *  @param fbc Feedback connection. Operator index which feeds back its output.
          */
@@ -337,7 +338,7 @@ package org.si.sound.module {
         }
         
         
-        /** Set parameters (@ command). */
+        /** Set parameters (&#64; command). */
         override public function setParameters(param:Vector.<int>) : void
         {
             setSiOPMParameters(param[1],  param[2],  param[3],  param[4],  param[5], 
@@ -346,13 +347,17 @@ package org.si.sound.module {
         }
         
         
-        /** pgType & ptType (@) */
+        /** pgType & ptType (&#64;) */
         override public function setType(pgType:int, ptType:int) : void
         {
+            var funcIndex:int = _operatorCount-1;
+            if (pgType >= SiOPMTable.PG_PCM) {
+                _updateOperatorCount(1);
+                funcIndex = 4;
+            }
             activeOperator.pgType = pgType;
             activeOperator.ptType = ptType;
-            if (operator[0]._pgType >= SiOPMTable.PG_PCM) _funcProcess = _funcProcessList[_lfo_on][4];
-            else _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
+            _funcProcess = _funcProcessList[_lfo_on][funcIndex];
         }
         
         
@@ -363,30 +368,6 @@ package org.si.sound.module {
             for (i=0; i<_operatorCount; i++) {
                 ope = operator[i];
                 if (ope._final) ope.rr = rr;
-            }
-        }
-        
-        
-        /** Set input pipe(@i). This function is almost same as super.setInput(). This also initializes the feed back setting(@fb). 
-         *  @param level Input level. The value for a standard FM sound module is 5.
-         *  @param pipeIndex Input pipe index (0-3).
-         */
-        override public function setInput(level:int, pipeIndex:int) : void
-        {
-            var i:int;
-            
-            // pipe index
-            pipeIndex &= 3;
-            
-            // set pipe
-            if (level > 0) {
-                _inPipe = _chip.getPipe(pipeIndex, _bufferIndex);
-                _inputMode = INPUT_PIPE;
-                _inputLevel = level + 10;   // different from super.setInput()
-            } else {
-                _inPipe = _chip.zeroBuffer;
-                _inputMode = INPUT_ZERO;
-                _inputLevel = 0;
             }
         }
         
@@ -411,25 +392,25 @@ package org.si.sound.module {
             activeOperator = operator[opeIndex];
         }
         
-        /** release rate (@rr) */
+        /** release rate (&#64;rr) */
         override public function set rr(i:int) : void { activeOperator.rr = i; }
         
-        /** total level (@tl) */
+        /** total level (&#64;tl) */
         override public function set tl(i:int) : void { activeOperator.tl = i; }
         
-        /** fine multiple (@ml) */
+        /** fine multiple (&#64;ml) */
         override public function set fmul(i:int) : void { activeOperator.fmul = i; }
         
-        /** phase  (@ph) */
+        /** phase  (&#64;ph) */
         override public function set phase(i:int) : void { activeOperator.keyOnPhase = i; }
         
-        /** detune (@dt) */
+        /** detune (&#64;dt) */
         override public function set detune(i:int) : void { activeOperator.detune = i; }
         
-        /** fixed pitch (@fx) */
+        /** fixed pitch (&#64;fx) */
         override public function set fixedPitch(i:int) : void { activeOperator.fixedPitchIndex = i; }
         
-        /** ssgec (@se) */
+        /** ssgec (&#64;se) */
         override public function set ssgec(i:int) : void { activeOperator.ssgec = i; }
         
         
@@ -1267,6 +1248,7 @@ package org.si.sound.module {
             _operatorCount = cnt;
             // select processing function
             _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
+            
             // default active operator is the last one.
             activeOperator = operator[_operatorCount-1];
 

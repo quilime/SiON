@@ -11,6 +11,8 @@ package org.si.sound.effect {
     /** Stereo chorus effector. */
     public class SiEffectStereoChorus extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         static private const DELAY_BUFFER_BITS:int = 12;
         static private const DELAY_BUFFER_FILTER:int = (1<<DELAY_BUFFER_BITS)-1;
         
@@ -26,6 +28,10 @@ package org.si.sound.effect {
         private var _sin:Vector.<Number>;
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
         /** constructor */
         function SiEffectStereoChorus()
         {
@@ -35,7 +41,11 @@ package org.si.sound.effect {
         }
         
         
-        /** constructor
+        
+        
+    // operation
+    //------------------------------------------------------------
+        /** set parameter
          *  @param delayTime delay time[ms]. maximum value is about 94.
          *  @param feedback feedback ratio(0-1).
          *  @param frequency frequency of chorus[Hz].
@@ -53,8 +63,11 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             _lfoPhase = 0;
@@ -64,6 +77,7 @@ package org.si.sound.effect {
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0] : 20,
@@ -73,6 +87,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             var i:int, imax:int = 1<<DELAY_BUFFER_BITS;
@@ -81,6 +96,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;
@@ -90,18 +106,19 @@ package org.si.sound.effect {
             istep = _lfoResidueStep;
             imax = startIndex + length;
             for (i=startIndex; i<imax-istep;) {
-                processLFO(buffer, i, istep);
+                _processLFO(buffer, i, istep);
                 _lfoPhase = (_lfoPhase + 1) & 255;
                 i += istep;
                 istep = _lfoStep<<1;
             }
-            processLFO(buffer, i, imax-i);
+            _processLFO(buffer, i, imax-i);
             _lfoResidueStep = istep - (imax - i);
             return channels;
         }
         
         
-        public function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
+        // process inside
+        private function _processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
         {
             var i:int, n:Number, m:Number, p:int, imax:int = startIndex + length, dly:int=int(_sin[_lfoPhase] * _depth);
             for (i=startIndex; i<imax;) {

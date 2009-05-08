@@ -7,7 +7,7 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import org.si.sound.module.*;
     
     
@@ -637,6 +637,40 @@ package org.si.sound.driver {
             }
             return null;
         }
+        
+        
+        /** Set parameters by Array data. */
+        static public function setParam(param:SiOPMChannelParam, data:Array) : void
+        {
+            param.opeCount = int((data.length - 3) / 15);
+            param.alg = int(data[0]);
+            param.fb  = int(data[1]);
+            param.fbc = int(data[2]);
+            
+            var dataIndex:int = 3, n:Number, i:int;
+            for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
+                var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
+                opp.setPGType(int(data[dataIndex++]) & 1023); // 1
+                opp.ar     = int(data[dataIndex++]) & 63;   // 2
+                opp.dr     = int(data[dataIndex++]) & 63;   // 3
+                opp.sr     = int(data[dataIndex++]) & 63;   // 4
+                opp.rr     = int(data[dataIndex++]) & 63;   // 5
+                opp.sl     = int(data[dataIndex++]) & 15;   // 6
+                opp.tl     = int(data[dataIndex++]) & 127;  // 7
+                opp.ksr    = int(data[dataIndex++]) & 3;    // 8
+                opp.ksl    = int(data[dataIndex++]) & 3;    // 9
+                n = Number(data[dataIndex++]);
+                opp.fmul   = (n==0) ? 64 : int(n*128);      // 10
+                opp.dt1    = int(data[dataIndex++]) & 7;    // 11
+                opp.detune = int(data[dataIndex++]);        // 12
+                opp.ams    = int(data[dataIndex++]) & 3;    // 13
+                i = int(data[dataIndex++]);
+                opp.phase  = (i==-1) ? i : (i & 255);           // 14
+                opp.fixedPitch = (int(data[dataIndex++]) & 127)<<6;  // 15
+            }
+        }
+        
+        
         
         
         

@@ -9,7 +9,7 @@
 
 package org.si.sound.effect {
     import org.si.sound.module.SiOPMTable;
-    import org.si.sound.driver.SiMMLTable;
+    import org.si.sound.mml.SiMMLTable;
     import org.si.utils.SLLint;
     
     
@@ -18,6 +18,8 @@ package org.si.sound.effect {
     /** controlable filter base class. */
     public class SiCtrlFilterBase extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         protected var _p0r:Number, _p1r:Number, _p0l:Number, _p1l:Number;
         protected var _cutIndex:int, _res:Number, _table:SiOPMTable;
         
@@ -26,6 +28,18 @@ package org.si.sound.effect {
         private var _lfoResidueStep:int;
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
+        /** constructor */
+        function SiCtrlFilterBase() {}
+        
+        
+        
+        
+    // operation
+    //------------------------------------------------------------
         /** set parameters
          *  @param cut table index for cutoff(0-255). 255 to set no tables.
          *  @param res table index for resonance(0-255). 255 to set no tables.
@@ -58,8 +72,9 @@ package org.si.sound.effect {
         
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             _lfoResidueStep = 0;
@@ -68,6 +83,7 @@ package org.si.sound.effect {
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? int(args[0]) : 255,
@@ -76,12 +92,14 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             return 2;
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;
@@ -103,7 +121,8 @@ package org.si.sound.effect {
         }
         
         
-        public function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
+        /** @private */
+        protected function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
         {
         }
     }

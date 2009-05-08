@@ -8,26 +8,42 @@
 
 
 package org.si.sound.effect {
-    /** Effector basic class */
+    /** Effector basic class. */
     public class SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         /** @private [internal use] used by manager */
         public var _isFree:Boolean = true;
         
         
-        /** initializer. */
+        
+        
+    // constructor
+    //------------------------------------------------------------
+        /** Constructor. do nothing. */
+        function SiEffectBase() {}
+        
+        
+        
+        
+    // callback functions
+    //------------------------------------------------------------
+        /** Initializer. The system calls this when the instance is created. */
         public function initialize() : void
         {
         }
         
-        /** parameter setting by mml arguments 
+        
+        /** Parameter setting by mml arguments. The sequencer calls this when "#EFFECT" appears.
          *  @param args The arguments refer from mml. The value of Number.NaN is put when its abbriviated.
          */
         public function mmlCallback(args:Vector.<Number>) : void
         {
         }
-
-        /** prepare processing. 
+        
+        
+        /** Prepare processing. The system calls this before processing.
          *  @return requesting channels count.
          */
         public function prepareProcess() : int
@@ -35,7 +51,8 @@ package org.si.sound.effect {
             return 1;
         }
         
-        /** process effect to stream buffer 
+        
+        /** Process effect to stream buffer. The system calls this to process.
          *  @param channels Stream channel count. 1=monoral(same data on buffer[i] ans buffer[i+1]). 2=stereo.
          *  @param buffer Stream buffer to apply effect. This is standard stereo stream buffer like [L0,R0,L1,R1,L2,R2 ... ].
          *  @param startIndex startIndex to apply effect. You CANNOT use this index to the stream buffer directly. Should be x2 because its a stereo stream.

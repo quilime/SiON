@@ -15,12 +15,13 @@ package org.si.sound {
     
     
     
+    /** Utilities for SiON */
     public class SiONUtil {
         
-    // PCM data serialization
+    // PCM data serialization (for PCM Data)
     //--------------------------------------------------
         /** Serialize Sound wave */
-        static public function serializeSound(data:Sound, sampleMax:int=1048576) : Vector.<int>
+        static public function serialize(data:Sound, sampleMax:int=1048576) : Vector.<int>
         {
             var wave:ByteArray = new ByteArray();
             var samples:int = data.extract(wave, sampleMax);
@@ -57,19 +58,19 @@ package org.si.sound {
         
         
         
-    // raw wave data
+    // raw wave data (for Sampler Data)
     //--------------------------------------------------
         /** get raw data from Sound */
         static public function getRawData(data:Sound, channels:int=1, sampleMax:int=1048576) : Vector.<int>
         {
             var wave:ByteArray = new ByteArray();
             var samples:int = data.extract(wave, sampleMax);
-            return rawdataByteArrayPCM(wave, new Vector.<int>, channels);
+            return getRawDataByteArrayPCM(wave, new Vector.<int>, channels);
         }
         
         
         /** get raw data from Vector.<Number> wave */
-        static public function rawdataVectorPCM(src:Vector.<Number>, dst:Vector.<int>, channels:int=1) : Vector.<int>
+        static public function getRawDataVectorPCM(src:Vector.<Number>, dst:Vector.<int>, channels:int=1) : Vector.<int>
         {
             var i:int, j0:int, j1:int, imax:int=src.length>>1;
             dst.length = imax;
@@ -90,7 +91,7 @@ package org.si.sound {
         
         
         /** get raw data from ByteArray wave */
-        static public function rawdataByteArrayPCM(src:ByteArray, dst:Vector.<int>, channels:int=1) : Vector.<int>
+        static public function getRawDataByteArrayPCM(src:ByteArray, dst:Vector.<int>, channels:int=1) : Vector.<int>
         {
             var i:int, imax:int=src.length>>3;
             src.position = 0;
@@ -107,60 +108,6 @@ package org.si.sound {
             }
             return dst;
         }
-        
-
-    // Wave shaper
-    //--------------------------------------------------
-        /** wave shaper for Vector.<Number> */
-        static public function waveShapeVector(src:Vector.<Number>, distortion:Number) : void
-        {
-            var coef:Number = 2 * distortion / (1-distortion),
-                c1:Number = 1 + coef;
-            var i:int, imax:int=src.length, n:Number;
-            for (i=0; i<imax; i++) {
-                n = src[i];
-                src[i] = c1 * n / (1 + coef * ((n<0) ? -n : n));
-            }
-        }
-        
-        
-        /** wave shaper for ByteArray */
-        static public function waveShapeByteArray(src:ByteArray, distortion:Number) : void
-        {
-            var coef:Number = 2 * distortion / (1-distortion),
-                c1:Number = 1 + coef;
-            var i:int, imax:int=src.length>>3, n:Number;
-            for (i=0; i<imax; i++) {
-                src.position = i;
-                n = src.readFloat();
-                src.position = i;
-                src.writeFloat(c1 * n / (1 + coef * ((n<0) ? -n : n)));
-            }
-        }
-        
-        
-        /** wave shaper for raw data */
-        static public function waveShapeRawData(src:Vector.<int>, channels:int, distortion:Number) : void
-        {
-            var coef:Number = 2 * distortion / (1-distortion),
-                c1:Number = (1 + coef) * 32768;
-            var i:int, imax:int=src.length, n:Number;
-            if (channels == 2) {
-                for (i=0; i<imax; i++) {
-                    n = (src[i] & 65535) * 0.000030517578125 - 1;
-                    src[i] = int(c1 * n / (1 + coef * ((n<0) ? -n : n))) + 32768;
-                    n = (src[i] >> 16) * 0.000030517578125 - 1;
-                    src[i] += (int(c1 * n / (1 + coef * ((n<0) ? -n : n))) + 32768)<<16;
-                }
-            } else {
-                for (i=0; i<imax; i++) {
-                    n = src[i] * 0.000030517578125;
-                    src[i] = int(c1 * n / (1 + coef * ((n<0) ? -n : n)));
-                }
-            }
-        }
-        
-        
     }
 }
 

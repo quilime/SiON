@@ -11,6 +11,8 @@ package org.si.sound.effect {
     /** Stereo 3band equaliser. */
     public class SiEffectEqualiser extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         // filter pipes
         private var f1p0L:Number, f1p1L:Number, f1p2L:Number, f1p3L:Number;
         private var f2p0L:Number, f2p1L:Number, f2p2L:Number, f2p3L:Number;
@@ -24,13 +26,19 @@ package org.si.sound.effect {
         private var lg:Number, mg:Number, hg:Number;
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
         /** constructor */
-        function SiEffectEqualiser()
-        {
-        }
+        function SiEffectEqualiser() {}
         
         
-        /** constructor
+        
+        
+    // operation
+    //------------------------------------------------------------
+        /** set parameters
          *  @param lowGain low gain(0-1-..).
          *  @param midGain middle gain(0-1-..).
          *  @param highGain high gain(0-1-..).
@@ -47,14 +55,18 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             setParameters();
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0]*0.01 : 1,
@@ -65,6 +77,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             sdm1L = sdm2L = sdm3L = f2p0L = f2p1L = f2p2L = f2p3L = f1p0L = f1p1L = f1p2L = f1p3L = 0;
@@ -73,6 +86,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;

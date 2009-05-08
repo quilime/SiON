@@ -11,13 +11,15 @@ package org.si.sound.module {
     import org.si.utils.SLLint;
     
     
-    /** SiOPM operator class.<br/>
+    /** SiOPM operator class.
+     *  <p>
      *  This operator based on the OPM emulation of MAME, but its extended in below points,<br/>
      *  1) You can set the phase offest of pulse generator. <br/>
-     *  2) You can select the wave form from some wave tables (see class SiOPMTable).
-     *  3) You can set the key scale level.
-     *  4) You can fix the pitch.
-     *  5) You can set the ssgec in OPNA.
+     *  2) You can select the wave form from some wave tables (see class SiOPMTable).<br/>
+     *  3) You can set the key scale level.<br/>
+     *  4) You can fix the pitch.<br/>
+     *  5) You can set the ssgec in OPNA.<br/>
+     *  </p>
      */
     public class SiOPMOperator
     {
@@ -40,119 +42,119 @@ package org.si.sound.module {
     // The SiOPMChannelFM accesses these valiables directly only from the wave processing functions to make it faster.
     // Never access these valiables in other classes reason for the maintenances.
     //----------------------------------------------------------------------------------------------------
-        /** table */
+        /** @private table */
         internal var _table:SiOPMTable;
-        /** chip */
+        /** @private chip */
         internal var _chip:SiOPMModule;
         
         
     // FM module parameters
-        /** Attack rate [0,63] */
+        /** @private Attack rate [0,63] */
         internal var _ar:int;
-        /** Decay rate [0,63] */
+        /** @private Decay rate [0,63] */
         internal var _dr:int;
-        /** Sustain rate [0,63] */
+        /** @private Sustain rate [0,63] */
         internal var _sr:int;
-        /** Release rate [0,63] */
+        /** @private Release rate [0,63] */
         internal var _rr:int;
-        /** Sustain level [0,15] */
+        /** @private Sustain level [0,15] */
         internal var _sl:int;
-        /** Total level [0,127] */
+        /** @private Total level [0,127] */
         internal var _tl:int;
-        /** Key scaling rate = 5-ks [5,2] */
+        /** @private Key scaling rate = 5-ks [5,2] */
         internal var _ks:int;
-        /** Key scaling level [0,3] */
+        /** @private Key scaling level [0,3] */
         internal var _ksl:int;
-        /** _multiple = (mul) ? (mul<<7) : 64; [64,128,256,384,512...] */
+        /** @private _multiple = (mul) ? (mul<<7) : 64; [64,128,256,384,512...] */
         internal var _multiple:int;
-        /** dt1 [0,7]. */
+        /** @private dt1 [0,7]. */
         internal var _dt1:int;
-        /** dt2 [0,3]. This value is linked with _pitchIndexShift */
+        /** @private dt2 [0,3]. This value is linked with _pitchIndexShift */
         internal var _dt2:int;
-        /** Amp modulation shift [16,0] */
+        /** @private Amp modulation shift [16,0] */
         internal var _ams:int;
-        /** Key code = oct<<4 + note [0,127] */
+        /** @private Key code = oct<<4 + note [0,127] */
         internal var _kc:int;
-        /** SSG type envelop control */
+        /** @private SSG type envelop control */
         internal var _ssg_type:int;
-        /** Mute [0/SiOPMTable.ENV_BOTTOM] */
+        /** @private Mute [0/SiOPMTable.ENV_BOTTOM] */
         internal var _mute:int;
         
         
     // pulse generator
-        /** pulse generator type */
+        /** @private pulse generator type */
         internal var _pgType:int;
-        /** pitch table type */
+        /** @private pitch table type */
         internal var _ptType:int;
-        /** wave table */
+        /** @private wave table */
         internal var _waveTable:Vector.<int>;
-        /** phase shift */
+        /** @private phase shift */
         internal var _waveFixedBits:int;
-        /** phase step shift */
+        /** @private phase step shift */
         internal var _wavePhaseStepShift:int;
-        /** pitch table */
+        /** @private pitch table */
         internal var _pitchTable:Vector.<int>;
-        /** pitch table index filter */
+        /** @private pitch table index filter */
         internal var _pitchTableFilter:int;
-        /** phase */
+        /** @private phase */
         internal var _phase:int;
-        /** phase step */
+        /** @private phase step */
         internal var _phase_step:int;
-        /** keyOn phase */
+        /** @private keyOn phase */
         internal var _keyon_phase:int;
-        /** pitch fixed */
+        /** @private pitch fixed */
         internal var _pitchFixed:Boolean;
-        /** dt1 table */
+        /** @private dt1 table */
         internal var _dt1Table:Vector.<int>;
 
         
-        /** pitch index = note * 64 + key fraction */
+        /** @private pitch index = note * 64 + key fraction */
         internal var _pitchIndex:int;
-        /** pitch index shift. This value is linked with dt2 and detune. */
+        /** @private pitch index shift. This value is linked with dt2 and detune. */
         internal var _pitchIndexShift:int;
-        /** pitch index shift by pitch modulation. This value is linked with dt2. */
+        /** @private pitch index shift by pitch modulation. This value is linked with dt2. */
         internal var _pitchIndexShift2:int;
-        /** frequency modulation left-shift. 15 for FM, fb+6 for feedback. */
+        /** @private frequency modulation left-shift. 15 for FM, fb+6 for feedback. */
         internal var _fmShift:int;
         
         
     // envelop generator
-        /** State [EG_ATTACK, EG_DECAY, EG_SUSTAIN, EG_RELEASE, EG_OFF] */
+        /** @private State [EG_ATTACK, EG_DECAY, EG_SUSTAIN, EG_RELEASE, EG_OFF] */
         internal var _eg_state:int;
-        /** Envelop generator updating timer, initialized (2047 * 3) << CLOCK_RATIO_BITS. */
+        /** @private Envelop generator updating timer, initialized (2047 * 3) << CLOCK_RATIO_BITS. */
         internal var _eg_timer:int;
-        /** Timer stepping by samples */
+        /** @private Timer stepping by samples */
         internal var _eg_timer_step:int;
-        /** Counter rounded on 8. */
+        /** @private Counter rounded on 8. */
         internal var _eg_counter:int;
-        /** Internal sustain level [0,SiOPMTable.ENV_BOTTOM] */
+        /** @private Internal sustain level [0,SiOPMTable.ENV_BOTTOM] */
         internal var _eg_sustain_level :int;
-        /** Internal total level [0,1024] = ((tl + f(kc, ksl)) << 3) + _eg_tl_offset + 192. */
+        /** @private Internal total level [0,1024] = ((tl + f(kc, ksl)) << 3) + _eg_tl_offset + 192. */
         internal var _eg_total_level:int;
-        /** Internal total level offset by volume [-192,832]*/
+        /** @private Internal total level offset by volume [-192,832]*/
         internal var _eg_tl_offset:int;
-        /** Internal key scaling rate = _kc >> _ks [0,32] */
+        /** @private Internal key scaling rate = _kc >> _ks [0,32] */
         internal var _eg_key_scale_rate:int;
-        /** Internal key scaling level right shift = _ksl[0,1,2,3]->[8,2,1,0] */
+        /** @private Internal key scaling level right shift = _ksl[0,1,2,3]->[8,2,1,0] */
         internal var _eg_key_scale_level_rshift:int;
-        /** Envelop generator level [0,1024] */
+        /** @private Envelop generator level [0,1024] */
         internal var _eg_level:int;
-        /** Envelop generator output [0,1024<<3] */
+        /** @private Envelop generator output [0,1024<<3] */
         internal var _eg_out:int;
-        /** SSG envelop control ar switch */
+        /** @private SSG envelop control ar switch */
         internal var _eg_ssgec_ar:int;
-        /** SSG envelop control state */
+        /** @private SSG envelop control state */
         internal var _eg_ssgec_state:int;
         
-        /** Increment table picked up from _eg_incTables or _eg_incTablesAtt. */
+        /** @private Increment table picked up from _eg_incTables or _eg_incTablesAtt. */
         internal var _eg_incTable:Vector.<int>;
-        /** The level to shift the state to next. */
+        /** @private The level to shift the state to next. */
         internal var _eg_stateShiftLevel:int;
-        /** Next status list */
+        /** @private Next status list */
         internal var _eg_nextState:Vector.<int>;
-        /** _eg_level converter */
+        /** @private _eg_level converter */
         internal var _eg_levelTable:Vector.<int>;
-        /** Next status table */
+        // Next status table
         static private var _table_nextState:Array = [
             //            EG_ATTACK,  EG_DECAY,   EG_SUSTAIN, EG_RELEASE, EG_OFF
             Vector.<int>([EG_DECAY,   EG_SUSTAIN, EG_OFF,     EG_OFF,     EG_OFF]), // normal
@@ -161,15 +163,15 @@ package org.si.sound.module {
         
         
     // pipes
-        /** flag that is final carrior. */
+        /** @private flag that is final carrior. */
         internal var _final:Boolean;
-        /** modulator output */
+        /** @private modulator output */
         internal var _inPipe:SLLint;
-        /** base */
+        /** @private base */
         internal var _basePipe:SLLint;
-        /** output */
+        /** @private output */
         internal var _outPipe:SLLint;
-        /** feed back */
+        /** @private feed back */
         internal var _feedPipe:SLLint;
         
         
@@ -580,7 +582,7 @@ package org.si.sound.module {
         
     // internal operations
     //--------------------------------------------------
-        /** Update envelop generator. This code is only for testing. */
+        /** @private Update envelop generator. This code is only for testing. */
         internal function eg_update() : void
         {
             _eg_timer -= _eg_timer_step;
@@ -601,7 +603,7 @@ package org.si.sound.module {
         }
         
         
-        /** Update pulse generator. This code is only for testing. */
+        /** @private Update pulse generator. This code is only for testing. */
         internal function pg_update() : void
         {
             _phase += _phase_step;
@@ -613,7 +615,7 @@ package org.si.sound.module {
         }
         
         
-        /** Shift envelop generator state. */
+        /** @private Shift envelop generator state. */
         internal function _eg_shiftState(state:int) : void
         {
             var r:int;

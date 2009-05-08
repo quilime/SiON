@@ -8,10 +8,13 @@
 
 
 package org.si.sound.effect {
+    /** @private Tables used in effectors. */
     public class SiEffectTable {
+        /** sin table */
         public var sinTable:Vector.<Number>;
         
         
+        /** constructor. */
         function SiEffectTable()
         {
             var i:int;
@@ -21,6 +24,7 @@ package org.si.sound.effect {
         }
         
         
+        /** instance */
         static public var instance:SiEffectTable;
         
         

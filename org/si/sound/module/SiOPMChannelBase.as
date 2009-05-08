@@ -114,13 +114,13 @@ package org.si.sound.module {
         /** Get SiOPMChannelParam. */
         public function getSiOPMChannelParam(param:SiOPMChannelParam) : void {}
         
-        /** algorism (@al) */
+        /** algorism (&#64;al) */
         public function setAlgorism(cnt:int, alg:int) : void {}
-        /** feedback (@fb) */
+        /** feedback (&#64;fb) */
         public function setFeedBack(fb:int, fbc:int) : void {}
-        /** parameters (@ call from SiMMLSequencerTrack.setChannelParameters()) */
+        /** parameters (&#64; call from SiMMLTrack._setChannelParameters()) */
         public function setParameters(param:Vector.<int>) : void {}
-        /** pgType & ptType (@ call from SiMMLChannelSetting.selectTone()/initializeTone()) */
+        /** pgType & ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
         public function setType(pgType:int, ptType:int) : void {}
         /** Release rate (s) */
         public function setAllReleaseRate(rr:int) : void {}
@@ -144,19 +144,19 @@ package org.si.sound.module {
         
         /** active operator index (i). */
         public function set activeOperatorIndex(i:int) : void { }
-        /** Release rate (@rr) */
+        /** Release rate (&#64;rr) */
         public function set rr(r:int) : void {}
-        /** total level (@tl)  */
+        /** total level (&#64;tl)  */
         public function set tl(i:int) : void {}
-        /** fine multiple (@ml)  */
+        /** fine multiple (&#64;ml)  */
         public function set fmul(i:int) : void {}
-        /** phase (@ph) */
+        /** phase (&#64;ph) */
         public function set phase(i:int) : void {}
-        /** detune (@dt) */
+        /** detune (&#64;dt) */
         public function set detune(i:int) : void {}
-        /** fixed pitch (@fx) */
+        /** fixed pitch (&#64;fx) */
         public function set fixedPitch(i:int) : void {}
-        /** ssgec (@se) */
+        /** ssgec (&#64;se) */
         public function set ssgec(i:int) : void {}
         
         /** pitch */
@@ -166,6 +166,8 @@ package org.si.sound.module {
         /** buffer index */
         public function get bufferIndex() : int { return _bufferIndex; }
         
+        /** is idling ? */
+        public function get isIdling() : Boolean { return _isIdling; }
         
         
         
@@ -264,7 +266,7 @@ package org.si.sound.module {
         }
         
         
-        /** LP Filter envelop (@f).
+        /** LP Filter envelop (&#64;f).
          *  @param ar attack rate.
          *  @param dr1 decay rate 1.
          *  @param dr2 decay rate 2.
@@ -292,7 +294,7 @@ package org.si.sound.module {
         }
         
         
-        /** LP Filter resonance (@f) [0,9]. */
+        /** LP Filter resonance (&#64;f) [0,9]. */
         public function setFilterResonance(i:int) : void
         {
             i = 1 << (9 - ((i<0) ? 0 : (i>9) ? 9 : i));
@@ -311,32 +313,29 @@ package org.si.sound.module {
         
     // connection control
     //--------------------------------------------------
-        /** Set input pipe (@i). 
-         *  @param level Input level. The value for a standard FM sound module is 15.
+        /** Set input pipe (&#64;i). 
+         *  @param level Input level. The value for a standard FM sound module is 5.
          *  @param pipeIndex Input pipe index (0-3).
          */
         public function setInput(level:int, pipeIndex:int) : void
         {
-            var i:int;
-
             // pipe index
             pipeIndex &= 3;
-            
-            // input level
-            _inputLevel = level;
             
             // set pipe
             if (level > 0) {
                 _inPipe = _chip.getPipe(pipeIndex, _bufferIndex);
                 _inputMode = INPUT_PIPE;
+                _inputLevel = level + 10;
             } else {
                 _inPipe = _chip.zeroBuffer;
                 _inputMode = INPUT_ZERO;
+                _inputLevel = 0;
             }
         }
         
         
-        /** Set ring modulation pipe (@r).
+        /** Set ring modulation pipe (&#64;r).
          *  @param level. Input level(0-8).
          *  @param pipeIndex Input pipe index (0-3).
          */
@@ -355,19 +354,21 @@ package org.si.sound.module {
         }
         
         
-        /** Set output pipe  (@o).
+        /** Set output pipe (&#64;o).
          *  @param outputMode Output mode. 0=standard stereo out, 1=overwrite pipe. 2=add pipe.
-         *  @param outputIndex Output stream/pipe index (0-3).
+         *  @param pipeIndex Output stream/pipe index (0-3).
          */
-        public function setOutput(outputMode:int, outputIndex:int) : void
+        public function setOutput(outputMode:int, pipeIndex:int) : void
         {
-            if (outputIndex > 3) return;
             var i:int, flagAdd:Boolean;
+            
+            // pipe index
+            pipeIndex &= 3;
 
             // set pipe
             if (outputMode == OUTPUT_STANDARD) {
-                outputIndex = 4;                  // pipe[4] is used.
-                flagAdd = false;                  // ovewrite mode
+                pipeIndex = 4;      // pipe[4] is used.
+                flagAdd = false;    // ovewrite mode
             } else {
                 flagAdd = (outputMode == OUTPUT_ADD);  // ovewrite/additional mode
             }
@@ -376,7 +377,7 @@ package org.si.sound.module {
             _outputMode = outputMode;
 
             // set output pipe
-            _outPipe = _chip.getPipe(outputIndex, _bufferIndex);
+            _outPipe = _chip.getPipe(pipeIndex, _bufferIndex);
 
             // set base pipe
             _basePipe = (flagAdd) ? (_outPipe) : (_chip.zeroBuffer);
@@ -471,7 +472,6 @@ package org.si.sound.module {
         public function prepareBuffer() : void
         {
             _bufferIndex = 0;
-            _isIdling = false;
         }
         
         
@@ -506,6 +506,14 @@ package org.si.sound.module {
             }
             
             // update buffer index
+            _bufferIndex += len;
+        }
+        
+        
+        /** Buffering without processnig */
+        public function nop(len:int) : void
+        {
+            _nop(len);
             _bufferIndex += len;
         }
         
@@ -638,19 +646,28 @@ package org.si.sound.module {
         /** No process (default functor of _funcProcess). */
         protected function _nop(len:int) : void
         {
-            var i:int;
-            // buffering
-            var bp:SLLint = _basePipe,
-                op:SLLint = _outPipe;
-            for (i=0; i<len; i++) {
-                // increment
-                op.i = bp.i;
-                bp = bp.next;
-                op = op.next;
+            var i:int, p:SLLint;
+            
+            // rotate output buffer
+            if (_outputMode == OUTPUT_STANDARD) {
+                _outPipe = _chip.getPipe(4, (_bufferIndex + len) & (_chip.bufferLength-1));
+            } else {
+                for (p=_outPipe, i=0; i<len; i++) p = p.next;
+                _outPipe  = p;
+                _basePipe = (_outputMode == OUTPUT_ADD) ? p : _chip.zeroBuffer;
             }
-            // update pointers
-            _basePipe = bp;
-            _outPipe  = op;
+            
+            // rotate input buffer when connected by @i
+            if (_inputMode == INPUT_PIPE) {
+                for (p=_inPipe, i=0; i<len; i++) p = p.next;
+                _inPipe = p;
+            }
+            
+            // rotate ring buffer
+            if (_ringPipe) {
+                for (p=_ringPipe, i=0; i<len; i++) p = p.next;
+                _ringPipe = p;
+            }
         }
         
         

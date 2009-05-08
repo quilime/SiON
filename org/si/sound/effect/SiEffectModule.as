@@ -14,7 +14,7 @@ package org.si.sound.effect {
     
     
     
-    /** Effect Module */
+    /** Effect Module. */
     public class SiEffectModule
     {
     // valiables
@@ -29,8 +29,8 @@ package org.si.sound.effect {
         
     // constructor
     //--------------------------------------------------------------------------------
-        /** constructor. */
-        function SiEffectModule(module:SiOPMModule, userEffector:*=undefined) 
+        /** Constructor. */
+        function SiEffectModule(module:SiOPMModule) 
         {
             _module = module;
             _effectorChains = new Vector.<EffectorChain>(SiOPMModule.STREAM_SIZE_MAX);
@@ -53,9 +53,9 @@ package org.si.sound.effect {
             register("lf", SiFilterLowPass);
             register("hf", SiFilterHighPass);
             register("bf", SiFilterBandPass);
-            register("af", SiFilterAllPass);
             register("nf", SiFilterNotch);
             register("pf", SiFilterPeak);
+            register("af", SiFilterAllPass);
             
             register("nlf", SiCtrlFilterLowPass);
             register("nhf", SiCtrlFilterHighPass);
@@ -66,14 +66,14 @@ package org.si.sound.effect {
         
     // operations
     //--------------------------------------------------------------------------------
-        /** initialize all effectors. */
+        /** @parivate [internal use] initialize all effectors. */
         public function initialize() : void
         {
             for (var slot:int=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) clear(slot);
         }
         
         
-        /** prepare for processing. */
+        /** @parivate [internal use] prepare for processing. */
         public function prepareProcess() : void
         {
             var i:int, slot:int, ec:EffectorChain;
@@ -99,7 +99,7 @@ package org.si.sound.effect {
         }
         
         
-        /** processing. */
+        /** @parivate [internal use] processing. */
         public function process() : void
         {
             var i:int, slot:int, channels:int, buffer:Vector.<Number>, e:SiEffectBase, 
@@ -122,14 +122,19 @@ package org.si.sound.effect {
         
     // effector instance manager
     //--------------------------------------------------------------------------------
-        /** register effector class */
+        /** Register effector class
+         *  @param name Effector name.
+         *  @param cls SiEffectBase based class.
+         */
         public function register(name:String, cls:Class) : void
         {
             _effectorInstances[name] = new EffectorInstances(cls);
         }
         
         
-        /** get effector instance by name */
+        /** Get effector instance by name 
+         *  @param name Effector name.
+         */
         public function getInstance(name:String) : SiEffectBase
         {
             if (!(name in _effectorInstances)) return null;
@@ -144,7 +149,9 @@ package org.si.sound.effect {
         
     // effector connection
     //--------------------------------------------------------------------------------
-        /** clear effector chain. */
+        /** Clear effector slot. 
+         *  @param slot Effector slot number.
+         */
         public function clear(slot:int) : void
         {
             for each (var e:SiEffectBase in _effectorChains[slot].chain) e._isFree = true;
@@ -152,14 +159,20 @@ package org.si.sound.effect {
         }
         
         
-        /** connect effector. */
+        /** Connect effector to the slot.
+         *  @param slot Effector slot number.
+         *  @param effector Effector instance.
+         */
         public function connect(slot:int, effector:SiEffectBase) : void
         {
             _effectorChains[slot].chain.push(effector);
         }
         
         
-        /** Parse MML for effector */
+        /** Parse MML for effector 
+         *  @param slot Effector slot number.
+         *  @param mml MML string.
+         */
         public function parseMML(slot:int, mml:String) : void
         {
             var res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
@@ -212,6 +225,7 @@ class EffectorChain
     public var requestChannels:int = 0;
     public var chain:Vector.<SiEffectBase> = new Vector.<SiEffectBase>();
 	public function get isActive() : Boolean { return (chain.length > 0); }
+    function EffectorChain() {}
 }
 
 

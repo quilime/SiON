@@ -14,6 +14,8 @@ package org.si.sound.effect {
     /** Stereo auto pan. */
     public class SiEffectAutoPan extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         private var _stereo:Boolean;
         
         private var _lfoStep:int;

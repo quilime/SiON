@@ -10,7 +10,7 @@
 package org.si.sound {
     import flash.media.*;
     import flash.utils.ByteArray;
-    import org.si.sound.driver.SiMMLData;
+    import org.si.sound.mml.SiMMLData;
     import org.si.sound.module.SiOPMTable;
     import org.si.utils.SLLint;
     

@@ -91,8 +91,8 @@ package org.si.sound.module {
                                                         // (192- 255) reserved
         static public const PG_CUSTOM     :int = 256;   // (256- 511) custom wave table. PG_CUSTOM+[0,255]
         static public const PG_PCM        :int = 512;   // (512-767)  pcm module.PG_PCM+[0,255]
-        static public const PG_SAMPLE     :int = 768;   // (768-1023) samplar module.PG_SAMPLE+[0,255]
-        static public const DEFAULT_PG_MAX:int = 1024;  // max value of pgType = 1023
+        static public const PG_SAMPLE     :int = 768;   // (768-1024) samplar module.PG_SAMPLE+[0,255]
+        static public const DEFAULT_PG_MAX:int = 1024;  // max value of pgType = 1024
         static public const PG_FILTER     :int = 1023;  // pg number loops between 0 to 1023
 
         // lfo wave type
@@ -1105,14 +1105,14 @@ package org.si.sound.module {
         
         
         /** Register Sampler data. */
-        static public function registerSample(index:int, table:Vector.<int>, channelCount:int) : void
+        static public function registerSample(index:int, table:Vector.<int>, flag:int) : void
         {
             // offset index
             var table_index:int = index + PG_SAMPLE;
 
             // register wave table
             instance.waveTables[table_index]    = table;
-            instance.waveFixedBits[table_index] = channelCount;
+            instance.waveFixedBits[table_index] = flag;
         }
     }
 }

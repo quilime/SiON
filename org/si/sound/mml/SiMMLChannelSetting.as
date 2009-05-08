@@ -7,8 +7,8 @@
 
 
 
-package org.si.sound.driver {
-    import org.si.sound.mml.MMLSequence;
+package org.si.sound.mml {
+    import org.si.sound.mml.base.MMLSequence;
     import org.si.sound.module.SiOPMModule;
     import org.si.sound.module.SiOPMTable;
     import org.si.sound.module.SiOPMChannelBase;
@@ -53,7 +53,7 @@ package org.si.sound.driver {
                 _ptTypeList[i] = SiOPMTable.instance.defaultPTType[idx];
             }
             _channelTone = new Vector.<int>(channelCount, true);
-            for (i=0; i<channelCount; i++) { _channelTone[i] = 0; }
+            for (i=0; i<channelCount; i++) { _channelTone[i] = i; }
             
             this._initIndex = 0;
             this.type = type;
@@ -67,7 +67,7 @@ package org.si.sound.driver {
     // tone setting
     //--------------------------------------------------
         /** initialize tone by channel number. */
-        public function initializeTone(track:SiMMLSequencerTrack, chNum:int, bufferIndex:int) : int
+        public function initializeTone(track:SiMMLTrack, chNum:int, bufferIndex:int) : int
         {
             if (track.channel == null) {
                 // create new channel
@@ -81,15 +81,17 @@ package org.si.sound.driver {
             }
 
             // initialize
-            var channelTone:int = (chNum<0 || chNum>=_channelTone.length) ? _initIndex : _channelTone[chNum];
-            track.channel.setType(_pgTypeList[channelTone], _ptTypeList[channelTone]);
+            var channelTone:int = _initIndex;
+            if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
+            track.channelNumber = (chNum<0) ? 0 : chNum;
             track.channel.setAlgorism(1, 0);
+            track.channel.setType(_pgTypeList[channelTone], _ptTypeList[channelTone]);
             return channelTone;
         }
         
         
         /** select tone by tone number. */
-        public function selectTone(track:SiMMLSequencerTrack, toneIndex:int) : MMLSequence
+        public function selectTone(track:SiMMLTrack, toneIndex:int) : MMLSequence
         {
             var param:SiOPMChannelParam;
             
@@ -99,7 +101,8 @@ package org.si.sound.driver {
                 track.channel.setType(_pgTypeList[toneIndex], _ptTypeList[toneIndex]);
                 break;
             case SELECT_TONE_FM:
-                if (toneIndex<0 || toneIndex>=256) toneIndex=0;
+                toneIndex += track.channelNumber << 8;
+                if (toneIndex<0 || toneIndex>=SiMMLTable.FM_PARAM_MAX) toneIndex=0;
                 param = SiMMLTable.getSiOPMChannelParam(toneIndex);
                 if (param) track.channel.setSiOPMChannelParam(param, false);
                 return (param.initSequence.isEmpty()) ? null : param.initSequence;

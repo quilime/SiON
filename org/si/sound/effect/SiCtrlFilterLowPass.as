@@ -11,7 +11,8 @@ package org.si.sound.effect {
     /** controlable LPF. */
     public class SiCtrlFilterLowPass extends SiCtrlFilterBase
     {
-        override public function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
+        /** @private */
+        override protected function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
         {
             var i:int, n:Number, imax:int = startIndex + length,
                 cut:Number = _table.filter_cutoffTable[_cutIndex],

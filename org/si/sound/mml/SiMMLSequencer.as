@@ -7,10 +7,10 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import flash.system.System;
     
-    import org.si.sound.mml.*;
+    import org.si.sound.mml.base.*;
     import org.si.sound.module.SiOPMModule;
     import org.si.sound.module.SiOPMChannelFM;
     import org.si.sound.module.SiOPMChannelBase;
@@ -21,76 +21,58 @@ package org.si.sound.driver {
     
     
     /** MML bridge for SiOPMModule.
-     *  SiMMLSequencer -> SiMMLSequencerTrack -> SiOPMChannelFM -> SiOPMOperator. (-> means "operates")
+     *  SiMMLSequencer -> SiMMLTrack -> SiOPMChannelFM -> SiOPMOperator. (-> means "operates")
      */
     public class SiMMLSequencer extends MMLSequencer
     {
     // constants
     //--------------------------------------------------
-        /** maximum output level of 1 operator. */
-        static public const OUTPUT_MAX:int = (1<<SiOPMTable.LOG_VOLUME_BITS);
-        /** maximum prameter count */
-        static public const PARAM_MAX:int = 16;
-        /** macro size */
-        static public const MACRO_SIZE:int = 26;
-        
+        static private const PARAM_MAX:int = 16;    // maximum prameter count
+        static private const MACRO_SIZE:int = 26;   // macro size 
         
         // mask bit for @m command
-        static protected const MASK_VOLUME  :int = 1;
-        static protected const MASK_PAN     :int = 2;
-        static protected const MASK_QUANTIZE:int = 4;
-        static protected const MASK_OPERATOR:int = 8;
-        static protected const MASK_ENVELOP :int = 16;
-        static protected const MASK_MODULATE:int = 32;
+        static private const MASK_VOLUME  :int = 1;
+        static private const MASK_PAN     :int = 2;
+        static private const MASK_QUANTIZE:int = 4;
+        static private const MASK_OPERATOR:int = 8;
+        static private const MASK_ENVELOP :int = 16;
+        static private const MASK_MODULATE:int = 32;
         
         
         
         
     // valiables
     //--------------------------------------------------
-        /** Module instance. */
-        protected var module:SiOPMModule;
+        /** SiMMLTracks list */
+        public var tracks:Vector.<SiMMLTrack>;
         
-        /** Current processing track. */
-        protected var currentTrack:SiMMLSequencerTrack;
+        /** @private [internal use] callback event trigger */
+        public var _eventTriggerOn:Function = null;
+        /** @private [internal use] callback event trigger */
+        public var _eventTriggerOff:Function = null;
         
-        /** MMLExecutorConnector */
-        protected var connector:MMLExecutorConnector;
+        private var _module:SiOPMModule;                // Module instance
+        private var _connector:MMLExecutorConnector;    // MMLExecutorConnector
+        private var _currentTrack:SiMMLTrack;  // Current processing track
+        private var _macroStrings:Vector.<String>;      // Macro strings
+        private var _flagMacroExpanded:uint;            // Expanded macro flag to avoid circular reference
+        private var _envelopEventID:int;                // Event id of first envelop
+        private var _macroExpandDynamic:Boolean;        // Macro expantion mode
         
-        /** Macro strings */
-        protected var macroStrings:Vector.<String>;
-        /** Expanded macro flag to avoid circular reference */
-        protected var macroExpanded:uint;
+        private var _p:Vector.<int> = new Vector.<int>(PARAM_MAX);  // temporary area to get plural parameters
+        private var _internalTableIndex:int = 0                     // internal table index
+        private var _freeTracks:Vector.<SiMMLTrack>;       // SiMMLTracks free list
         
-        /** Event id of first envelop */
-        protected var envelopEventID:int;
-        /** Macro expantion mode */
-        protected var macroExpandDynamic:Boolean;
-        
-        // temporary area to get plural parameters
-        private var _p:Vector.<int> = new Vector.<int>(PARAM_MAX);
-        // internal table index
-        private var _internalTableIndex:int = 0
-        
-        // Title of the song.
-        private var _title:String;
-        // SiMMLSequencerTracks count
-        private var _trackCount:int;
-        // SiMMLSequencerTracks list
-        private var _tracks:Vector.<SiMMLSequencerTrack>;
-        // Processed sample count
-        private var _processedSampleCount:int;
+        private var _title:String;                      // Title of the song.
+        private var _processedSampleCount:int;          // Processed sample count
         
         
         
         
     // properties
     //--------------------------------------------------
-        /** SiMMLSequencerTracks count */
-        public function get trackCount() : int { return _trackCount; }
-        
         /** Is ready to process ? */
-        public function get isReadyToProcess() : Boolean { return (_trackCount>0); }
+        public function get isReadyToProcess() : Boolean { return (tracks.length>0); }
         
         /** Song title */
         public function get title() : String { return _title; }
@@ -98,25 +80,39 @@ package org.si.sound.driver {
         /** Processed sample count */
         public function get processedSampleCount() : int { return _processedSampleCount; }
         
+        /** Is finish to buffering ? */
+        public function get isFinished() : Boolean {
+            for each (var trk:SiMMLTrack in tracks) {
+                if (!trk.isFinished) return false;
+            }
+            return true;
+        }
+        
+        /** Current working track */
+        public function get currentTrack() : SiMMLTrack { return _currentTrack; }
+        
         
         
         
     // constructor
     //--------------------------------------------------
         /** Create new sequencer. */
-        function SiMMLSequencer(module:SiOPMModule)
+        function SiMMLSequencer(module:SiOPMModule, eventTriggerOn:Function, eventTriggerOff:Function)
         {
             super();
             
             var i:int;
             
             // initialize
-            this.module = module;
-            _tracks = new Vector.<SiMMLSequencerTrack>();
-            _trackCount = 0;
+            _module = module;
+            tracks = new Vector.<SiMMLTrack>();
+            _freeTracks = new Vector.<SiMMLTrack>();
             _processedSampleCount = 0;
-            connector = new MMLExecutorConnector();
-            macroStrings  = new Vector.<String> (MACRO_SIZE, true);
+            _connector = new MMLExecutorConnector();
+            _macroStrings  = new Vector.<String> (MACRO_SIZE, true);
+            _eventTriggerOn = eventTriggerOn;
+            _eventTriggerOff = eventTriggerOff;
+            _currentTrack = null;
             
             // initialize table once
             SiMMLTable.initialize();
@@ -147,8 +143,8 @@ package org.si.sound.driver {
             setMMLEventListener(MMLEvent.MOD_TYPE,    _onModuleType);
             setMMLEventListener(MMLEvent.INPUT_PIPE,  _onInput);
             setMMLEventListener(MMLEvent.OUTPUT_PIPE, _onOutput);
-            newMMLEventListener('%e',  _onModuleEffect);
-            
+            newMMLEventListener('%t',  _setEventTrigger);
+            newMMLEventListener('%e',  _setEffectTrigger);
             
             // operator setting
             newMMLEventListener('i',   _onSlotIndex);
@@ -169,7 +165,7 @@ package org.si.sound.driver {
             
             // envelop
             newMMLEventListener('@fps', _onEnvelopFPS);
-            envelopEventID = 
+            _envelopEventID = 
             newMMLEventListener('@@', _onToneEnv);
             newMMLEventListener('na', _onAmplitudeEnv);
             newMMLEventListener('np', _onPitchEnv);
@@ -190,22 +186,22 @@ package org.si.sound.driver {
             //setMMLEventListener(MMLEvent.REGISTER);
 
             // set initial values of operators
-            module.initOperatorParam.ar     = 63;
-            module.initOperatorParam.dr     = 0;
-            module.initOperatorParam.sr     = 0;
-            module.initOperatorParam.rr     = 28;
-            module.initOperatorParam.sl     = 0;
-            module.initOperatorParam.tl     = 0;
-            module.initOperatorParam.ksr    = 0;
-            module.initOperatorParam.ksl    = 0;
-            module.initOperatorParam.fmul   = 128;
-            module.initOperatorParam.dt1    = 0;
-            module.initOperatorParam.detune = 0;
-            module.initOperatorParam.ams    = 1;
-            module.initOperatorParam.phase  = 0;
-            module.initOperatorParam.fixedPitch = 0;
-            module.initOperatorParam.modLevel   = 5;
-            module.initOperatorParam.setPGType(SiOPMTable.PG_SQUARE);
+            _module.initOperatorParam.ar     = 63;
+            _module.initOperatorParam.dr     = 0;
+            _module.initOperatorParam.sr     = 0;
+            _module.initOperatorParam.rr     = 28;
+            _module.initOperatorParam.sl     = 0;
+            _module.initOperatorParam.tl     = 0;
+            _module.initOperatorParam.ksr    = 0;
+            _module.initOperatorParam.ksl    = 0;
+            _module.initOperatorParam.fmul   = 128;
+            _module.initOperatorParam.dt1    = 0;
+            _module.initOperatorParam.detune = 0;
+            _module.initOperatorParam.ams    = 1;
+            _module.initOperatorParam.phase  = 0;
+            _module.initOperatorParam.fixedPitch = 0;
+            _module.initOperatorParam.modLevel   = 5;
+            _module.initOperatorParam.setPGType(SiOPMTable.PG_SQUARE);
             
             // parsers initial settings
             setting.defaultBPM        = 120;
@@ -224,19 +220,18 @@ package org.si.sound.driver {
         
     // operation for all tracks
     //--------------------------------------------------
-        /** Get track instance. This function only is available after prepareProcess. */
-        public function getTrack(trackIndex:int) : SiMMLSequencerTrack
+        /** Free all tracks. */
+        public function freeAllTracks() : void
         {
-            return (trackIndex < _trackCount) ? _tracks[trackIndex] : null;
+            for each (var trk:SiMMLTrack in tracks) _freeTracks.push(trk);
+            tracks.length = 0;
         }
         
         
         /** Reset all tracks. */
         public function resetAllTracks() : void
         {
-            var i:int, trk:SiMMLSequencerTrack;
-            for (i=0; i<_trackCount; i++) {
-                trk = _tracks[i];
+            for each (var trk:SiMMLTrack in tracks) {
                 trk.reset(0);
                 trk.velocity   = setting.defaultVolume<<3;
                 trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
@@ -251,44 +246,58 @@ package org.si.sound.driver {
         
     // operation for controlable tracks
     //--------------------------------------------------
-        /** Get free controlable track */
-        public function getFreeControlableTrack() : SiMMLSequencerTrack
+        /** Get free controlable track.
+         *  @param trackID New Tracks ID.
+         *  @return Returns null when there are no free tracks.
+         */
+        public function getFreeControlableTrack(trackID:int=0) : SiMMLTrack
         {
-            var i:int;
-            for (i=_trackCount-1; i>=0; i--) {
-                if (!_tracks[i].isActive) return _tracks[i];
+            var i:int, trk:SiMMLTrack;
+            for (i=tracks.length-1; i>=0; i--) {
+                trk = tracks[i];
+                if (!trk.isActive) {
+                    trk.trackID = (trackID>=0) ? trackID : 0;
+                    return trk;
+                }
             }
             return null;
         }
         
         
-        /** Find controlable track by note */
-        public function findControlableTrack(note:int) : SiMMLSequencerTrack
+        /** Find controlable track by trackID and note
+         *  @param trackID Search Tracks ID.
+         *  @param trackID Search note number. The value of -1 hits all tracks.
+         *  @return Returns null when does not find.
+         */
+        public function findControlableTrack(trackID:int, note:int=-1) : SiMMLTrack
         {
-            var i:int;
-            for (i=_trackCount-1; i>=0; i--) {
-                if (_tracks[i].isControlable && _tracks[i].note == note) return _tracks[i];
+            var i:int, trk:SiMMLTrack;
+            for (i=tracks.length-1; i>=0; i--) {
+                trk = tracks[i];
+                if (trk.trackID == trackID && (note == -1 || (note == trk.note && trk.channel.isNoteOn()))) return trk;
             }
             return null;
         }
         
         
-        /** new controlable track */
-        public function newControlableTrack() : SiMMLSequencerTrack
+        /** new controlable track.
+         *  @param trackID New Tracks ID.
+         */
+        public function newControlableTrack(trackID:int=0) : SiMMLTrack
         {
-            var trk:SiMMLSequencerTrack = (_trackCount < _tracks.length) ? _tracks[_trackCount] : (new SiMMLSequencerTrack());
-            trk._initialize(null, 60, _trackCount);
+            var trk:SiMMLTrack = _freeTracks.pop() || (new SiMMLTrack());
+            trk._initialize(null, 60, (trackID>=0) ? trackID : 0, _eventTriggerOn, _eventTriggerOff);
             trk.reset(0);
             
             trk.velocity   = setting.defaultVolume<<3;
             trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
             trk.quantCount = calcSampleCount(setting.defaultQuantCount);
             trk.channel.masterVolume = setting.defaultFineVolume;
-            _tracks[_trackCount] = trk;
-            _trackCount++;
+            tracks.push(trk);
+            
             return trk;
         }
-                
+        
         
         
         
@@ -301,7 +310,7 @@ package org.si.sound.driver {
          */
         override public function prepareCompile(data:MMLData, mml:String) : Boolean
         {
-            _trackCount = 0;
+            freeAllTracks();
             return super.prepareCompile(data, mml);
         }
         
@@ -317,7 +326,7 @@ package org.si.sound.driver {
         override public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
             // initialize all channels
-            _trackCount = 0;
+            freeAllTracks();
             _processedSampleCount = 0;
             
             // call super function (set mmlData/grobalSequence/defaultBPM inside)
@@ -325,18 +334,18 @@ package org.si.sound.driver {
             
             if (mmlData) {
                 // initialize all tracks
-                var trk:SiMMLSequencerTrack;
+                var trk:SiMMLTrack;
                 var seq:MMLSequence = mmlData.sequenceGroup.headSequence;
                 var idx:int = 0;
 
                 // initialize sequence tracks
                 while (seq) {
-                    trk = (idx < _tracks.length) ? _tracks[idx] : (new SiMMLSequencerTrack());
-                    _tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, idx);
+                    trk = _freeTracks.pop() || (new SiMMLTrack());
+                    // id=-1 is MML sequence track.
+                    tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, -1, _eventTriggerOn, _eventTriggerOff);
                     seq = seq.nextSequence;
                     idx++;
                 }
-                _trackCount = idx;
             }
 
             // reset 
@@ -344,77 +353,101 @@ package org.si.sound.driver {
         }
         
 
-        /** Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess().
-         *  @return Returns true when all processes are finished.
-         */
-        override public function process() : Boolean
+        /** Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess(). */
+        override public function process() : void
         {
-            var ret:Boolean = true, i:int, bufferingTick:int;
+            var i:int, bufferingTick:int, len:int, trk:SiMMLTrack;
             
             // prepare buffering
-            for (i=0; i<_trackCount; i++) _tracks[i].channel.prepareBuffer();
+            for each (trk in tracks) trk.channel.prepareBuffer();
 
             // clear all buffers
-            module.clearAllBuffers();
+            _module.clearAllBuffers();
             
             // buffering
             startGlobalSequence();
             do {
                 bufferingTick = executeGlobalSequence();
-                for (i=0; i<_trackCount; i++) {
-                    currentTrack = _tracks[i];
-                    ret = processMMLExecutor(currentTrack.executor, bufferingTick) && ret;
+                for each (trk in tracks) {
+                    _currentTrack = trk;
+                    len = trk.prepareBuffer(bufferingTick);
+                    processMMLExecutor(trk.executor, len);
                 }
             } while (!isEndGlobalSequence());
+            _currentTrack = null;
             
-            _processedSampleCount += module.bufferLength;
-            return ret;
+            _processedSampleCount += _module.bufferLength;
         }
         
 
         /** Dummy process. This funciton must be called after prepareProcess().
-         *  @param length dumming sample count.
+         *  @param length dumming sample count. [NOTICE] This value is rounded by a buffer length. Not an exact value.
          */
-        public function dummyProcess(sampleCount:int) : Boolean
+        public function dummyProcess(sampleCount:int) : void
         {
-            var i:int, bufferingTick:int, count:int,
-                bufCount:int = sampleCount / module.bufferLength;
+            var i:int, bufferingTick:int, len:int, count:int, trk:SiMMLTrack,
+                bufCount:int = sampleCount / _module.bufferLength;
             
-            if (bufCount == 0) return true;
+            if (bufCount == 0) return;
             
             // register dummy processing events
             _registerDummyProcessEvent();
             
-            var ret:Boolean = true; 
-
             for (count=0; count<bufCount; count++) {
                 // prepare buffering
-                for (i=0; i<_trackCount; i++) {
-                    _tracks[i].channel.prepareBuffer();
-                }
+                for each (trk in tracks) trk.channel.prepareBuffer();
+                
                 // buffering
                 startGlobalSequence();
                 do {
                     bufferingTick = executeGlobalSequence();
-                    for (i=0; i<_trackCount; i++) {
-                        currentTrack = _tracks[i];
-                        ret = processMMLExecutor(currentTrack.executor, bufferingTick) && ret;
+                    for each (trk in tracks) {
+                        _currentTrack = trk;
+                        len = trk.prepareBuffer(bufferingTick);
+                        processMMLExecutor(trk.executor, len);
                     }
                 } while (!isEndGlobalSequence());
             }
+            _currentTrack = null;
             
             // register standard processing events
             _registerProcessEvent();
-
-            return ret;
         }
         
         
         
         
+    // calculation
+    //--------------------------------------------------
+        /** calculate length (in sample count).
+         *  @param beat16 The beat number in 16th calculating from.
+         */
+        public function calcSampleLength(beat16:Number) : Number {
+            return beat16 * sampleParBeat16;
+        }
+        
+        
+        /** calculate delay (in sample count) quantized by beat.
+         *  @param sampleOffset Offset in sample count.
+         *  @param beat16Offset Offset in 16th beat.
+         *  @param quant Quantizing beat in 16th. The 0 sets no quantization, 1 sets quantization by 16th, 4 sets quantization by 4th beat.
+         */
+        public function calcSampleDelay(sampleOffset:int=0, beat16Offset:Number=0, quant:int=0) : Number {
+            if (quant == 0) return sampleOffset + beat16Offset * sampleParBeat16;
+            var iBeats:int = int(sampleOffset * beat16ParSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
+            if (quant != 1) iBeats = (int((iBeats+quant-1) / quant)) * quant;
+            return (iBeats - globalBeat16) * sampleParBeat16;
+        }
+        
+        
+        
+        
+    //====================================================================================================
+    // Internal uses
+    //====================================================================================================
     // implements
     //--------------------------------------------------
-        /** Preprocess mml string */
+        /** @private [internal uses] Preprocess mml string */
         override protected function onBeforeCompile(mml:String) : String
         {
             var codeA:int = "A".charCodeAt();
@@ -474,8 +507,8 @@ package org.si.sound.driver {
                         startID = (midres[1]) ? (String(midres[1]).charCodeAt() - codeA) : 0;
                         endID   = (midres[2]) ? ((midres[3]) ? (String(midres[3]).charCodeAt()-codeA) : MACRO_SIZE-1) : startID;
                         for (i=startID; i<=endID; i++) {
-                            if (concat) { macroStrings[i] += (macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
-                            else        { macroStrings[i]  = (macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
+                            if (concat) { _macroStrings[i] += (_macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
+                            else        { _macroStrings[i]  = (_macroExpandDynamic) ? String(res[4]) : _expandMacro(res[4]); }
                         }
                         midres = midrex.exec(str2);
                     }
@@ -503,7 +536,7 @@ package org.si.sound.driver {
         }
         
         
-        /** Postprocess of compile. */
+        /** @private [internal uses] Postprocess of compile. */
         override protected function onAfterCompile(seqGroup:MMLSequenceGroup) : void
         {
             // parse system command after parsing
@@ -520,10 +553,10 @@ package org.si.sound.driver {
         }
         
         
-        /** Callback when table event was found. */
+        /** @private [internal uses] Callback when table event was found. */
         override protected function onTableParse(prev:MMLEvent, table:String) : void
         {
-            if (prev.id < envelopEventID || envelopEventID+10 < prev.id) throw _errorInternalTable();
+            if (prev.id < _envelopEventID || _envelopEventID+10 < prev.id) throw _errorInternalTable();
             // {
             var rex:RegExp = /\{([^}]*)\}(.*)/ms;
             var res:* = rex.exec(table);
@@ -537,18 +570,18 @@ package org.si.sound.driver {
         }
         
         
-        /** Processing audio */
+        /** @private [internal uses] Processing audio */
         override protected function onProcess(sampleLength:int, e:MMLEvent) : void
         {
-            currentTrack.process(sampleLength);
+            _currentTrack.buffer(sampleLength);
         }
         
         
-        /** Callback when the tempo is changed. */
+        /** @private [internal uses] Callback when the tempo is changed. */
         override protected function onTempoChanged(changingRatio:Number) : void
         {
-            for (var i:int=0; i<_trackCount; i++) {
-                _tracks[i].executor._onTempoChanged(changingRatio);
+            for each (var trk:SiMMLTrack in tracks) {
+                trk.executor._onTempoChanged(changingRatio);
             }
         }
         
@@ -557,8 +590,8 @@ package org.si.sound.driver {
         
     // sub routines for parser
     //--------------------------------------------------
-        /** reset parser parameters. */
-        protected function _resetParserParameters() : void
+        // Reset parser parameters.
+        private function _resetParserParameters() : void
         {
             var i:int;
             
@@ -569,18 +602,18 @@ package org.si.sound.driver {
             setting.volumePolarization = 1;
             setting.defaultQuantRatio  = 6;
             setting.maxQuantRatio      = 8;
-            macroExpandDynamic = false;
+            _macroExpandDynamic = false;
             MMLParser.keySign = "C";
-            for (i=0; i<macroStrings.length; i++) {
-                macroStrings[i] = "";
+            for (i=0; i<_macroStrings.length; i++) {
+                _macroStrings[i] = "";
             }
         }
         
         
-        /** Expand macro. */
-        protected function _expandMacro(m:*, recursive:Boolean=false) : String
+        // Expand macro.
+        private function _expandMacro(m:*, recursive:Boolean=false) : String
         {
-            if (!recursive) macroExpanded = 0;
+            if (!recursive) _flagMacroExpanded = 0;
             if (m == undefined) return "";
             var charCodeA:int = "A".charCodeAt(0);
             return String(m).replace(/([A-Z])(\(([\-\d]+)\))?/g, 
@@ -588,13 +621,13 @@ package org.si.sound.driver {
                     var t:int, i:int, f:int;
                     i = String(arguments[1]).charCodeAt() - charCodeA;
                     f = 1 << i;
-                    if (macroExpanded && f) throw _errorCircularReference(m);
-                    if (macroStrings[i]) {
+                    if (_flagMacroExpanded && f) throw _errorCircularReference(m);
+                    if (_macroStrings[i]) {
                         if (arguments[2].length > 0) {
                             if (arguments[3].length > 0) t = int(arguments[3]);
-                            return "!@ns" + String(t) + ((macroExpandDynamic) ? _expandMacro(macroStrings[i], true) : macroStrings[i]) + "!@ns" + String(-t);
+                            return "!@ns" + String(t) + ((_macroExpandDynamic) ? _expandMacro(_macroStrings[i], true) : _macroStrings[i]) + "!@ns" + String(-t);
                         }
-                        return (macroExpandDynamic) ? _expandMacro(macroStrings[i], true) : macroStrings[i];
+                        return (_macroExpandDynamic) ? _expandMacro(_macroStrings[i], true) : _macroStrings[i];
                     }
                     return "";
                 }
@@ -606,8 +639,8 @@ package org.si.sound.driver {
         
     // system command parser
     //--------------------------------------------------
-        /** Parse system command before parsing mml. returns false when it hasnt parsed. */
-        protected function _parseSystemCommandBefore(cmd:String, prm:String) : Boolean
+        // Parse system command before parsing mml. returns false when it hasnt parsed.
+        private function _parseSystemCommandBefore(cmd:String, prm:String) : Boolean
         {
             var i:int, param:SiOPMChannelParam
             
@@ -637,8 +670,8 @@ package org.si.sound.driver {
                 case '#SIGN':  { MMLParser.keySign = (noData) ? pfx : dat; return true; }
                 case '#MACRO': { 
                     if (noData) dat = pfx; 
-                         if (dat == "dynamic") macroExpandDynamic = true;
-                    else if (dat == "static")  macroExpandDynamic = false;
+                         if (dat == "dynamic") _macroExpandDynamic = true;
+                    else if (dat == "static")  _macroExpandDynamic = false;
                     else throw _errorParameterNotValid("#MACRO", dat);
                     return true;
                 }
@@ -716,8 +749,8 @@ package org.si.sound.driver {
         }
         
         
-        /** Parse system command after parsing mml. */
-        protected function _parseSystemCommandAfter(seqGroup:MMLSequenceGroup, syscmd:MMLSequence) : MMLSequence
+        // Parse system command after parsing mml.
+        private function _parseSystemCommandAfter(seqGroup:MMLSequenceGroup, syscmd:MMLSequence) : MMLSequence
         {
             var letter:String = syscmd.getSystemCommand();
             var rex:RegExp = /#(FM)[{ \\t\\r\\n]*([^}]*)/;
@@ -731,8 +764,8 @@ package org.si.sound.driver {
                 switch (res[1]) {
                 case 'FM':
                     if (res[2] == undefined) throw _errorSystemCommand(letter);
-                    connector.parse(res[2]);
-                    seq = connector.connect(seqGroup, seq);
+                    _connector.parse(res[2]);
+                    seq = _connector.connect(seqGroup, seq);
                     break;
                 default:
                     throw _errorSystemCommand(letter);
@@ -978,28 +1011,28 @@ package org.si.sound.driver {
         // rest
         private function _onRest(e:MMLEvent) : MMLEvent
         {
-            currentTrack._setRest();
+            _currentTrack._setRest();
             return currentExecutor.publishProessingEvent(e);
         }
         
         // note
         private function _onNote(e:MMLEvent) : MMLEvent
         {
-            currentTrack._setNote(e.data, calcSampleCount(e.length));
+            _currentTrack._setNote(e.data, calcSampleCount(e.length));
             return currentExecutor.publishProessingEvent(e);
         }
         
         // &
         private function _onSlur(e:MMLEvent) : MMLEvent
         {
-            currentTrack._setSlur();
+            _currentTrack._setSlur();
             return currentExecutor.publishProessingEvent(e);
         }
     
         // &&
         private function _onSlurWeak(e:MMLEvent) : MMLEvent
         {
-            currentTrack._setSlurWeak();
+            _currentTrack._setSlurWeak();
             return currentExecutor.publishProessingEvent(e);
         }
         
@@ -1007,8 +1040,8 @@ package org.si.sound.driver {
         private function _onPitchBend(e:MMLEvent) : MMLEvent
         {
             if (e.next == null || e.next.id != MMLEvent.NOTE) return e.next;    // check next note
-            var term:int = calcSampleCount(e.length);                           // chenging time
-            currentTrack._setPitchBend(e.next.data, term);                       // pitch bending
+            var term:int = calcSampleCount(e.length);                           // changing time
+            _currentTrack._setPitchBend(e.next.data, term);                     // pitch bending
             return currentExecutor.publishProessingEvent(e);
         }
         
@@ -1018,8 +1051,8 @@ package org.si.sound.driver {
         // quantize ratio
         private function _onQuantRatio(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_QUANTIZE) return e.next;  // check mask
-            currentTrack.quantRatio = e.data / setting.maxQuantRatio;   // quantize ratio
+            if (_currentTrack.eventMask & MASK_QUANTIZE) return e.next;  // check mask
+            _currentTrack.quantRatio = e.data / setting.maxQuantRatio;   // quantize ratio
             return e.next;
         }
         
@@ -1029,37 +1062,37 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             _p[0] = (_p[0] == int.MIN_VALUE) ? 0 : (_p[0] * setting.resolution / setting.maxQuantCount);
             _p[1] = (_p[1] == int.MIN_VALUE) ? 0 : (_p[1] * setting.resolution / setting.maxQuantCount);
-            if (currentTrack.eventMask & MASK_QUANTIZE) return e.next;  // check mask
-            currentTrack.quantCount = calcSampleCount(_p[0]);           // quantize count
-            currentTrack.keyOnDelay = calcSampleCount(_p[1]);           // key on delay
+            if (_currentTrack.eventMask & MASK_QUANTIZE) return e.next;  // check mask
+            _currentTrack.quantCount = calcSampleCount(_p[0]);           // quantize count
+            _currentTrack.keyOnDelay = calcSampleCount(_p[1]);           // key on delay
             return e.next;
         }
 
         // @mask
         private function _onEventMask(e:MMLEvent) : MMLEvent
         {
-            currentTrack.eventMask = (e.data != int.MIN_VALUE) ? e.data : 0;
+            _currentTrack.eventMask = (e.data != int.MIN_VALUE) ? e.data : 0;
             return e.next;
         }
 
         // k
         private function _onDetune(e:MMLEvent) : MMLEvent
         {
-            currentTrack.pitchShift = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            _currentTrack.pitchShift = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
     
         // kt
         private function _onKeyTrans(e:MMLEvent) : MMLEvent
         {
-            currentTrack.noteShift = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            _currentTrack.noteShift = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
     
         // !@kr
         private function _onRelativeDetune(e:MMLEvent) : MMLEvent
         {
-            currentTrack.pitchShift += (e.data == int.MIN_VALUE) ? 0 : e.data;
+            _currentTrack.pitchShift += (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
 
@@ -1071,7 +1104,7 @@ package org.si.sound.driver {
         {
             var frame:int = (e.data == int.MIN_VALUE || e.data == 0) ? 60 : e.data;
             if (frame > 1000) frame = 1000;
-            currentTrack.setEnvelopFPS(frame);
+            _currentTrack.setEnvelopFPS(frame);
             return e.next;
         }
         
@@ -1079,9 +1112,10 @@ package org.si.sound.driver {
         private function _onToneEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setToneEnvelop(1, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setToneEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1089,9 +1123,10 @@ package org.si.sound.driver {
         private function _onAmplitudeEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setAmplitudeEnvelop(1, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setAmplitudeEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1099,9 +1134,10 @@ package org.si.sound.driver {
         private function _onAmplitudeEnvTSSCP(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setAmplitudeEnvelop(1, _p[0], _p[1], true);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setAmplitudeEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1], true);
             return e.next;
         }
         
@@ -1109,9 +1145,10 @@ package org.si.sound.driver {
         private function _onPitchEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setPitchEnvelop(1, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setPitchEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1119,9 +1156,10 @@ package org.si.sound.driver {
         private function _onNoteEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setNoteEnvelop(1, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setNoteEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
     
@@ -1129,9 +1167,10 @@ package org.si.sound.driver {
         private function _onFilterEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setFilterEnvelop(1, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setFilterEnvelop(1, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1139,9 +1178,10 @@ package org.si.sound.driver {
         private function _onToneReleaseEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setToneEnvelop(0, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setToneEnvelop(0, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1149,9 +1189,10 @@ package org.si.sound.driver {
         private function _onAmplitudeReleaseEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setAmplitudeEnvelop(0, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setAmplitudeEnvelop(0, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1159,9 +1200,10 @@ package org.si.sound.driver {
         private function _onPitchReleaseEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setPitchEnvelop(0, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setPitchEnvelop(0, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
         
@@ -1169,9 +1211,10 @@ package org.si.sound.driver {
         private function _onNoteReleaseEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setNoteEnvelop(0, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setNoteEnvelop(0, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
     
@@ -1179,9 +1222,10 @@ package org.si.sound.driver {
         private function _onFilterReleaseEnv(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            currentTrack.setFilterEnvelop(0, _p[0], _p[1]);
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            _currentTrack.setFilterEnvelop(0, SiMMLTable.instance.envelopTables[idx], _p[1]);
             return e.next;
         }
 
@@ -1204,11 +1248,11 @@ package org.si.sound.driver {
                 rc :int = (_p[9] == int.MIN_VALUE) ? 128 : _p[9];
             
             if (cut == 128 && res == 0 && ar == 0 && rr == 0) {
-                currentTrack.channel.activateFilter(false);
+                _currentTrack.channel.activateFilter(false);
             } else {
-                currentTrack.channel.activateFilter(true);
-                currentTrack.channel.setFilterResonance(res);
-                currentTrack.channel.setFilterEnvelop(ar, dr1, dr2, rr, cut, dc1, dc2, sc, rc);
+                _currentTrack.channel.activateFilter(true);
+                _currentTrack.channel.setFilterResonance(res);
+                _currentTrack.channel.setFilterEnvelop(ar, dr1, dr2, rr, cut, dc1, dc2, sc, rc);
             }
             return e.next;
         }
@@ -1218,8 +1262,8 @@ package org.si.sound.driver {
         {
             // get parameters
             e = e.getParameters(_p, 2);
-            currentTrack.channel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
-            currentTrack.channel.setLFOCycleTime((_p[0] == int.MIN_VALUE) ? 333 : _p[0]*1000/60);
+            _currentTrack.channel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
+            _currentTrack.channel.setLFOCycleTime((_p[0] == int.MIN_VALUE) ? 333 : _p[0]*1000/60);
             return e.next;
         }
         
@@ -1227,12 +1271,12 @@ package org.si.sound.driver {
         private function _onPitchModulation(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 4);
-            if (currentTrack.eventMask & MASK_MODULATE) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_MODULATE) return e.next;   // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             if (_p[2] == int.MIN_VALUE) _p[2] = 0;
             if (_p[3] == int.MIN_VALUE) _p[3] = 0;
-            currentTrack.setModulationEnvelop(true, _p[0], _p[1], _p[2], _p[3]);
+            _currentTrack.setModulationEnvelop(true, _p[0], _p[1], _p[2], _p[3]);
             return e.next;
         }
         
@@ -1240,20 +1284,20 @@ package org.si.sound.driver {
         private function _onAmplitudeModulation(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 4);
-            if (currentTrack.eventMask & MASK_MODULATE) return e.next;   // check mask
+            if (_currentTrack.eventMask & MASK_MODULATE) return e.next;   // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             if (_p[2] == int.MIN_VALUE) _p[2] = 0;
             if (_p[3] == int.MIN_VALUE) _p[3] = 0;
-            currentTrack.setModulationEnvelop(false, _p[0], _p[1], _p[2], _p[3]);
+            _currentTrack.setModulationEnvelop(false, _p[0], _p[1], _p[2], _p[3]);
             return e.next;
         }
         
-        // po
+        // po [term]
         private function _onPortament(e:MMLEvent) : MMLEvent
         {
             if (e.data == int.MIN_VALUE) e.data = 0;
-            currentTrack.setPortament(e.data);
+            _currentTrack.setPortament(e.data);
             return e.next;
         }
         
@@ -1263,25 +1307,25 @@ package org.si.sound.driver {
         // v
         private function _onVolume(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_VOLUME) return e.next;  // check mask
-            currentTrack.velocity = e.data<<3;                        // velocity (data<<3 = 16->128)
+            if (_currentTrack.eventMask & MASK_VOLUME) return e.next;  // check mask
+            _currentTrack.velocity = e.data<<3;                        // velocity (data<<3 = 16->128)
             return e.next;
         }
         
         // (, )
         private function _onVolumeShift(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_VOLUME) return e.next;  // check mask
-            currentTrack.velocity += e.data<<3;                       // velocity (data<<3 = 16->128)
+            if (_currentTrack.eventMask & MASK_VOLUME) return e.next;  // check mask
+            _currentTrack.velocity += e.data<<3;                       // velocity (data<<3 = 16->128)
             return e.next;
         }
     
         // x
         private function _onExpression(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_VOLUME) return e.next; // check mask
+            if (_currentTrack.eventMask & MASK_VOLUME) return e.next; // check mask
             var x:int = (e.data == int.MIN_VALUE) ? 128 : e.data;    // default value = 128
-            currentTrack.expression = x;                             // expression
+            _currentTrack.expression = x;                             // expression
             return e.next;
         }
 
@@ -1289,24 +1333,24 @@ package org.si.sound.driver {
         private function _onMasterVolume(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, SiOPMModule.STREAM_SIZE_MAX);
-            if (currentTrack.eventMask & MASK_VOLUME) return e.next;    // check mask
-            currentTrack.channel.setAllStreamSendLevels(_p);            // master volume
+            if (_currentTrack.eventMask & MASK_VOLUME) return e.next;    // check mask
+            _currentTrack.channel.setAllStreamSendLevels(_p);            // master volume
             return e.next;
         }
         
         // p
         private function _onPan(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_PAN) return e.next;                       // check mask
-            currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data<<4)-64;  // pan
+            if (_currentTrack.eventMask & MASK_PAN) return e.next;                       // check mask
+            _currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data<<4)-64;  // pan
             return e.next;
         }
 
         // @p
         private function _onFinePan(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_PAN) return e.next;                 // check mask
-            currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data);  // pan
+            if (_currentTrack.eventMask & MASK_PAN) return e.next;                 // check mask
+            _currentTrack.channel.pan = (e.data == int.MIN_VALUE) ? 0 : (e.data);  // pan
             return e.next;
         }
         
@@ -1316,7 +1360,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 5;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.channel.setInput(_p[0], _p[1]);
+            _currentTrack.channel.setInput(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1326,7 +1370,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 2;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.channel.setOutput(_p[0], _p[1]);
+            _currentTrack.channel.setOutput(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1336,7 +1380,7 @@ package org.si.sound.driver {
             e = e.getParameters(_p, 2);
             if (_p[0] == int.MIN_VALUE) _p[0] = 4;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.channel.setRingModulation(_p[0], _p[1]);
+            _currentTrack.channel.setRingModulation(_p[0], _p[1]);
             return e.next;
         }
         
@@ -1348,17 +1392,27 @@ package org.si.sound.driver {
         {
             e = e.getParameters(_p, 2);
             if (_p[0] < 0 || _p[0] >= SiMMLTable.MT_MAX) _p[0] = SiMMLTable.MT_ALL;
-            currentTrack.setChannelModuleType(_p[0], _p[1]);
+            _currentTrack.setChannelModuleType(_p[0], _p[1]);
             return e.next;
         }
         
+        
+        // %t
+        private function _setEventTrigger(e:MMLEvent) : MMLEvent
+        {
+            e = e.getParameters(_p, 3);
+            var id     :int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
+            var typeOn :int = (_p[1] != int.MIN_VALUE) ? _p[1] : 1;
+            var typeOff:int = (_p[2] != int.MIN_VALUE) ? _p[2] : 0;
+            _currentTrack.setEventTrigger(id, typeOn, typeOff);
+            return e.next;
+        }
+        
+        
         // %e
-        private function _onModuleEffect(e:MMLEvent) : MMLEvent
+        private function _setEffectTrigger(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            var id:int = _p[0] + SiMMLTable.MT_EFFECT;
-            if (id < SiMMLTable.MT_EFFECT || id >= SiMMLTable.MT_EFFECT_MAX) id = SiMMLTable.MT_DELAY;
-            currentTrack.setChannelModuleType(id, _p[1]);
             return e.next;
         }
     
@@ -1366,10 +1420,10 @@ package org.si.sound.driver {
         private function _onAlgorism(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             var cnt:int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
             var alg:int = (_p[1] != int.MIN_VALUE) ? _p[1] : SiMMLTable.instance.alg_init[cnt];
-            currentTrack.channel.setAlgorism(cnt, alg);
+            _currentTrack.channel.setAlgorism(cnt, alg);
             return e.next;
         }
         
@@ -1377,8 +1431,8 @@ package org.si.sound.driver {
         private function _onOpeParameter(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, PARAM_MAX);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            var seq:MMLSequence = currentTrack.setChannelParameters(_p);
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            var seq:MMLSequence = _currentTrack._setChannelParameters(_p);
             if (seq) {
                 seq.connectBefore(e.next);
                 return seq.headEvent.next;
@@ -1390,18 +1444,18 @@ package org.si.sound.driver {
         private function _onFeedback(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             var fb :int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
             var fbc:int = (_p[1] != int.MIN_VALUE) ? _p[1] : 0;
-            currentTrack.channel.setFeedBack(fb, fbc);
+            _currentTrack.channel.setFeedBack(fb, fbc);
             return e.next;
         }
         
         // i
         private function _onSlotIndex(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentTrack.channel.activeOperatorIndex = (e.data == int.MIN_VALUE) ? 4 : e.data;
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            _currentTrack.channel.activeOperatorIndex = (e.data == int.MIN_VALUE) ? 4 : e.data;
             return e.next;
         }
 
@@ -1410,18 +1464,18 @@ package org.si.sound.driver {
         private function _onOpeReleaseRate(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            if (_p[0] != int.MIN_VALUE) currentTrack.channel.rr = _p[0];
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_p[0] != int.MIN_VALUE) _currentTrack.channel.rr = _p[0];
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.setReleaseSweep(_p[1]);
+            _currentTrack.setReleaseSweep(_p[1]);
             return e.next;
         }
         
         // @tl
         private function _onOpeTotalLevel(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentTrack.channel.tl = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            _currentTrack.channel.tl = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
@@ -1429,26 +1483,26 @@ package org.si.sound.driver {
         private function _onOpeMultiple(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.channel.fmul = (_p[0] << 7) + _p[1];
+            _currentTrack.channel.fmul = (_p[0] << 7) + _p[1];
             return e.next;
         }
         
         // @dt
         private function _onOpeDetune(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentTrack.channel.detune = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            _currentTrack.channel.detune = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
         // @ph
         private function _onOpePhase(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentTrack.channel.phase = e.data;
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            _currentTrack.channel.phase = e.data;
             return e.next;
         }
         
@@ -1456,18 +1510,18 @@ package org.si.sound.driver {
         private function _onOpeFixedNote(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
             if (_p[0] == int.MIN_VALUE) _p[0] = 0;
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.channel.fixedPitch = (_p[0] << 6) + _p[1];
+            _currentTrack.channel.fixedPitch = (_p[0] << 6) + _p[1];
             return e.next;
         }
         
         // @se
         private function _onOpeSSGEnvelop(e:MMLEvent) : MMLEvent
         {
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            currentTrack.channel.ssgec = (e.data == int.MIN_VALUE) ? 0 : e.data;
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            _currentTrack.channel.ssgec = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
         
@@ -1475,10 +1529,10 @@ package org.si.sound.driver {
         private function _onSustain(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
-            if (currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
-            if (_p[0] != int.MIN_VALUE) currentTrack.channel.setAllReleaseRate(_p[0]);
+            if (_currentTrack.eventMask & MASK_OPERATOR) return e.next;      // check mask
+            if (_p[0] != int.MIN_VALUE) _currentTrack.channel.setAllReleaseRate(_p[0]);
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
-            currentTrack.setReleaseSweep(_p[1]);
+            _currentTrack.setReleaseSweep(_p[1]);
             return e.next;
         }
         

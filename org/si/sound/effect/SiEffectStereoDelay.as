@@ -11,6 +11,8 @@ package org.si.sound.effect {
     /** Stereo long delay effector. The delay time is from 1[ms] to about 1.5[sec]. */
     public class SiEffectStereoDelay extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         static private const DELAY_BUFFER_BITS:int = 16;
         static private const DELAY_BUFFER_FILTER:int = (1<<DELAY_BUFFER_BITS)-1;
         
@@ -22,6 +24,10 @@ package org.si.sound.effect {
         private var _readBufferR:Vector.<Number>;
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
         /** constructor */
         function SiEffectStereoDelay()
         {
@@ -31,7 +37,11 @@ package org.si.sound.effect {
         }
         
         
-        /** constructor
+        
+        
+    // operation
+    //------------------------------------------------------------
+        /** set parameters
          *  @param delayTime delay time[ms]. maximum value is about 1500.
          *  @param feedback feedback decay(-1-1). Negative value to invert phase.
          *  @param isCross stereo crossing delay.
@@ -47,14 +57,18 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             setParameters();
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0] : 250,
@@ -63,6 +77,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             var i:int, imax:int = 1<<DELAY_BUFFER_BITS, 
@@ -73,6 +88,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;

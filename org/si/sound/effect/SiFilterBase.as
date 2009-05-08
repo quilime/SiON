@@ -11,20 +11,36 @@ package org.si.sound.effect {
     /** filters based on RBJ cockbook. */
     public class SiFilterBase extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         protected var _a1:Number, _a2:Number, _b0:Number, _b1:Number, _b2:Number;
         private var _in1L:Number, _in2L:Number, _out1L:Number, _out2L:Number;
         private var _in1R:Number, _in2R:Number, _out1R:Number, _out2R:Number;
         
         
-        // Math calculation
-        //------------------------------------------------------------
+        
+        
+    // Math calculation
+    //------------------------------------------------------------
+        /** hyperbolic sinh. */
         protected function sinh(n:Number) : Number {
             return (Math.exp(n) - Math.exp(-n)) * 0.5;
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // constructor
+    //------------------------------------------------------------
+        /** constructor */
+        function SiFilterBase() {}
+        
+        
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function prepareProcess() : int
         {
             _in1L = _in2L = _out1L = _out2L = _in1R = _in2R = _out1R = _out2R = 0;
@@ -32,6 +48,7 @@ package org.si.sound.effect {
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;

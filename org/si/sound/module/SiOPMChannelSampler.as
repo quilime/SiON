@@ -96,7 +96,7 @@ package org.si.sound.module {
         
     // interfaces
     //--------------------------------------------------
-        /** Set algorism (@al) 
+        /** Set algorism (&#64;al) 
          *  @param cnt Operator count.
          *  @param alg Algolism number of the operator's connection.
          */
@@ -105,9 +105,10 @@ package org.si.sound.module {
         }
         
         
-        /** Set parameters (@ command). */
-        override public function setParameters(param:Vector.<int>) : void
+        /** pgType & ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
+        override public function setType(pgType:int, ptType:int) : void 
         {
+            _bankNumber = pgType & 1;
         }
         
         
@@ -131,7 +132,7 @@ package org.si.sound.module {
             _expression = expression * velocity * 0.00006103515625; // 1/16384
         }
         
-        /** phase (@ph) */
+        /** phase (&#64;ph) */
         override public function set phase(i:int) : void {
             _samplePhaseReset = (i!=-1);
         }
@@ -181,10 +182,12 @@ package org.si.sound.module {
             if (_waveNumber >= 0) {
                 _isNoteOn = true;
                 _isIdling = false;
-                var idx:int = _waveNumber + (_bankNumber<<7) + SiOPMTable.PG_SAMPLE;
+                var idx:int = _waveNumber + (_bankNumber<<7) + SiOPMTable.PG_SAMPLE,
+                    flag:int = _table.waveFixedBits[idx];
                 _sample = _table.waveTables[idx];
                 _sampleLength = _sample.length;
-                _sampleChannelCount = _table.waveFixedBits[idx];
+                _sampleChannelCount = (flag & 1) ? 2 : 1;
+                _isOneShot = Boolean(flag >> 1);
                 if (_samplePhaseReset) _sampleIndex = 0;
             }
         }
@@ -193,8 +196,8 @@ package org.si.sound.module {
         /** Note off. */
         override public function noteOff() : void
         {
-            _isNoteOn = false;
             if (!_isOneShot) {
+                _isNoteOn = false;
                 _isIdling = true;
                 _sample = null;
                 _sampleLength = 0;
@@ -209,20 +212,12 @@ package org.si.sound.module {
         }
         
         
-        /** Prepare buffering */
-        override public function prepareBuffer() : void
-        {
-            _bufferIndex = 0;
-            _isIdling = false;
-        }
-        
-        
         /** Buffering */
         override public function buffer(len:int) : void
         {
             var i:int, imax:int, vol:Number;
             if (_isIdling || _sample == null) {
-                _nop(len);  // idling
+                //_nop(len);
             } else {
                 var residureLen:int = _sampleLength - _sampleIndex,
                     procLen:int = (len < residureLen) ? len : residureLen;
@@ -236,12 +231,24 @@ package org.si.sound.module {
                     vol = _volume[0] * _expression;
                     _chip.streamBuffer[0].writeVectorInt(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
                 }
-                if (len > procLen) _nop(len - procLen);
+                if (len > procLen) {
+                    _isIdling = true;
+                    _sample = null;
+                    //_nop(len - procLen);
+                }
             }
             
             // update buffer index
             _bufferIndex += len;
             _sampleIndex += len;
+        }
+        
+        
+        /** Buffering without processnig */
+        override public function nop(len:int) : void
+        {
+            //_nop(len);
+            _bufferIndex += len;
         }
     }
 }

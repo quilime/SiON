@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// SiMMLSequencerTrack Envelop table
+// SiMMLTrack Envelop table
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -7,7 +7,7 @@
 
 
 
-package org.si.sound.driver {
+package org.si.sound.mml {
     import org.si.utils.SLLint;
     
     

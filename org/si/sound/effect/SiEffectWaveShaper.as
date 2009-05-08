@@ -11,9 +11,22 @@ package org.si.sound.effect {
     /** Stereo wave shaper. */
     public class SiEffectWaveShaper extends SiEffectBase
     {
+    // variables
+    //------------------------------------------------------------
         private var _coefficient:int;
         
         
+        
+        
+    // constructor
+    //------------------------------------------------------------
+        /** constructor */
+        function SiEffectWaveShaper() {}        
+        
+        
+        
+    // operations
+    //------------------------------------------------------------
         /** set parameters
          *  @param distortion distortion(0-1).
          */
@@ -23,26 +36,32 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             setParameters();
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0]*0.01 : 0.5);
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             return 2;
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;

@@ -11,6 +11,8 @@ package org.si.sound.effect {
     /** BPF. */
     public class SiFilterBandPass extends SiFilterBase
     {
+    // operations
+    //------------------------------------------------------------
         /** set parameters
          *  @param freq cutoff frequency[Hz].
          *  @param band band width [oct].
@@ -28,14 +30,18 @@ package org.si.sound.effect {
         }
         
         
-        // overrided funcitons
-        //------------------------------------------------------------
+        
+        
+    // overrided funcitons
+    //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             setParameters();
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0] : 3000,
