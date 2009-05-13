@@ -441,7 +441,7 @@ package org.si.sion.sequencer {
          *  @param beat16Offset Offset in 16th beat.
          *  @param quant Quantizing beat in 16th. The 0 sets no quantization, 1 sets quantization by 16th, 4 sets quantization by 4th beat.
          */
-        public function calcSampleDelay(sampleOffset:int=0, beat16Offset:Number=0, quant:int=0) : Number {
+        public function calcSampleDelay(sampleOffset:int=0, beat16Offset:Number=0, quant:Number=0) : Number {
             if (quant == 0) return sampleOffset + beat16Offset * sampleParBeat16;
             var iBeats:int = int(sampleOffset * beat16ParSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
             if (quant != 1) iBeats = (int((iBeats+quant-1) / quant)) * quant;

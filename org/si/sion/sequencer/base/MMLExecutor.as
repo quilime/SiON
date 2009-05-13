@@ -85,7 +85,17 @@ package org.si.sion.sequencer.base {
         /** Reset pointer to sequence head */
         public function resetPointer() : void
         {
-            if (sequence) pointer  = sequence.headEvent.next;
+            if (sequence) pointer = sequence.headEvent.next;
+        }
+        
+        
+        /** stop execute sequence */
+        public function stop() : void
+        {
+            if (pointer) {
+                if (pointer === _processEvent) _processEvent.jump = MMLEvent.nopEvent;
+                else pointer = null;
+            }
         }
         
         

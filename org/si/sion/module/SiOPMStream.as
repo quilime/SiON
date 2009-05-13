@@ -50,7 +50,8 @@ package org.si.sion.module {
                     buffer[i] += n * volR;  i++;
                     pointer = pointer.next;
                 }
-            } else {
+            } else 
+            if (channels == 1) {
                 // monoral
                 for (i=start<<1; i<imax;) {
                     n = Number(pointer.i) * vol;
@@ -85,7 +86,8 @@ package org.si.sion.module {
                         buffer[i] += n * volR;  i++;
                     }
                 }
-            } else {
+            } else 
+            if (channels == 1) {
                 // monoral
                 for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
                     n = Number(pointer[j]) * vol;

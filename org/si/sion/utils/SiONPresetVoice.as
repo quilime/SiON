@@ -8,9 +8,28 @@ package org.si.sion.utils {
     import org.si.sion.SiONVoice;
     
     
-    /** Preset voice data */
+    /** Preset voice data.
+@example Create new instance and access voices by key.
+<listing version="3.0">
+var voices:SiONPresetVoice = new SiONPresetVoice(); // create new instance.
+var voice:SiONVoice = voices["valsound.piano1"];    // access voice by key
+</listing>
+@example Or you can access Array list by categoly key.
+<listing version="3.0">
+var voices:SiONPresetVoice = new SiONPresetVoice(); // create new instance.
+var baseVoiceList:Array = voices["valsound.base"];  // access voice list by categoly key
+var base10:SiONVoice = baseVoiceList[10];           // access voice by index
+</listing>
+@example Or you can access Array list by categolies property.
+<listing version="3.0">
+var voices:SiONPresetVoice = new SiONPresetVoice(); // create new instance.
+var voiceList:Array = voices.categolies[2];         // access voice list by categoly index
+trace(voiceList["name"]);                           // outputs "valsound.bell"
+var bell2:SiONVoice = voiceList[2];                 // access voice by index
+</listing>
+     */
     public dynamic class SiONPresetVoice {
-        /** categoly */
+        /** categoly list. */
         public var categolies:Array;
         
         
@@ -24,8 +43,8 @@ package org.si.sion.utils {
             _new("triangle8", "8bit triangle wave", new SiONVoice(5,3));
             _new("triangle",  "Triangle wave",      new SiONVoice(5,4));
             _new("square",    "Square wave",        new SiONVoice(5,5));
-            _new("noize",     "White noize",        new SiONVoice(5,6));
-            _new("noize93",   "93bit noize",        new SiONVoice(5,25));
+            _new("noise",     "White noise",        new SiONVoice(5,6));
+            _new("snoise",    "93bit noise",        new SiONVoice(5,25));
             _new("konami",    "Wave table sample",  new SiONVoice(5,7));
             _new("ma1",       "MA3 wave sample",    new SiONVoice(5,33));
             _new("beep",      "Pulse wave sample",  new SiONVoice(5,81));

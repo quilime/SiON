@@ -180,7 +180,7 @@ package org.si.sion.sequencer {
         public function get isControlable() : Boolean { return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET); }
         
         /** Is activate ? In the sequence track, this function always returns true. */
-        public function get isActive() : Boolean { return (!isControlable || channel.isNoteOn() || _keyOnCounter>0 || _trackStartDelay>0); }
+        public function get isActive() : Boolean { return (!isControlable || !channel.isIdling || _keyOnCounter>0 || _trackStartDelay>0); }
         
         /** Is finish to buffering ? */
         public function get isFinished() : Boolean { return (executor.pointer==null && channel.isIdling && _keyOnCounter==0 && _trackStartDelay==0); }
@@ -377,9 +377,10 @@ package org.si.sion.sequencer {
          *  @param seq Sequence to play.
          *  @param delay Delaying time (in sample count).
          */
-        public function sequenceOn(seq:MMLSequence, delay:int=0) : SiMMLTrack
+        public function sequenceOn(seq:MMLSequence, delay:int=0, length:int=0) : SiMMLTrack
         {
             _trackStartDelay = delay;
+            _trackStopDelay = length;
             executor.initialize(seq);
             return this;
         }
@@ -661,14 +662,15 @@ package org.si.sion.sequencer {
         internal function buffer(length:int) : void
         {
             // check track stopping
-            var trackStop:Boolean = false;
+            var trackStop:Boolean = false, trackStopResume:int = 0;
             if (_trackStopDelay > 0) {
                 if (_trackStopDelay > length) {
                     _trackStopDelay -= length;
                 } else {
+                    trackStopResume = length - _trackStopDelay;
+                    trackStop = true;
                     length = _trackStopDelay;
                     _trackStopDelay = 0;
-                    trackStop = true;
                 }
             }
             
@@ -692,11 +694,12 @@ package org.si.sion.sequencer {
             // track stop
             if (trackStop) {
                 if (executor.pointer) {
-                    executor.clear();
+                    executor.stop();
                 } else if (channel.isNoteOn()) {
                     _keyOff();
                     _note = -1;
                 }
+                if (trackStopResume>0) $(trackStopResume);
             }
             
             // processing inside

@@ -8,10 +8,8 @@
 package org.si.sion {
     import flash.errors.*;
     import flash.events.*;
-    import flash.media.Sound;
-    import flash.media.SoundChannel;
-    import flash.media.SoundTransform;
-    import flash.display.*;
+    import flash.media.*;
+    import flash.display.Sprite;
     import flash.utils.getTimer;
     import flash.utils.ByteArray;
     import org.si.utils.SLLint;
@@ -40,8 +38,7 @@ package org.si.sion {
 @example 1) The simplest sample. Create new instance and call play with MML string.<br/>
 <listing version="3.0">
 // create driver instance.
-public var driver = new SiONDriver();
-...
+var driver:SiONDriver = new SiONDriver();
 // call play() with mml string whenever you want to play sound.
 driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
 </listing>
@@ -126,13 +123,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _eventListenerPrior:int;    // event listeners priority
         private var _listenEvent:int;           // current lintening event
         
-        static private var _jobQueue:Vector.<SiONDriverJob> = null;   // compiling/rendering jobs queue
+        private var _jobQueue:Vector.<SiONDriverJob> = null;   // compiling/rendering jobs queue
+        
+        static private var _mutex:SiONDriver = null;     // unique instance
         
         
         
         
     // properties
     //----------------------------------------
+        /** Instance of unique SiONDriver. null when new SiONDriver is not created yet. */
+        static public function get mutex() : SiONDriver { return _mutex; }
+        
+        
         // data
         /** MML string (this property is only available during compile). */
         public function get mmlString() : String { return _mmlString; }
@@ -155,14 +158,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function get bufferLength() : int { return _bufferLength; }
         
         /** Sound volume. */
-        public function get volume() : Number       { return _soundTransform.volume; }
+        public function get volume() : Number { return _soundTransform.volume; }
         public function set volume(v:Number) : void {
             _soundTransform.volume = v; 
             if (_soundChannel) _soundChannel.soundTransform = _soundTransform;
         }
         
         /** Sound panning. */
-        public function get pan() : Number       { return _soundTransform.pan; }
+        public function get pan() : Number { return _soundTransform.pan; }
         public function set pan(p:Number) : void {
             _soundTransform.pan = p;
             if (_soundChannel) _soundChannel.soundTransform = _soundTransform;
@@ -247,8 +250,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         function SiONDriver(bufferLength:int=2048, channelCount:int=2, sampleRate:int=44100, bitRate:int=0)
         {
-            if (!_jobQueue) _jobQueue = new Vector.<SiONDriverJob>();
+            // check mutex
+            if (_mutex != null) throw errorPluralDrivers();
             
+            // allocation
+            _jobQueue = new Vector.<SiONDriverJob>();
             module = new SiOPMModule();
             effector = new SiEffectModule(module);
             sequencer = new SiMMLSequencer(module, _callbackEventTriggerOn, _callbackEventTriggerOff);
@@ -297,6 +303,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             
             // register sound streaming function 
             _sound.addEventListener("sampleData", _streaming);
+            
+            // set mutex
+            _mutex = this;
         }
         
         
@@ -589,7 +598,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @return SiMMLTrack to play the note.
          */
         public function noteOn(note:int, voice:SiONVoice, 
-                               length:Number=0, delay:Number=0, quant:int=0, trackID:int=0, 
+                               length:Number=0, delay:Number=0, quant:Number=0, trackID:int=0, 
                                eventTriggerID:int=0, noteOnTrigger:int=0, noteOffTrigger:int=0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_TRACK_ID_OFFSET;
@@ -607,13 +616,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Note off. This function only is available after play(). The NOTE_OFF_STREAM event is dispatched inside.
          *  @param note note number [0-127].
          *  @param trackID track id to note off.
+         *  @param delay note off delay units in 16th beat.
+         *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @return The SiMMLTrack switched key off. Returns null when tracks are overflowed.
          */
-        public function noteOff(note:int, trackID:int=0) : SiMMLTrack
+        public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_TRACK_ID_OFFSET;
-            var mmlTrack:SiMMLTrack = sequencer.findControlableTrack(trackID, note);
-            if (mmlTrack) mmlTrack.keyOff();
+            var mmlTrack:SiMMLTrack = sequencer.findControlableTrack(trackID, note),
+                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
+            if (mmlTrack) mmlTrack.keyOff(delaySamples);
             return mmlTrack;
         }
         
@@ -625,46 +637,43 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
-         *  @return created track count
+         *  @return delay time in sample count
          */
         public function sequenceOn(data:SiONData, voice:SiONVoice=null, 
-                                   length:Number=0, delay:Number=0, quant:int=1, trackID:int=0) : int
+                                   length:Number=0, delay:Number=0, quant:Number=1, trackID:int=0) : int
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_TRACK_ID_OFFSET;
             // create new sequence tracks
             var mmlTrack:SiMMLTrack, 
-                count:int = 0,
                 seq:MMLSequence = data.sequenceGroup.headSequence, 
-                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
+                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant),
+                lengthSamples:int = sequencer.calcSampleLength(length);
             while (seq) {
                 mmlTrack = sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
-                mmlTrack.sequenceOn(seq, delaySamples);
+                mmlTrack.sequenceOn(seq, delaySamples, lengthSamples);
                 if (voice) voice.setTrackVoice(mmlTrack);
                 seq = seq.nextSequence;
-                count++;
             }
-            return count;
+            return delaySamples;
         }
         
         
         /** Stop the sequences with synchronizing.
          *  @param trackID tracks id to stop.
-         *  @param delay note on delay units in 16th beat.
+         *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @return stopping track count
+         *  @return delay time in sample count
          */
-        public function sequenceOff(trackID:int, delay:Number=0, quant:int=1) : int
+        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : int
         {
-            var mmlTrack:SiMMLTrack, 
-                count:int = 0,
-                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
-            for each (mmlTrack in sequencer.tracks) {
+            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_TRACK_ID_OFFSET;
+            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
+            for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
                 if (mmlTrack.trackID == trackID) {
                     mmlTrack.sequenceOff(delaySamples);
-                    count++;
                 }
             }
-            return count;
+            return delaySamples;
         }
         
         
@@ -924,7 +933,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             }
             module.initialize(_channelCount, _bufferLength);
             module.reset();                                                 // reset channels
-            sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset().
+            sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
             effector.prepareProcess();                                      // set stream number inside
         }
@@ -1016,6 +1025,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // error
     //----------------------------------------
+        private function errorPluralDrivers() : Error {
+            return new Error("SiONDriver error; Only one SiONDriver can be available.");
+        }
+        
+        
         private function errorDataIncorrect() : Error {
             return new Error("SiONDriver error; data incorrect in play() or render().");
         }

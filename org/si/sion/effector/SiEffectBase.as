@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// SiOPM effect basic class
+// SiON effect basic class
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ package org.si.sion.effector {
     // variables
     //------------------------------------------------------------
         /** @private [internal use] used by manager */
-        public var _isFree:Boolean = true;
+        internal var _isFree:Boolean = true;
         
         
         

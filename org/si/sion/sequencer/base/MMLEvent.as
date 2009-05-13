@@ -58,6 +58,9 @@ package org.si.sion.sequencer.base {
         
     // valiables
     //--------------------------------------------------
+        /** NOP event */
+        static public var nopEvent:MMLEvent = (new MMLEvent()).initialize(MMLEvent.NOP, 0, 0);
+        
         /** Event ID. */
         public var id:int = 0;
         /** Event data. */

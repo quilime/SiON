@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// SiOPM Effect Module
+// SiON Effect Module
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -15,9 +15,9 @@ package org.si.sion.effector {
     // valiables
     //--------------------------------------------------------------------------------
         private var _module:SiOPMModule;
-        private var _effectorChains:Vector.<EffectorChain>;
+        private var _effectConnectors:Vector.<SiEffectConnector>;
         private var _slotCount:int;
-        private var _effectorInstances:* = {};
+        static private var _effectorInstances:* = {};
         
         
         
@@ -28,9 +28,9 @@ package org.si.sion.effector {
         function SiEffectModule(module:SiOPMModule) 
         {
             _module = module;
-            _effectorChains = new Vector.<EffectorChain>(SiOPMModule.STREAM_SIZE_MAX);
+            _effectConnectors = new Vector.<SiEffectConnector>(SiOPMModule.STREAM_SIZE_MAX);
             for (var i:int=0; i<SiOPMModule.STREAM_SIZE_MAX; i++) {
-                _effectorChains[i] = new EffectorChain();
+                _effectConnectors[i] = new SiEffectConnector();
             }
             _slotCount = 1;
 
@@ -64,32 +64,27 @@ package org.si.sion.effector {
         /** @parivate [internal use] initialize all effectors. */
         public function initialize() : void
         {
-            for (var slot:int=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) clear(slot);
+            for (var slot:int=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) {
+                _effectConnectors[slot].clear();
+            }
         }
         
         
         /** @parivate [internal use] prepare for processing. */
         public function prepareProcess() : void
         {
-            var i:int, slot:int, ec:EffectorChain;
+            var i:int, slot:int;
             
             // preparetion for all effectors
             _slotCount = 1;
             for (slot=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) {
-                ec = _effectorChains[slot];
-                ec.requestChannels = 0;
-                if (ec.isActive) {
-                    _slotCount = slot+1;
-                    ec.requestChannels = ec.chain[0].prepareProcess();
-                    for (i=1; i<ec.chain.length; i++) ec.chain[i].prepareProcess();
-                }
+                if (_effectConnectors[slot].prepareProcess() > 0) _slotCount = slot+1;
             }
             
             // set modules number of streams and channels
             _module.streamCount = _slotCount;
             for (slot=1; slot<_slotCount; slot++) {
-                if (_effectorChains[slot].requestChannels > 0)
-                    _module.streamBuffer[slot].channels = _effectorChains[slot].requestChannels;
+                _module.streamBuffer[slot].channels = _effectConnectors[slot].requestChannels;
             }
         }
         
@@ -97,19 +92,22 @@ package org.si.sion.effector {
         /** @parivate [internal use] processing. */
         public function process() : void
         {
-            var i:int, slot:int, channels:int, buffer:Vector.<Number>, e:SiEffectBase, 
+            var i:int, slot:int, buffer:Vector.<Number>, ec:SiEffectConnector,
                 bufferLength:int = _module.bufferLength,
                 output:Vector.<Number> = _module.output,
                 imax:int = output.length;
             // effect
             for (slot=1; slot<_slotCount; slot++) {
-                channels = _module.streamBuffer[slot].channels;
-                buffer   = _module.streamBuffer[slot].buffer;
-                for each (e in _effectorChains[slot].chain) channels = e.process(channels, buffer, 0, bufferLength);
-                for (i=0; i<imax; i++) output[i] += buffer[i];
+                ec = _effectConnectors[slot];
+                if (ec.isActive) {
+                    buffer = _module.streamBuffer[slot].buffer;
+                    ec.process(_module.streamBuffer[slot].channels, buffer, 0, bufferLength);
+                    for (i=0; i<imax; i++) output[i] += buffer[i];
+                }
             }
             // master effect
-            for each (e in _effectorChains[0].chain) channels = e.process(channels, output, 0, bufferLength);
+            ec = _effectConnectors[0];
+            if (ec.isActive) ec.process(_module.channelCount, output, 0, bufferLength);
         }
         
         
@@ -121,7 +119,7 @@ package org.si.sion.effector {
          *  @param name Effector name.
          *  @param cls SiEffectBase based class.
          */
-        public function register(name:String, cls:Class) : void
+        static public function register(name:String, cls:Class) : void
         {
             _effectorInstances[name] = new EffectorInstances(cls);
         }
@@ -130,13 +128,25 @@ package org.si.sion.effector {
         /** Get effector instance by name 
          *  @param name Effector name.
          */
-        public function getInstance(name:String) : SiEffectBase
+        static public function getInstance(name:String) : SiEffectBase
         {
             if (!(name in _effectorInstances)) return null;
-            var e:SiEffectBase = _effectorInstances[name].getInstance();
-            e._isFree = false;
-            e.initialize();
-            return e;
+            
+            var effect:SiEffectBase, 
+                factory:EffectorInstances = _effectorInstances[name];
+            for each (effect in factory._instances) {
+                if (effect._isFree) {
+                    effect._isFree = false;
+                    effect.initialize();
+                    return effect;
+                }
+            }
+            effect = new factory._classInstance();
+            factory._instances.push(effect);
+            
+            effect._isFree = false;
+            effect.initialize();
+            return effect;
         }
         
         
@@ -149,8 +159,7 @@ package org.si.sion.effector {
          */
         public function clear(slot:int) : void
         {
-            for each (var e:SiEffectBase in _effectorChains[slot].chain) e._isFree = true;
-            _effectorChains[slot].chain.length = 0;
+            _effectConnectors[slot].clear();
         }
         
         
@@ -160,7 +169,7 @@ package org.si.sion.effector {
          */
         public function connect(slot:int, effector:SiEffectBase) : void
         {
-            _effectorChains[slot].chain.push(effector);
+            _effectConnectors[slot].connect(effector);
         }
         
         
@@ -170,42 +179,7 @@ package org.si.sion.effector {
          */
         public function parseMML(slot:int, mml:String) : void
         {
-            var res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
-                cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true);
-            
-            // clear
-            clear(slot);
-            _clearArgs();
-            
-            // parse mml
-            res = rex.exec(mml);
-            while (res) {
-                if (res[1] == ",") {
-                    args[argc++] = Number(res[2]);
-                } else {
-                    _connectEffect();
-                    cmd = res[1];
-                    _clearArgs();
-                    args[0] = Number(res[2]);
-                    argc = 1;
-                }
-                res = rex.exec(mml);
-            }
-            _connectEffect();
-            
-            // connect new effector
-            function _connectEffect() : void {
-                if (argc == 0) return;
-                var e:SiEffectBase = getInstance(cmd);
-                if (e) {
-                    e.mmlCallback(args);
-                    connect(slot, e);
-                }
-            }
-            
-            function _clearArgs() : void {
-                for (var i:int=0; i<16; i++) args[i]=Number.NaN;
-            }
+            _effectConnectors[slot].parseMML(mml);
         }
     }
 }
@@ -214,16 +188,6 @@ package org.si.sion.effector {
 
 
 import org.si.sion.effector.SiEffectBase;
-// effector chain
-class EffectorChain
-{
-    public var requestChannels:int = 0;
-    public var chain:Vector.<SiEffectBase> = new Vector.<SiEffectBase>();
-	public function get isActive() : Boolean { return (chain.length > 0); }
-    function EffectorChain() {}
-}
-
-
 // effector instance manager
 class EffectorInstances
 {
@@ -233,15 +197,6 @@ class EffectorInstances
     function EffectorInstances(cls:Class)
     {
         _classInstance = cls;
-    }
-    
-    public function getInstance() : SiEffectBase
-    {
-        var e:SiEffectBase;
-        for each (e in _instances) if (e._isFree) return e;
-        e = new _classInstance();
-        _instances.push(e);
-        return e;
     }
 }
 

@@ -54,7 +54,6 @@ package org.si.sion.sequencer.base {
         private var _userDefinedEventID:Object = {};                    // id map of user-defined event letter set by newMMLEventListener().
         private var _eventHandlers:Vector.<Function>   = new Vector.<Function>(MMLEvent.COMMAND_MAX, true); // list of event handler functions set by setMMLEventListener().
         private var _eventGlobalFlags:Vector.<Boolean> = new Vector.<Boolean> (MMLEvent.COMMAND_MAX, true); // global event flag
-        private var _nopEvent:MMLEvent;             // MMLEvent.NOP
         
         private var _processSampleCount:int;        // leftover of buffer sample count in processing
         private var _globalBufferSampleCount:int;   // leftover of buffer sample count in global sequence
@@ -104,7 +103,6 @@ package org.si.sion.sequencer.base {
             setMMLEventListener(MMLEvent.TEMPO,        _default_onTempo,        true);
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
-            _nopEvent = (new MMLEvent()).initialize(MMLEvent.NOP, 0, 0);
             
             globalExecutor = new MMLExecutor();
         }
@@ -280,7 +278,7 @@ package org.si.sion.sequencer.base {
             _processSampleCount = bufferSampleCount;
             while (_processSampleCount > 0) {
                 if (event == null) {
-                    _eventHandlers[MMLEvent.NOP](_nopEvent);
+                    _eventHandlers[MMLEvent.NOP](MMLEvent.nopEvent);
                     return;
                 } else {
                     // update _processSampleCount in some _eventHandler()s

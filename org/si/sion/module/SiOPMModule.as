@@ -43,6 +43,8 @@ package org.si.sion.module {
     //--------------------------------------------------
         /** Buffer count */
         public function get output() : Vector.<Number> { return streamBuffer[0].buffer; }
+        /** Buffer channel count */
+        public function get channelCount() : int { return streamBuffer[0].channels; }
         /** Buffer length */
         public function get bufferLength() : int { return _bufferLength; }
         
