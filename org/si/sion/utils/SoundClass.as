@@ -34,6 +34,10 @@ package org.si.sion.utils
         ]);
         
         
+        /** create Sound class.
+         *  @param samples The Vector.<Number> wave data creating from. The LRLR type stereo data.
+         *  @param onComplete callback function when finished to create. 
+         */
         static public function create(samples:Vector.<Number>, onComplete:Function) : void {
             var size:int = samples.length * 2; // *2(16bit)
             var bytes:ByteArray = new ByteArray();

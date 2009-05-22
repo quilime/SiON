@@ -33,17 +33,12 @@ package org.si.sion.sequencer {
         static private const MT_ARRAY_SIZE:int = 11;
         
         static public const ENV_TABLE_MAX:int = 512;
-        static public const FM_PARAM_MAX:int = 256;
+        static public const VOICE_MAX:int = 256;
         
         
         
     // valiables
     //--------------------------------------------------
-        /** Envelop tables */
-        public var envelopTables:Array = null;
-        /** FM parameter settings */
-        public var fmParameters:Array = null;
-
         /** module setting table */
         public var channelModuleSetting:Array = null;
         /** module setting table */
@@ -83,6 +78,15 @@ package org.si.sion.sequencer {
         /** initial connection */
         public var alg_init:Array = [0,1,5,7];
 
+        /** @private [internal use] Master data */
+        private var _masterEnvelops:Vector.<SiMMLEnvelopTable> = null;
+        /** @private [internal use] Master data */
+        private var _masterVoices:Vector.<SiMMLVoice> = null;
+        /** @private [internal use] Stencil data */
+        internal var stencilEnvelops:Vector.<SiMMLEnvelopTable> = null;
+        /** @private [internal use] Stencil data */
+        internal var stencilVoices:Vector.<SiMMLVoice> = null;
+        
         
         
         
@@ -121,7 +125,7 @@ package org.si.sion.sequencer {
             channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         256, 1, 256); // PCM
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 32);  // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
-            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         2,   1, 2);   // sampler. this is based on SiOPMChannelSampler
+            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         1,   1, 1);   // sampler. this is based on SiOPMChannelSampler
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -154,7 +158,12 @@ package org.si.sion.sequencer {
             // Sampler
             channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
-           
+            
+            // tables
+            _masterEnvelops = new Vector.<SiMMLEnvelopTable>(ENV_TABLE_MAX);
+            for (i=0; i<ENV_TABLE_MAX; i++) _masterEnvelops[i] = null;
+            _masterVoices = new Vector.<SiMMLVoice>(VOICE_MAX);
+            for (i=0; i<VOICE_MAX; i++) _masterVoices[i] = null;
             
             // These tables are just depended on my ear ... ('A`)
             tss_s2ar = _logTable(41, -4, 63, 9);
@@ -181,13 +190,6 @@ package org.si.sion.sequencer {
                 
                 return vector;
             }
-            
-            // envelop table
-            envelopTables = new Array(ENV_TABLE_MAX);
-            for (i=0; i<ENV_TABLE_MAX; i++) { envelopTables[i] = null; }
-            // FM parameter settings
-            fmParameters = new Array(FM_PARAM_MAX);
-            for (i=0; i<FM_PARAM_MAX; i++) { fmParameters[i] = null; }
         }
         
         
@@ -195,42 +197,45 @@ package org.si.sion.sequencer {
         
     // operations
     //--------------------------------------------------
-        /** Reset all user tables */
-        static public function resetAllUserTables() : void
+        /** Register envelop table.
+         *  @param index table number refered by @@,na,np,nt,nf,_@@,_na,_np,_nt and _nf.
+         *  @param table envelop table.
+         */
+        static public function registerMasterEnvelopTable(index:int, table:SiMMLEnvelopTable) : void
         {
-            var i:int, imax:int;
-            
-            // Reset all envelop tables
-            imax = instance.envelopTables.length;
-            for (i=0; i<imax; i++) { instance.envelopTables[i] = null }
-            
-            // Reset all FM parameter settings
-            imax = instance.fmParameters.length;
-            for (i=0; i<imax; i++) { instance.fmParameters[i] = null; }
+            if (index>=0 && index<ENV_TABLE_MAX) instance._masterEnvelops[index] = table;
         }
         
         
-        /** Register envelop table */
-        static public function registerEnvelopTable(index:int, table:SiMMLEnvelopTable) : void
+        /** Register voice data.
+         *  @param index voice parameter number refered by %6.
+         *  @param voice voice.
+         */
+        static public function registerMasterVoice(index:int, voice:SiMMLVoice) : void
         {
-            if ((index<0 && index>=ENV_TABLE_MAX) || index == 255) return;
-            instance.envelopTables[index] = table;
+            if (index>=0 && index<VOICE_MAX) instance._masterVoices[index] = voice;
         }
         
         
-        /** Register SiOPMChannelParam */
-        static public function registerChannelParam(index:int, param:SiOPMChannelParam) : void
+        /** Get Envelop table.
+         *  @param index table number.
+         */
+        public function getEnvelopTable(index:int) : SiMMLEnvelopTable
         {
-            if (index<0 && index>=FM_PARAM_MAX) return;
-            instance.fmParameters[index] = param;
+            if (index<0 || index>=ENV_TABLE_MAX) return null;
+            if (stencilEnvelops && stencilEnvelops[index]) return stencilEnvelops[index];
+            return _masterEnvelops[index];
         }
         
         
-        /** Get SiOPMChannelParam */
-        static public function getSiOPMChannelParam(index:int) : SiOPMChannelParam
+        /** Get voice data.
+         *  @param index voice parameter number.
+         */
+        public function getSiMMLVoice(index:int) : SiMMLVoice
         {
-            if (index<0 && index>=FM_PARAM_MAX) return null;
-            return instance.fmParameters[index];
+            if (index<0 || index>=VOICE_MAX) return null;
+            if (stencilVoices && stencilVoices[index]) return stencilVoices[index];
+            return _masterVoices[index];
         }
     }
 }

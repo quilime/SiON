@@ -218,7 +218,7 @@ package org.si.sion.sequencer.base {
             } else {
                 bpm = mmlData.defaultBPM;
                 globalExecutor.initialize(mmlData.globalSequence);
-                mmlData.regiterAllTables();
+                mmlData.regiter();
             }
             globalBeat16 = 0;
         }
@@ -268,8 +268,9 @@ package org.si.sion.sequencer.base {
         /** Processing audio of one sequence executor. Calls onProcess() inside.
          *  @param  exe MMLExecutor to process.
          *  @param  bufferSampleCount Buffering length of processing samples at once.
+         *  @return Returns true if the sequence already finished.
          */
-        protected function processMMLExecutor(exe:MMLExecutor, bufferSampleCount:int) : void
+        protected function processMMLExecutor(exe:MMLExecutor, bufferSampleCount:int) : Boolean
         {
             currentExecutor = exe;
             
@@ -279,13 +280,14 @@ package org.si.sion.sequencer.base {
             while (_processSampleCount > 0) {
                 if (event == null) {
                     _eventHandlers[MMLEvent.NOP](MMLEvent.nopEvent);
-                    return;
+                    return true;
                 } else {
                     // update _processSampleCount in some _eventHandler()s
                     event = _eventHandlers[event.id](event);
                     currentExecutor.pointer = event;
                 }
             }
+            return false;
         }
         
         

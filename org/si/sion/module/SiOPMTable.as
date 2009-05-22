@@ -86,11 +86,18 @@ package org.si.sion.module {
                                                         // ( 96- 127) reserved
         static public const PG_RAMP       :int = 128;   // (128- 191) ramp wave. PG_RAMP+[0,63]
                                                         // (192- 255) reserved
-        static public const PG_CUSTOM     :int = 256;   // (256- 511) custom wave table. PG_CUSTOM+[0,255]
-        static public const PG_PCM        :int = 512;   // (512-767)  pcm module.PG_PCM+[0,255]
-        static public const PG_SAMPLE     :int = 768;   // (768-1024) samplar module.PG_SAMPLE+[0,255]
-        static public const DEFAULT_PG_MAX:int = 1024;  // max value of pgType = 1024
-        static public const PG_FILTER     :int = 1023;  // pg number loops between 0 to 1023
+        static public const PG_CUSTOM     :int = 256;   // (256- 383) custom wave table. PG_CUSTOM+[0,128]
+        static public const PG_PCM        :int = 384;   // (384- 511) pcm data. PG_PCM+[0,128]
+        static public const PG_USER_CUSTOM:int = -1;    // -1 user registered custom wave table
+        static public const PG_USER_PCM   :int = -2;    // -2 user registered pcm data
+
+        static public const DEFAULT_PG_MAX:int = 256;   // max value of pgType = 255
+        static public const PG_FILTER     :int = 511;   // pg number loops between 0 to 511
+        
+        static public const WAVE_TABLE_MAX:int = 128;   // custom wave table max.
+        static public const PCM_DATA_MAX    :int = 128;   // pcm data max.
+        static public const SAMPLER_DATA_MAX:int = 128;   // sampler data max.
+        
 
         // lfo wave type
         static public const LFO_WAVE_SAW     :int = 0;
@@ -182,12 +189,22 @@ package org.si.sion.module {
         public var logTable:Vector.<int> = null;
         /** PG:MIDI note number to FM key code. */
         public var nnToKC:Vector.<int> = null;
-        /** PG:Wave tables. */
-        public var waveTables:Vector.<Vector.<int>> = null;
-        /** PG:Wave tables shift. */
-        public var waveFixedBits:Vector.<int> = null;
-        /** PG:Default ptType for various pgType. */
-        public var defaultPTType:Vector.<int> = null;
+        /** PG:Wave tables without any waves. */
+        public var noWaveTable:SiOPMWaveTable;
+        /** PG:Wave tables */
+        public var waveTables:Vector.<SiOPMWaveTable> = null;
+        /** PG:Custom wave tables */
+        public var customWaveTables:Vector.<SiOPMWaveTable> = null;
+        /** PG:Overriding custom wave tables */
+        public var stencilCustomWaveTables:Vector.<SiOPMWaveTable> = null;
+        /** PG:PCM data */
+        public var pcmData:Vector.<SiOPMPCMData> = null;
+        /** PG:PCM data */
+        public var stencilPCMData:Vector.<SiOPMPCMData> = null;
+        /** PG:Wave data for sampler */
+        public var samplerData:Vector.<SiOPMSamplerData> = null;
+        /** PG:Overriding wave data for sampler */
+        public var stencilSamplerData:Vector.<SiOPMSamplerData> = null;
         
         /** Table for dt1 (from fmgen.cpp). */
     	public var dt1Table:Array = null;
@@ -401,7 +418,7 @@ package org.si.sion.module {
             phaseStepShiftFilter[PT_OPM] = 0;
             
             // PCM
-            // dphase = pitchTablePCM[pitchIndex] >> (table_size (= PHASE_BITS - _waveFixedBits))
+            // dphase = pitchTablePCM[pitchIndex] >> (table_size (= PHASE_BITS - waveTable.fixedBits))
             table = new Vector.<int>(PITCH_TABLE_SIZE, true);
             n = 0.01858136117191752 * PHASE_MAX;     // dphase @ MIDI note number = 0/ o0c=0.01858136117191752 -> o5a=1
             for (i=0, p=0; i<imax; i++, p+=dp) { 
@@ -436,7 +453,7 @@ package org.si.sion.module {
         // Noise period tables.
         //----------------------------------------
             // OPM noise period table.
-            // noise_phase_shift = pitchTable[PT_OPM_NOISE][noiseFreq] >> (PHASE_BITS-_waveFixedBits).
+            // noise_phase_shift = pitchTable[PT_OPM_NOISE][noiseFreq] >> (PHASE_BITS - waveTable.fixedBits).
             imax  = 32<<HALF_TONE_BITS;
             table = new Vector.<int>(imax, true);
             n = PHASE_MAX * clock_ratio;    // clock_ratio = ((clock/64)/rate) << CLOCK_RATIO_BITS
@@ -452,7 +469,7 @@ package org.si.sion.module {
             
             // PSG noise period table.
             table = new Vector.<int>(imax, true);
-            // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/(clock/16))[sec]  /  (1/44100)[sec])) >> (PHASE_BIT-_waveFixedBits)
+            // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/(clock/16))[sec]  /  (1/44100)[sec])) >> (PHASE_BIT - waveTable.fixedBits)
             n = PHASE_MAX * 111860.78125 / 44100;   // 111860.78125 = 1789772.5/16
             for (i=0; i<32; i++) {
                 iv = n / i;
@@ -467,7 +484,7 @@ package org.si.sion.module {
             var fc_nf:Array = [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];
             imax  = 16<<HALF_TONE_BITS;
             table = new Vector.<int>(imax, true);
-            // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/clock)[sec]  /  (1/44100)[sec])) >> (PHASE_BIT-_waveFixedBits)
+            // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/clock)[sec]  /  (1/44100)[sec])) >> (PHASE_BIT - waveTable.fixedBits)
             n = PHASE_MAX * 1789772.5 / 44100;
             for (i=0; i<16; i++) {
                 iv = n / fc_nf[i];
@@ -538,19 +555,21 @@ package org.si.sion.module {
                 table1:Vector.<int>, table2:Vector.<int>;
 
             // allocate table list
-            waveTables = new Vector.<Vector.<int>>(DEFAULT_PG_MAX);
-            waveFixedBits = new Vector.<int>(DEFAULT_PG_MAX);
-            defaultPTType = new Vector.<int>(DEFAULT_PG_MAX, true);
+            noWaveTable = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_PCM);
+            waveTables = new Vector.<SiOPMWaveTable>(DEFAULT_PG_MAX);
+            customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
+            pcmData = new Vector.<SiOPMPCMData>(PCM_DATA_MAX);
+            samplerData = new Vector.<SiOPMSamplerData>(SAMPLER_DATA_MAX);
             
         // clear all tables
         //------------------------------
-            table1 = new Vector.<int>(1, true);
-            table1[0] = calcLogTableIndex(1);
-            for (i=0; i<DEFAULT_PG_MAX; i++) {
-                waveTables[i]    = table1;      // always 1
-                waveFixedBits[i] = PHASE_BITS;  // always 0 == data not available
-                defaultPTType[i] = (i<PG_PCM) ? PT_OPM : PT_PCM;
-            }
+            for (i=0; i<DEFAULT_PG_MAX;   i++) waveTables[i] = noWaveTable;
+            for (i=0; i<WAVE_TABLE_MAX;   i++) customWaveTables[i] = null;
+            for (i=0; i<PCM_DATA_MAX;     i++) pcmData[i]          = null;
+            for (i=0; i<SAMPLER_DATA_MAX; i++) samplerData[i]      = null;
+            stencilCustomWaveTables = null;
+            stencilPCMData = null;
+            stencilSamplerData = null;
             
         // sine wave table
         //------------------------------
@@ -563,8 +582,7 @@ package org.si.sion.module {
                 table1[i]      = iv;   // positive index
                 table1[i+imax] = iv+1; // negative value index
             }
-            waveTables   [PG_SINE] = table1;
-            waveFixedBits[PG_SINE] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_SINE] = SiOPMWaveTable.alloc(table1);
 
         // saw wave tables
         //------------------------------
@@ -578,10 +596,8 @@ package org.si.sion.module {
                 table2[imax-i-1]  = iv;   // positive
                 table2[imax+i]    = iv+1; // negative
             }
-            waveTables   [PG_SAW_UP] = table1;
-            waveFixedBits[PG_SAW_UP] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables   [PG_SAW_DOWN] = table2;
-            waveFixedBits[PG_SAW_DOWN] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_SAW_UP]   = SiOPMWaveTable.alloc(table1);
+            waveTables[PG_SAW_DOWN] = SiOPMWaveTable.alloc(table2);
             
         // triangle wave tables
         //------------------------------
@@ -598,8 +614,7 @@ package org.si.sion.module {
                 table1[imax2+i]   = iv+1; // negative value index
                 table1[imax4-i-1] = iv+1; // negative value index
             }
-            waveTables   [PG_TRIANGLE] = table1;
-            waveFixedBits[PG_TRIANGLE] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_TRIANGLE] = SiOPMWaveTable.alloc(table1);
             
             // fc triangle wave
             table1 = new Vector.<int>(32, true);
@@ -614,30 +629,26 @@ package org.si.sion.module {
             table1[15] = LOG_TABLE_BOTTOM;
             table1[23] = 3;
             table1[24] = 3;
-            waveTables   [PG_TRIANGLE_FC] = table1;
-            waveFixedBits[PG_TRIANGLE_FC] = PHASE_BITS - 5;
-            
+            waveTables[PG_TRIANGLE_FC] = SiOPMWaveTable.alloc(table1);
             
         // square wave tables
         //----------------------------
             // 50% square wave
             iv = calcLogTableIndex(SQUARE_WAVE_OUTPUT);
-            waveTables[PG_SQUARE] = Vector.<int>([iv, iv+1]);
-            waveFixedBits[PG_SQUARE] = PHASE_BITS - 1;
+            waveTables[PG_SQUARE] = SiOPMWaveTable.alloc(Vector.<int>([iv, iv+1]));
             
             
         // pulse wave tables
         //----------------------------
             // pulse wave
             // NOTE: The resolution of duty ratio is twice than pAPU. [pAPU pulse wave table] = waveTables[PG_PULSE+duty*2].
-            table2 = waveTables[PG_SQUARE];
+            table2 = waveTables[PG_SQUARE].wavelet;
             for (j=0; j<16; j++) {
                 table1 = new Vector.<int>(16, true);
                 for (i=0; i<16; i++) {
                     table1[i] = (i<j) ? table2[0] : table2[1];
                 }
-                waveTables[PG_PULSE+j]    = table1;
-                waveFixedBits[PG_PULSE+j] = PHASE_BITS - 4;
+                waveTables[PG_PULSE+j] = SiOPMWaveTable.alloc(table1);
             }
             
             // spike pulse
@@ -651,20 +662,18 @@ package org.si.sion.module {
                 for (; i<32; i++) {
                     table1[i] = iv;
                 }
-                waveTables[PG_PULSE_SPIKE+j]    = table1;
-                waveFixedBits[PG_PULSE_SPIKE+j] = PHASE_BITS - 5;
+                waveTables[PG_PULSE_SPIKE+j] = SiOPMWaveTable.alloc(table1);
             }
             
             
-        // knm bs mm wave
+        // wave from konami bubble system
         //----------------------------
             var wav:Array = [-80,-112,-16,96,64,16,64,96,32,-16,64,112,80,0,32,48,-16,-96,0,80,16,-64,-48,-16,-96,-128,-80,0,-48,-112,-80,-32];
             table1 = new Vector.<int>(32, true);
             for (i=0; i<32; i++) {
                 table1[i] = calcLogTableIndex(wav[i]/128);
             }
-            waveTables   [PG_KNMBSMM] = table1;
-            waveFixedBits[PG_KNMBSMM] = PHASE_BITS - 5;
+            waveTables[PG_KNMBSMM] = SiOPMWaveTable.alloc(table1);
             
             
         // pseudo sync
@@ -678,10 +687,8 @@ package org.si.sion.module {
                 table1[i] = iv+1;   // negative
                 table2[i] = iv;     // positive
             }
-            waveTables   [PG_SYNC_LOW]  = table1;
-            waveFixedBits[PG_SYNC_LOW]  = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables   [PG_SYNC_HIGH] = table2;
-            waveFixedBits[PG_SYNC_HIGH] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_SYNC_LOW]  = SiOPMWaveTable.alloc(table1);
+            waveTables[PG_SYNC_HIGH] = SiOPMWaveTable.alloc(table2);
             
             
         // noise tables
@@ -692,12 +699,8 @@ package org.si.sion.module {
             for (i=0; i<imax; i++) {
                 table1[i] = calcLogTableIndex((Math.random()*2-1)*NOISE_WAVE_OUTPUT);
             }
-            waveTables   [PG_NOISE_WHITE] = table1;
-            waveFixedBits[PG_NOISE_WHITE] = PHASE_BITS - NOISE_TABLE_BITS;
-            defaultPTType[PG_NOISE_WHITE] = PT_PCM;
-            waveTables   [PG_NOISE] = waveTables   [PG_NOISE_WHITE];
-            waveFixedBits[PG_NOISE] = waveFixedBits[PG_NOISE_WHITE];
-            defaultPTType[PG_NOISE] = defaultPTType[PG_NOISE_WHITE];
+            waveTables[PG_NOISE_WHITE] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            waveTables[PG_NOISE] = waveTables[PG_NOISE_WHITE];
             
             // pulse noise. NOTE: This is dishonest impelementation. Details are shown in MAME or VirtuaNes source.
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
@@ -706,9 +709,7 @@ package org.si.sion.module {
             for (i=0; i<imax; i++) {
                 table1[i] = (Math.random()>0.5) ? iv : (iv+1);
             }
-            waveTables   [PG_NOISE_PULSE] = table1;
-            waveFixedBits[PG_NOISE_PULSE] = PHASE_BITS - NOISE_TABLE_BITS;
-            defaultPTType[PG_NOISE_PULSE] = PT_PCM;
+            waveTables[PG_NOISE_PULSE] = SiOPMWaveTable.alloc(table1, PT_PCM);
             
             // fc short noise. NOTE: This is dishonest 93*11=1023 aprox.-> 1024.
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -719,13 +720,11 @@ package org.si.sion.module {
                 j = (((j<<8)^(j<<14)) & 0x4000) | (j>>1);
                 table1[i] = (j&1) ? iv : (iv+1);
             }
-            waveTables   [PG_NOISE_SHORT] = table1;
-            waveFixedBits[PG_NOISE_SHORT] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            defaultPTType[PG_NOISE_SHORT] = PT_PCM;
+            waveTables[PG_NOISE_SHORT] = SiOPMWaveTable.alloc(table1, PT_PCM);
 
             // high passed white noise
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
-            table2 = waveTables[PG_NOISE_WHITE];
+            table2 = waveTables[PG_NOISE_WHITE].wavelet;
             imax = NOISE_TABLE_SIZE;
             n = 8/Number(1<<LOG_VOLUME_BITS);
             p = 0.0625;
@@ -735,9 +734,7 @@ package org.si.sion.module {
                 v = (v + logTable[table2[i]] - logTable[table2[i-1]]) * p;
                 table1[i] = calcLogTableIndex(v*n);
             }
-            waveTables   [PG_NOISE_HIPAS] = table1;
-            waveFixedBits[PG_NOISE_HIPAS] = PHASE_BITS - NOISE_TABLE_BITS;
-            defaultPTType[PG_NOISE_HIPAS] = PT_PCM;
+            waveTables[PG_NOISE_SHORT] = SiOPMWaveTable.alloc(table1, PT_PCM);
             
             // periodic noise
             table1 = new Vector.<int>(16, true);
@@ -745,19 +742,17 @@ package org.si.sion.module {
             for (i=1; i<16; i++) {
                 table1[i] = LOG_TABLE_BOTTOM;
             }
-            waveTables   [PG_PC_NZ_16BIT] = table1;
-            waveFixedBits[PG_PC_NZ_16BIT] = PHASE_BITS - 4;
+            waveTables[PG_PC_NZ_16BIT] = SiOPMWaveTable.alloc(table1);
             
             // pitch controlable noise
-            table1 = waveTables[PG_NOISE_SHORT];
+            table1 = waveTables[PG_NOISE_SHORT].wavelet;
             table2 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
             for (j=0; j<SAMPLING_TABLE_SIZE; j++) {
                 i = j*11;
                 imax = ((i+11) < SAMPLING_TABLE_SIZE) ? (i+11) : SAMPLING_TABLE_SIZE;
                 for (; i<imax; i++) { table2[i] = table1[j]; }
             }
-            waveTables   [PG_PC_NZ_SHORT] = table2;
-            waveFixedBits[PG_PC_NZ_SHORT] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_PC_NZ_SHORT] = SiOPMWaveTable.alloc(table2);
             
             
         // ramp wave tables
@@ -770,10 +765,8 @@ package org.si.sion.module {
                 iv = imax4>>(j>>3);
                 iv -= (iv * (j&7))>>4;
                 if (prev == iv) {
-                    waveTables   [PG_RAMP+64-j] = waveTables   [PG_RAMP+65-j];
-                    waveFixedBits[PG_RAMP+64-j] = waveFixedBits[PG_RAMP+65-j];
-                    waveTables   [PG_RAMP+64+j] = waveTables   [PG_RAMP+63+j];
-                    waveFixedBits[PG_RAMP+64+j] = waveFixedBits[PG_RAMP+63+j];
+                    waveTables[PG_RAMP+64-j] = waveTables[PG_RAMP+65-j];
+                    waveTables[PG_RAMP+64+j] = waveTables[PG_RAMP+63+j];
                     continue;
                 }
                 prev = iv;
@@ -797,61 +790,44 @@ package org.si.sion.module {
                     table2[imax2+i]   = iv+1; // negative value
                     table2[imax2-i-1] = iv;   // positive value
                 }
-                waveTables   [PG_RAMP+64-j] = table1;
-                waveFixedBits[PG_RAMP+64-j] = PHASE_BITS - SAMPLING_TABLE_BITS;
-                waveTables   [PG_RAMP+64+j] = table2;
-                waveFixedBits[PG_RAMP+64+j] = PHASE_BITS - SAMPLING_TABLE_BITS;
+                waveTables[PG_RAMP+64-j] = SiOPMWaveTable.alloc(table1);
+                waveTables[PG_RAMP+64+j] = SiOPMWaveTable.alloc(table2);
             }
-            for (j=0; j<5; j++) {
-                waveTables   [PG_RAMP+j] = waveTables   [PG_SAW_UP];
-                waveFixedBits[PG_RAMP+j] = waveFixedBits[PG_SAW_UP];
-            }
-            for (j=124; j<128; j++) {
-                waveTables   [PG_RAMP+j] = waveTables   [PG_SAW_DOWN];
-                waveFixedBits[PG_RAMP+j] = waveFixedBits[PG_SAW_DOWN];
-            }
-            waveTables   [PG_RAMP+64] = waveTables   [PG_TRIANGLE];
-            waveFixedBits[PG_RAMP+64] = waveFixedBits[PG_TRIANGLE];
+            for (j=0;   j<5;   j++) waveTables[PG_RAMP+j] = waveTables[PG_SAW_UP];
+            for (j=124; j<128; j++) waveTables[PG_RAMP+j] = waveTables[PG_SAW_DOWN];
+            waveTables[PG_RAMP+64] = waveTables[PG_TRIANGLE];
             
             
         // MA3 wave tables
         //------------------------------
             // waveform 0-5 = sine wave
             waveTables[PG_MA3_WAVE] = waveTables[PG_SINE];
-            waveFixedBits[PG_MA3_WAVE] = waveFixedBits[PG_SINE];
             __exp_ma3_waves(0);
             // waveform 8-13 = bi-triangle modulated sine ?
-            table2 = waveTables[PG_SINE];
+            table2 = waveTables[PG_SINE].wavelet;
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
             j = 0;
             for (i=0; i<SAMPLING_TABLE_SIZE; i++) {
                 table1[i] = table2[i+j];
                 j += 1-(((i>>(SAMPLING_TABLE_BITS-3))+1)&2); // triangle wave
             }
-            waveTables[PG_MA3_WAVE+8] = table1;
-            waveFixedBits[PG_MA3_WAVE+8] = PHASE_BITS - SAMPLING_TABLE_BITS;
+            waveTables[PG_MA3_WAVE+8] = SiOPMWaveTable.alloc(table1);
             __exp_ma3_waves(8);
             // waveform 16-21 = triangle wave
             waveTables[PG_MA3_WAVE+16] = waveTables[PG_TRIANGLE];
-            waveFixedBits[PG_MA3_WAVE+16] = waveFixedBits[PG_TRIANGLE];
             __exp_ma3_waves(16);
             // waveform 24-29 = saw wave
             waveTables[PG_MA3_WAVE+24] = waveTables[PG_SAW_UP];
-            waveFixedBits[PG_MA3_WAVE+24] = waveFixedBits[PG_SAW_UP];
             __exp_ma3_waves(24);
             // waveform 6 = square
-            waveFixedBits[PG_MA3_WAVE+6] = waveFixedBits[PG_SQUARE];
             waveTables[PG_MA3_WAVE+6] = waveTables[PG_SQUARE];
             // waveform 14 = half square
             iv = calcLogTableIndex(1);
-            waveTables[PG_MA3_WAVE+14] = Vector.<int>([iv, LOG_TABLE_BOTTOM]);
-            waveFixedBits[PG_MA3_WAVE+14] = PHASE_BITS - 1;
+            waveTables[PG_MA3_WAVE+14] = SiOPMWaveTable.alloc(Vector.<int>([iv, LOG_TABLE_BOTTOM]));
             // waveform 22 = twice of half square 
-            waveTables[PG_MA3_WAVE+22] = Vector.<int>([iv, LOG_TABLE_BOTTOM, iv, LOG_TABLE_BOTTOM]);
-            waveFixedBits[PG_MA3_WAVE+22] = PHASE_BITS - 2;
+            waveTables[PG_MA3_WAVE+22] = SiOPMWaveTable.alloc(Vector.<int>([iv, LOG_TABLE_BOTTOM, iv, LOG_TABLE_BOTTOM]));
             // waveform 30 = quarter square
-            waveTables[PG_MA3_WAVE+30] = Vector.<int>([iv, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM]);
-            waveFixedBits[PG_MA3_WAVE+30] = PHASE_BITS - 2;
+            waveTables[PG_MA3_WAVE+30] = SiOPMWaveTable.alloc(Vector.<int>([iv, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM, LOG_TABLE_BOTTOM]));
             
             // waveform 7 ???
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -866,15 +842,11 @@ package org.si.sion.module {
                 table1[i+imax2]    = LOG_TABLE_BOTTOM;
                 table1[imax4-i-1]  = iv+1; // negative value index
             }
-            waveFixedBits[PG_MA3_WAVE+7] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+7] = table1;
+            waveTables[PG_MA3_WAVE+7] = SiOPMWaveTable.alloc(table1);
             // waveform 15,23,31 = custom waveform 0-2 (not available)
-            waveTables[PG_MA3_WAVE+15] = waveTables[PG_SQUARE];
-            waveFixedBits[PG_MA3_WAVE+15] = PHASE_BITS;
-            waveTables[PG_MA3_WAVE+23] = waveTables[PG_SQUARE];
-            waveFixedBits[PG_MA3_WAVE+23] = PHASE_BITS;
-            waveTables[PG_MA3_WAVE+31] = waveTables[PG_SQUARE];
-            waveFixedBits[PG_MA3_WAVE+31] = PHASE_BITS;
+            waveTables[PG_MA3_WAVE+15] = noWaveTable;
+            waveTables[PG_MA3_WAVE+23] = noWaveTable;
+            waveTables[PG_MA3_WAVE+31] = noWaveTable;
         }
         
         
@@ -885,7 +857,7 @@ package org.si.sion.module {
             var i:int, imax:int, table1:Vector.<int>, table2:Vector.<int>;
             
             // basic waveform
-            table2 = waveTables[PG_MA3_WAVE+index];
+            table2 = waveTables[PG_MA3_WAVE+index].wavelet;
             
             // waveform 1
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -894,8 +866,7 @@ package org.si.sion.module {
                 table1[i]      = table2[i];
                 table1[i+imax] = LOG_TABLE_BOTTOM;
             }
-            waveFixedBits[PG_MA3_WAVE+index+1] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+index+1] = table1;
+            waveTables[PG_MA3_WAVE+index+1] = SiOPMWaveTable.alloc(table1);
             
             // waveform 2
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -904,8 +875,7 @@ package org.si.sion.module {
                 table1[i]      = table2[i];
                 table1[i+imax] = table2[i];
             }
-            waveFixedBits[PG_MA3_WAVE+index+2] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+index+2] = table1;
+            waveTables[PG_MA3_WAVE+index+2] = SiOPMWaveTable.alloc(table1);
             
             // waveform 3
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -916,8 +886,7 @@ package org.si.sion.module {
                 table1[i+imax*2] = table2[i];
                 table1[i+imax*3] = LOG_TABLE_BOTTOM;
             }
-            waveFixedBits[PG_MA3_WAVE+index+3] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+index+3] = table1;
+            waveTables[PG_MA3_WAVE+index+3] = SiOPMWaveTable.alloc(table1);
             
             // waveform 4
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -926,8 +895,7 @@ package org.si.sion.module {
                 table1[i]      = table2[i<<1];
                 table1[i+imax] = LOG_TABLE_BOTTOM;
             }
-            waveFixedBits[PG_MA3_WAVE+index+4] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+index+4] = table1;
+            waveTables[PG_MA3_WAVE+index+4] = SiOPMWaveTable.alloc(table1);
             
             // waveform 5
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -938,8 +906,7 @@ package org.si.sion.module {
                 table1[i+imax*2] = LOG_TABLE_BOTTOM;
                 table1[i+imax*3] = LOG_TABLE_BOTTOM;
             }
-            waveFixedBits[PG_MA3_WAVE+index+5] = PHASE_BITS - SAMPLING_TABLE_BITS;
-            waveTables[PG_MA3_WAVE+index+5] = table1;
+            waveTables[PG_MA3_WAVE+index+5] = SiOPMWaveTable.alloc(table1);
         }
         
         
@@ -1047,10 +1014,6 @@ package org.si.sion.module {
         
     // wave tables
     //--------------------------------------------------
-        // free list
-        static private var _freeWaveTable:Array = [];
-        
-        
         /** Reset all user tables */
         static public function resetAllUserTables() : void
         {
@@ -1058,33 +1021,42 @@ package org.si.sion.module {
             var i:int;
             
             // Reset wave tables
-            for (i=0; i<256; i++) {
-                instance.waveTables   [PG_CUSTOM+i] = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_CUSTOM+i] = PHASE_BITS;   // always 0
-                instance.waveTables   [PG_PCM+i]    = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_PCM+i]    = PHASE_BITS;   // always 0
-                instance.waveTables   [PG_SAMPLE+i] = instance.waveTables[PG_SQUARE];
-                instance.waveFixedBits[PG_SAMPLE+i] = PHASE_BITS;   // always 0
+            for (i=0; i<WAVE_TABLE_MAX; i++) { 
+                if (instance.customWaveTables[i]) { 
+                    instance.customWaveTables[i].free(); 
+                    instance.customWaveTables[i] = null;
+                }
             }
+            for (i=0; i<PCM_DATA_MAX; i++) { 
+                if (instance.pcmData[i]) { 
+                    instance.pcmData[i].free();
+                    instance.pcmData[i] = null;
+                }
+            }
+            for (i=0; i<SAMPLER_DATA_MAX; i++) {
+                if (instance.samplerData[i]) {
+                    instance.samplerData[i].free();
+                    instance.samplerData[i] = null;
+                }
+            }
+            instance.stencilCustomWaveTables = null;
+            instance.stencilPCMData = null;
+            instance.stencilSamplerData = null;
         }
         
         
         /** Register wave table. */
-        static public function registerWaveTable(index:int, table:Vector.<int>, fixedBits:int) : void
+        static public function registerWaveTable(index:int, table:Vector.<int>) : void
         {
-            // offset index
-            var table_index:int = index + PG_CUSTOM;
-
             // register wave table
-            instance.waveTables[table_index]    = table;
-            instance.waveFixedBits[table_index] = fixedBits;
-
+            var newWaveTable:SiOPMWaveTable = SiOPMWaveTable.alloc(table);
+            index &= WAVE_TABLE_MAX-1;
+            instance.customWaveTables[index] = newWaveTable;
+            
             // update PG_MA3_WAVE waveform 15,23,31.
             if (index < 3) {
-                // index=0,1,2 are PG_MA3 waveform 15,23,31.
-                table_index = 15 + index * 8 + PG_MA3_WAVE;
-                instance.waveTables[table_index]    = table;
-                instance.waveFixedBits[table_index] = fixedBits;
+                // index=0,1,2 are same as PG_MA3 waveform 15,23,31.
+                instance.waveTables[15 + index * 8 + PG_MA3_WAVE] = newWaveTable;
             }
         }
         
@@ -1092,24 +1064,49 @@ package org.si.sion.module {
         /** Register PCM data. */
         static public function registerPCMData(index:int, table:Vector.<int>, samplingOctave:int) : void
         {
-            // offset index
-            var table_index:int = index + PG_PCM;
-
-            // register wave table
-            instance.waveTables[table_index]    = table;
-            instance.waveFixedBits[table_index] = 14 + (samplingOctave-5);
+            // register PCM data
+            index &= PCM_DATA_MAX-1;
+            instance.pcmData[index] = SiOPMPCMData.alloc(table, samplingOctave);
         }
         
         
         /** Register Sampler data. */
-        static public function registerSample(index:int, table:Vector.<int>, flag:int) : void
+        static public function registerSamplerData(index:int, table:Vector.<Number>, isOneShot:Boolean, channelCount:int) : void
         {
-            // offset index
-            var table_index:int = index + PG_SAMPLE;
-
-            // register wave table
-            instance.waveTables[table_index]    = table;
-            instance.waveFixedBits[table_index] = flag;
+            // register sample
+            index &= SAMPLER_DATA_MAX-1;
+            instance.samplerData[index] = SiOPMSamplerData.alloc(table, isOneShot, channelCount);
+        }
+        
+        
+        /** get wave table */
+        public function getWaveTable(index:int) : SiOPMWaveTable
+        {
+            if (index < PG_CUSTOM) return waveTables[index];
+            if (index < PG_PCM) {
+                index -= PG_CUSTOM;
+                if (stencilCustomWaveTables && stencilCustomWaveTables[index]) return stencilCustomWaveTables[index];
+                return customWaveTables[index] || noWaveTable;
+            }
+            return noWaveTable;
+        }
+        
+        
+        /** get registerd PCM data */
+        public function getPCMData(index:int) : SiOPMPCMData
+        {
+            index &= PCM_DATA_MAX-1;
+            if (stencilPCMData && stencilPCMData[index]) return stencilPCMData[index];
+            return pcmData[index];
+        }
+        
+        
+        /** get registerd sampler data */
+        public function getSamplerData(index:int) : SiOPMSamplerData
+        {
+            index &= SAMPLER_DATA_MAX-1;
+            if (stencilSamplerData && stencilSamplerData[index]) return stencilSamplerData[index];
+            return samplerData[index];
         }
     }
 }

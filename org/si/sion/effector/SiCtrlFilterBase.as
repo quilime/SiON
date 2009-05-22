@@ -41,10 +41,10 @@ package org.si.sion.effector {
          *  @param fps Envelop speed (0.001-1000)[Frame per second].
          */
         public function setParameters(cut:int=255, res:int=255, fps:Number=20) : void {
-            var simml:SiMMLTable = SiMMLTable.instance;
             _table = SiOPMTable.instance;
-            _ptrCut = (cut>=0 && cut<255 && simml.envelopTables[cut]) ? simml.envelopTables[cut].head : null;
-            _ptrRes = (res>=0 && res<255 && simml.envelopTables[res]) ? simml.envelopTables[res].head : null;
+            var simml:SiMMLTable = SiMMLTable.instance;
+            _ptrCut = (cut>=0 && cut<255 && simml.getEnvelopTable(cut)) ? simml.getEnvelopTable(cut).head : null;
+            _ptrRes = (res>=0 && res<255 && simml.getEnvelopTable(res)) ? simml.getEnvelopTable(res).head : null;
             _cutIndex = (_ptrCut) ? _ptrCut.i : 128;
             _res = (_ptrRes) ? (_ptrRes.i*0.007751937984496124) : 0;    // 0.007751937984496124=1/129
             _lfoStep = int(44100/fps);
@@ -60,7 +60,13 @@ package org.si.sion.effector {
         public function control(cutoff:Number, resonance:Number) : void {
             _lfoStep = 2048;
             _lfoResidueStep = 4096;
-            _cutIndex = cutoff*0.0078125;   // 1/128
+            
+            if (cutoff > 1) cutoff=1;
+            else if (cutoff<0) cutoff=0;
+            _cutIndex = cutoff*128;
+            
+            if (resonance > 1) resonance=1;
+            else if (resonance<0) resonance=0;
             _res = resonance;
         }
         

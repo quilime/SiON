@@ -41,6 +41,7 @@ package org.si.sion.effector {
             register("ws",      SiEffectWaveShaper);
             register("eq",      SiEffectEqualiser);
             register("delay",   SiEffectStereoDelay);
+            register("reverb",  SiEffectStereoReverb);
             register("chorus",  SiEffectStereoChorus);
             register("autopan", SiEffectAutoPan);
             //register("comp",    SiEffectCompressor); // bugful!!

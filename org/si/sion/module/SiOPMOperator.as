@@ -353,8 +353,9 @@ package org.si.sion.module {
         public function set pgType(n:int) : void
         {
             _pgType = n & SiOPMTable.PG_FILTER;
-            _waveTable     = _table.waveTables[_pgType];
-            _waveFixedBits = _table.waveFixedBits[_pgType];
+            var waveTable:SiOPMWaveTable = _table.getWaveTable(_pgType);
+            _waveTable     = waveTable.wavelet;
+            _waveFixedBits = waveTable.fixedBits;
         }
         /** Pitch table type. */
         public function set ptType(n:int) : void
@@ -375,7 +376,7 @@ package org.si.sion.module {
         public function get detune2()    : int { return _pitchIndexShift2; }
         public function get fmul()       : int { return _multiple; }
         public function get keyOnPhase() : int { return (_keyon_phase>=0) ? (_keyon_phase >> (SiOPMTable.PHASE_BITS - 8)) : 255; }
-        public function get pgType()     : int { return _pgType & SiOPMTable.PG_FILTER; }
+        public function get pgType()     : int { return _pgType; }
         public function get modLevel()   : int { return (_fmShift>10) ? (_fmShift-10) : 0; }
         
         
@@ -530,6 +531,26 @@ package org.si.sion.module {
             param.phase = keyOnPhase;
             param.modLevel = (_fmShift>10) ? (_fmShift - 10) : 0;
             param.erst = _erst;
+        }
+        
+        
+        /** Set PCM Data. */
+        public function setWaveTable(waveTable:SiOPMWaveTable) : void
+        {
+            _pgType = SiOPMTable.PG_USER_CUSTOM; // -1
+            _ptType        = waveTable.defaultPTType;
+            _waveTable     = waveTable.wavelet;
+            _waveFixedBits = waveTable.fixedBits;
+        }
+        
+        
+        /** Set PCM Data. */
+        public function setPCMData(pcmData:SiOPMPCMData) : void
+        {
+            _pgType = SiOPMTable.PG_USER_PCM; // -2
+            _ptType        = SiOPMTable.PT_PCM;
+            _waveTable     = pcmData.wavelet;
+            _waveFixedBits = pcmData.pseudoFixedBits;
         }
         
         

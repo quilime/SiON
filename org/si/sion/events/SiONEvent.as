@@ -62,7 +62,7 @@ package org.si.sion.events {
         public static const QUEUE_CANCEL:String = 'queueCancel';
         
         
-        /** Dispatch when streaming. This event is called inside SiONDriver.play() after SiONEvent.STREAM_START, and each streaming timing.
+        /** Dispatch while streaming. This event is called inside SiONDriver.play() after SiONEvent.STREAM_START, and each streaming timing.
          * <p>The properties of the event object have the following values:</p>
          * <table class=innertable>
          * <tr><th>Property</th><th>Value</th></tr>
@@ -90,7 +90,7 @@ package org.si.sion.events {
         public static const STREAM_START:String = 'streamStart';
         
         
-        /** Dispatch when stop streaming. This event is called inside SiONDriver.stop().
+        /** Dispatch when stop streaming. This event is dispatched inside SiONDriver.stop().
          * <p>The properties of the event object have the following values:</p>
          * <table class=innertable>
          * <tr><th>Property</th><th>Value</th></tr>
@@ -102,6 +102,62 @@ package org.si.sion.events {
          * @eventType streamStop
          */
         public static const STREAM_STOP:String = 'streamStop';
+        
+        
+        /** Dispatch when finish executing all sequences.
+         * <p>The properties of the event object have the following values:</p>
+         * <table class=innertable>
+         * <tr><th>Property</th><th>Value</th></tr>
+         * <tr><td>cancelable</td><td>false</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
+         * <tr><td>data</td><td>SiONData instance to stop streaming. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>streamBuffer</td><td>null</td></tr>
+         * </table>
+         * @eventType finishSequence
+         */
+        public static const FINISH_SEQUENCE:String = 'finishSequence';
+        
+        
+        /** Dispatch while fading. This event is dispatched after SiONEvent.STREAM.
+         * <p>The properties of the event object have the following values:</p>
+         * <table class=innertable>
+         * <tr><th>Property</th><th>Value</th></tr>
+         * <tr><td>cancelable</td><td>true to cancel fading.</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
+         * <tr><td>data</td><td>SiONData instance playing now. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>streamBuffer</td><td>null</td></tr>
+         * </table>
+         * @eventType fadeProgress
+         */
+        public static const FADE_PROGRESS:String = 'fadeProgress';
+        
+        
+        /** Dispatch when fade in is finished. This event is dispatched after SiONEvent.STREAM.
+         * <p>The properties of the event object have the following values:</p>
+         * <table class=innertable>
+         * <tr><th>Property</th><th>Value</th></tr>
+         * <tr><td>cancelable</td><td>false</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
+         * <tr><td>data</td><td>SiONData instance playing now. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>streamBuffer</td><td>ByteArray instance of this stream. The length is twice of SiONDriver.bufferLength in the unit of float. You can get the renderd wave data by this propertiy.</td></tr>
+         * </table>
+         * @eventType fadeInComplete
+         */
+        public static const FADE_IN_COMPLETE:String = 'fadeInComplete';
+        
+        
+        /** Dispatch when fade out is finished. This event is dispatched after SiONEvent.STREAM.
+         * <p>The properties of the event object have the following values:</p>
+         * <table class=innertable>
+         * <tr><th>Property</th><th>Value</th></tr>
+         * <tr><td>cancelable</td><td>false</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
+         * <tr><td>data</td><td>SiONData instance playing now. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>streamBuffer</td><td>ByteArray instance of this stream. The length is twice of SiONDriver.bufferLength in the unit of float. You can get the renderd wave data by this propertiy.</td></tr>
+         * </table>
+         * @eventType fadeInComplete
+         */
+        public static const FADE_OUT_COMPLETE:String = 'fadeOutComplete';
         
         
         

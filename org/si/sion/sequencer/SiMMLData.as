@@ -11,25 +11,25 @@ package org.si.sion.sequencer {
     
     
     
-    /** SiMML data class.
-     */
+    /** SiMML data class. */
     public class SiMMLData extends MMLData
     {
     // valiables
     //----------------------------------------
         /** envelop tables */
-        public var envelopTables:Vector.<SiMMLDataEnvelopTable>;
-        /** FM channel paramters */
-        public var fmParameters:Vector.<SiMMLDataChannelParam>;
+        protected var _envelops:Vector.<SiMMLEnvelopTable>;
+        /** voice data */
+        protected var _voices:Vector.<SiMMLVoice>;
         
         
         
     // constructor
     //----------------------------------------
+        /** constructor. */
         function SiMMLData()
         {
-            envelopTables = new Vector.<SiMMLDataEnvelopTable>();
-            fmParameters  = new Vector.<SiMMLDataChannelParam>();
+            _envelops = new Vector.<SiMMLEnvelopTable>(SiMMLTable.ENV_TABLE_MAX);
+            _voices   = new Vector.<SiMMLVoice>(SiMMLTable.VOICE_MAX);
         }
         
         
@@ -41,131 +41,72 @@ package org.si.sion.sequencer {
         override public function clear() : void
         {
             super.clear();
-            for each (var env:SiMMLDataEnvelopTable in envelopTables) { SiMMLDataEnvelopTable.free(env); }
-            for each (var prm:SiMMLDataChannelParam in fmParameters)  { SiMMLDataChannelParam.free(prm); }
-            envelopTables.length = 0;
-            fmParameters.length = 0;
+            var i:int, imax:int;
+            imax = _envelops.length;
+            for (i=0; i<imax; i++) _envelops[i] = null;
+            imax = _voices.length;
+            for (i=0; i<imax; i++) _voices[i] = null;
         }
         
         
         /** Register all tables before processing audio. */
-        override public function regiterAllTables() : void
+        override public function regiter() : void
         {
-            super.regiterAllTables();
-            for each (var env:SiMMLDataEnvelopTable in envelopTables) { env.register(); }
-            for each (var prm:SiMMLDataChannelParam in fmParameters)  { prm.register(); }
+            super.regiter();
+            SiMMLTable.instance.stencilEnvelops = _envelops;
+            SiMMLTable.instance.stencilVoices   = _voices;
+        }
+        
+        
+        /** Set envelop table data refered by @@,na,np,nt,nf,_@@,_na,_np,_nt and _nf.
+         *  @param index envelop table number.
+         *  @param envelop envelop table.
+         */
+        public function setEnvelopTable(index:int, envelop:SiMMLEnvelopTable) : void
+        {
+            if (index >= 0 && index < SiMMLTable.ENV_TABLE_MAX) _envelops[index] = envelop;
+        }
+        
+        
+        /** Set wave table data refered by %6.
+         *  @param index wave table number.
+         *  @param voice voice to register.
+         */
+        public function setVoice(index:int, voice:SiMMLVoice) : void
+        {
+            if (index >= 0 && index < SiMMLTable.VOICE_MAX) {
+                if (!voice._isSuitableForFMVoice) throw errorNotGoodFMVoice();
+                 _voices[index] = voice;
+            }
         }
         
         
         /** @private [internal use] Set envelop table data */
         internal function _setEnvelopTable(index:int, head:SLLint, tail:SLLint) : void
         {
-            envelopTables.push(SiMMLDataEnvelopTable.alloc(index, head, tail));
+            var t:SiMMLEnvelopTable = new SiMMLEnvelopTable();
+            t._initialize(head, tail);
+            _envelops[index] = t;
         }
         
         
         /** @private [internal use] Get channel parameter */
         internal function _getSiOPMChannelParam(index:int) : SiOPMChannelParam
         {
-            var e:SiMMLDataChannelParam = SiMMLDataChannelParam.alloc(index);
-            fmParameters.push(e);
-            return e.param;
+            var v:SiMMLVoice = new SiMMLVoice();
+            v.channelParam = new SiOPMChannelParam();
+            _voices[index] = v;
+            return v.channelParam;
+        }
+        
+        
+        
+        
+    // error
+    //----------------------------------------
+        private function errorNotGoodFMVoice() : Error {
+            return new Error("SiONDriver error; Cannot register the voice.");
         }
     }
-}
-
-
-
-
-import org.si.sion.module.SiOPMChannelParam;
-import org.si.sion.sequencer.SiMMLTable;
-import org.si.sion.sequencer.SiMMLEnvelopTable;
-import org.si.utils.SLLint;
-
-
-class SiMMLDataEnvelopTable
-{
-    public var index:int;
-    public var table:SiMMLEnvelopTable;
-    static private var _freeList:Array = [];
-    
-    
-    function SiMMLDataEnvelopTable()
-    {
-        index = -1;
-        table = new SiMMLEnvelopTable();
-    }
-    
-    
-    public function register() : void
-    {
-        SiMMLTable.registerEnvelopTable(index, table);
-    }
-    
-    
-    static public function free(e:SiMMLDataEnvelopTable) : void
-    {
-        e.index = -1;
-        e.table.free();
-        _freeList.push(e);
-    }
-
-    
-    static public function alloc(index:int, head:SLLint, tail:SLLint) : SiMMLDataEnvelopTable
-    { 
-        var i:int, imax:int;
-        
-        // new element
-        var e:SiMMLDataEnvelopTable = _freeList.pop() || new SiMMLDataEnvelopTable();
-
-        // initialize
-        e.index = index;
-        e.table._initialize(head, tail);
-        return e;
-    }    
-}
-
-
-
-
-class SiMMLDataChannelParam
-{
-    public var index:int;
-    public var param:SiOPMChannelParam;
-    static private var _freeList:Array = [];
-    
-    
-    function SiMMLDataChannelParam()
-    {
-        index = -1;
-        param = new SiOPMChannelParam();
-    }
-    
-    
-    public function register() : void
-    {
-        SiMMLTable.registerChannelParam(index, param);
-    }
-    
-    
-    static public function free(e:SiMMLDataChannelParam) : void
-    {
-        e.index = -1;
-        _freeList.push(e);
-    }
-
-    
-    static public function alloc(index:int) : SiMMLDataChannelParam
-    { 
-        var i:int, imax:int;
-        
-        // new element
-        var e:SiMMLDataChannelParam = _freeList.pop() || new SiMMLDataChannelParam();
-
-        // initialize
-        e.index = index;
-        e.param.initialize();
-        return e;
-    }    
 }
 

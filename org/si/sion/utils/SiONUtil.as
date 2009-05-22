@@ -13,36 +13,60 @@ package org.si.sion.utils {
     
     /** Utilities for SiON */
     public class SiONUtil {
-        
-    // PCM data serialization (for PCM Data)
+    // PCM data transformation (for PCM Data %7)
     //--------------------------------------------------
-        /** Serialize Sound wave */
-        static public function serialize(data:Sound, sampleMax:int=1048576) : Vector.<int>
+        /** logarithmical transformation of Sound data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
+         *  @param src The Sound data transforming from. 
+         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @param sampleMax The maximum sample count to transforme. The length of transformed data is limited by this value.
+         *  @return logarithmical transformed data.
+         */
+        static public function logTrans(data:Sound, dst:Vector.<int>=null, sampleMax:int=1048576) : Vector.<int>
         {
             var wave:ByteArray = new ByteArray();
             var samples:int = data.extract(wave, sampleMax);
-            return serializeByteArrayPCM(wave, new Vector.<int>);
+            return logTransByteArray(wave, dst);
         }
         
         
-        /** Serialize Vector.<Number> wave */
-        static public function serializeVectorPCM(src:Vector.<Number>, dst:Vector.<int>) : Vector.<int>
+        /** logarithmical transformation of Vector.<Number> wave data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
+         *  @param src The Vector.<Number> wave data transforming from. This ussualy comes from SiONDriver.render().
+         *  @param isDataStereo Flag that the wave data is stereo or monoral.
+         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @return logarithmical transformed data.
+         */
+        static public function logTransVector(src:Vector.<Number>, isDataStereo:Boolean=true, dst:Vector.<int>=null) : Vector.<int>
         {
-            var i:int, j:int, imax:int=src.length>>1;
-            dst.length = imax;
-            for (i=0; i<imax; i++) {
-                j = i<<1;
-                dst[i] = SiOPMTable.calcLogTableIndex(src[j]);
+            var i:int, j:int, imax:int;
+            if (dst == null) dst = new Vector.<int>();
+            if (isDataStereo) {
+                imax=src.length>>1;
+                dst.length = imax;
+                for (i=0; i<imax; i++) {
+                    j = i<<1;
+                    dst[i] = SiOPMTable.calcLogTableIndex(src[j]);
+                }
+            } else {
+                imax=src.length;
+                dst.length = imax;
+                for (i=0; i<imax; i++) {
+                    dst[i] = SiOPMTable.calcLogTableIndex(src[i]);
+                }
             }
             return dst;
         }
         
         
-        /** Serialize ByteArray wave */
-        static public function serializeByteArrayPCM(src:ByteArray, dst:Vector.<int>) : Vector.<int>
+        /** logarithmical transformation of ByteArray wave data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
+         *  @param src The ByteArray wave data transforming from. This is ussualy from Sound.extract().
+         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @return logarithmical transformed data.
+         */
+        static public function logTransByteArray(src:ByteArray, dst:Vector.<int>=null) : Vector.<int>
         {
             var i:int, imax:int=src.length>>3;
             src.position = 0;
+            if (dst == null) dst = new Vector.<int>();
             dst.length = imax;
             for (i=0; i<imax; i++) {
                 dst[i] = SiOPMTable.calcLogTableIndex(src.readFloat());
@@ -54,52 +78,34 @@ package org.si.sion.utils {
         
         
         
-    // raw wave data (for Sampler Data)
+    // wave data
     //--------------------------------------------------
-        /** get raw data from Sound */
-        static public function getRawData(data:Sound, channels:int=1, sampleMax:int=1048576) : Vector.<int>
+        /** put Sound.extract() result into Vector.<Number>. This data is used for sampler module (%10).
+         *  @param src The Sound data extracting from. 
+         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param channelCount channel count of extracted data. 1 for monoral, 2 for stereo.
+         *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
+         *  @return extracted data.
+         */
+        static public function extract(src:Sound, dst:Vector.<Number>=null, channelCount:int=1, sampleMax:int=1048576) : Vector.<Number>
         {
-            var wave:ByteArray = new ByteArray();
-            var samples:int = data.extract(wave, sampleMax);
-            return getRawDataByteArrayPCM(wave, new Vector.<int>, channels);
-        }
-        
-        
-        /** get raw data from Vector.<Number> wave */
-        static public function getRawDataVectorPCM(src:Vector.<Number>, dst:Vector.<int>, channels:int=1) : Vector.<int>
-        {
-            var i:int, j0:int, j1:int, imax:int=src.length>>1;
-            dst.length = imax;
-            if (channels == 2) {
+            var wave:ByteArray = new ByteArray(), i:int, imax:int;
+            src.extract(wave, sampleMax);
+            if (dst == null) dst = new Vector.<Number>();
+            wave.position = 0;
+            if (channelCount == 2) {
+                // stereo
+                imax = wave.length >> 2;
+                dst.length = imax;
                 for (i=0; i<imax; i++) {
-                    j0 = i<<1;
-                    j1 = j0 + 1;
-                    dst[i] = int((src[j0]+1)*32767) + ((int((src[j1]+1)*32767))<<16);
+                    dst[i] = wave.readFloat();
                 }
             } else {
+                // monoral
+                imax = wave.length >> 3;
+                dst.length = imax;
                 for (i=0; i<imax; i++) {
-                    j0 = i<<1;
-                    dst[i] = int(src[j0]*32767);
-                }
-            }
-            return dst;
-        }
-        
-        
-        /** get raw data from ByteArray wave */
-        static public function getRawDataByteArrayPCM(src:ByteArray, dst:Vector.<int>, channels:int=1) : Vector.<int>
-        {
-            var i:int, imax:int=src.length>>3;
-            src.position = 0;
-            dst.length = imax;
-            if (channels == 2) {
-                for (i=0; i<imax; i++) {
-                    dst[i] = int((src.readFloat()+1)*32767) + ((int((src.readFloat()+1)*32767))<<16);
-                }
-            } else {
-                for (i=0; i<imax; i++) {
-                    dst[i] = int(src.readFloat()*32767);
-                    src.readFloat();
+                    dst[i] = (wave.readFloat() + wave.readFloat()) * 0.6;
                 }
             }
             return dst;

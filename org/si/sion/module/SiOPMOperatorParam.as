@@ -67,7 +67,7 @@ package org.si.sion.module {
         public function setPGType(type:int) : void
         {
             pgType = type;
-            ptType = SiOPMTable.instance.defaultPTType[type];
+            ptType = SiOPMTable.instance.getWaveTable(type).defaultPTType;
         }
         
         

@@ -63,36 +63,49 @@ package org.si.sion.module {
         }
         
         
-        public function writeVectorInt(pointer:Vector.<int>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
+        public function writeVectorInt(pointer:Vector.<Number>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
         {
-            var i:int, j:int, n:Number, jmax:int = startPointer + len, volL:Number, volR:Number;
-            vol *= 0.000030517578125; // 1/32768
+            var i:int, j:int, n:Number, jmax:int, volL:Number, volR:Number;
+            
             if (channels == 2) {
                 if (sampleChannelCount == 2) {
                     // stereo data to stereo buffer
-                    for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
-                        volL = Number((pointer[j]&65535)-32768) * vol;
-                        volR = Number((pointer[j]>>>16) -32768) * vol;
-                        buffer[i] += volL;  i++;
-                        buffer[i] += volR;  i++;
+                    jmax = (startPointer + len)<<1;
+                    for (j=startPointer<<1, i=startBuffer<<1; j<jmax; j++, i++) {
+                        buffer[i] += pointer[j] * vol;
                     }
                 } else {
                     // monoral data to stereo buffer
                     volL = _panTable[128-pan] * vol;
                     volR = _panTable[pan]     * vol;
+                    jmax = startPointer + len;
                     for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
-                        n = Number(pointer[j]);
+                        n = pointer[j];
                         buffer[i] += n * volL;  i++;
                         buffer[i] += n * volR;  i++;
                     }
                 }
             } else 
             if (channels == 1) {
-                // monoral
-                for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
-                    n = Number(pointer[j]) * vol;
-                    buffer[i] += n; i++;
-                    buffer[i] += n; i++;
+                if (sampleChannelCount == 2) {
+                    // stereo data to monoral buffer
+                    jmax = (startPointer + len)<<1;
+                    vol  *= 0.6;
+                    for (j=startPointer<<1, i=startBuffer<<1; j<jmax;) {
+                        n  = pointer[j]; j++;
+                        n += pointer[j]; j++;
+                        n *= vol;
+                        buffer[i] += n; i++;
+                        buffer[i] += n; i++;
+                    }
+                } else {
+                    // monoral data to monoral buffer
+                    jmax = startPointer + len;
+                    for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
+                        n = pointer[j] * vol;
+                        buffer[i] += n; i++;
+                        buffer[i] += n; i++;
+                    }
                 }
             }
         }

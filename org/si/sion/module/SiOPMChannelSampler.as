@@ -22,10 +22,10 @@ package org.si.sion.module {
         
         /** expression */    protected var _expression:Number;
         
-        /** sample data */   protected var _sample:Vector.<int>;
+        /** sample data */   protected var _sample:Vector.<Number>;
         /** sample length */ protected var _sampleLength:int;
         /** sample index */  protected var _sampleIndex:int;
-        /** phase reset */   protected var _samplePhaseReset:Boolean;
+        /** phase reset */   protected var _sampleStartPhase:int;
         /** channel count */ protected var _sampleChannelCount:int;
         
         
@@ -103,7 +103,7 @@ package org.si.sion.module {
         /** pgType & ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
         override public function setType(pgType:int, ptType:int) : void 
         {
-            _bankNumber = pgType & 1;
+            _bankNumber = pgType & 3;
         }
         
         
@@ -129,7 +129,7 @@ package org.si.sion.module {
         
         /** phase (&#64;ph) */
         override public function set phase(i:int) : void {
-            _samplePhaseReset = ((i&255)!=255);
+            _sampleStartPhase = i;
         }
         
         
@@ -147,7 +147,7 @@ package org.si.sion.module {
             _sample = null;
             _sampleLength = 0;
             _sampleIndex = 0;
-            _samplePhaseReset = true;
+            _sampleStartPhase = 0;
             _sampleChannelCount = 1;
             _expression = 0.5;
             super.initialize(prev, bufferIndex);
@@ -165,7 +165,7 @@ package org.si.sion.module {
             _sample = null;
             _sampleLength = 0;
             _sampleIndex = 0;
-            _samplePhaseReset = true;
+            _sampleStartPhase = 0;
             _sampleChannelCount = 1;
             _expression = 0.5;
         }
@@ -177,13 +177,15 @@ package org.si.sion.module {
             if (_waveNumber >= 0) {
                 _isNoteOn = true;
                 _isIdling = false;
-                var idx:int = _waveNumber + (_bankNumber<<7) + SiOPMTable.PG_SAMPLE,
-                    flag:int = _table.waveFixedBits[idx];
-                _sample = _table.waveTables[idx];
-                _sampleLength = _sample.length;
-                _sampleChannelCount = (flag & 1) ? 2 : 1;
-                _isOneShot = Boolean(flag >> 1);
-                if (_samplePhaseReset) _sampleIndex = 0;
+                var idx:int = _waveNumber + (_bankNumber<<7),
+                    data:SiOPMSamplerData = _table.getSamplerData(idx);
+                if (data) {
+                    _sample = data.waveData;
+                    _isOneShot = data.isOneShot;
+                    _sampleChannelCount = data.channelCount;
+                    _sampleLength = _sample.length >> (_sampleChannelCount-1);
+                    if (_sampleStartPhase!=255) _sampleIndex = _sampleLength * _sampleStartPhase * 0.00390625; // 1/256
+                }
             }
         }
         

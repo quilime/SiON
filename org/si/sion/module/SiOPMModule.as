@@ -155,6 +155,19 @@ package org.si.sion.module {
         }
         
         
+        /** Limit output level in the ranged of -1 ~ 1.*/
+        public function limitLevel() : void
+        {
+            var buf:Vector.<Number> = streamBuffer[0].buffer,
+                i:int, imax:int = buf.length, n:Number;
+            for (i=0; i<imax; i++) {
+                n = buf[i];
+                if (n < -1) buf[i] = -1;
+                else if (n > 1) buf[i] = 1;
+            }
+        }
+        
+        
         /** get pipe buffer */
         public function getPipe(pipeNum:int, index:int=0) : SLLint
         {

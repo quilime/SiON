@@ -108,6 +108,8 @@ package org.si.sion.module {
         public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void {}
         /** Get SiOPMChannelParam. */
         public function getSiOPMChannelParam(param:SiOPMChannelParam) : void {}
+        /** Set by PCM wave. */
+        public function setPCMData(pcmData:SiOPMPCMData) : void {}
         
         /** algorism (&#64;al) */
         public function setAlgorism(cnt:int, alg:int) : void {}

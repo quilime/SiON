@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// Sound object
+// Sound object container
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -20,21 +20,9 @@ package org.si.sound {
         
     // properties
     //----------------------------------------
-        /** Mute. */
-        override public function get mute() : Boolean { return false; }
-        override public function set mute(m:Boolean) : void { }
-        
-        /** Volume (0:Minimum - 1:Maximum). */
-        override public function get volume() : Number { return 0; }
-        override public function set volume(v:Number) : void { }
-        
-        /** Panning (-1:Left - 0:Center - +1:Right). */
-        override public function get pan() : Number { return 0; }
-        override public function set pan(p:Number) : void { }        
-        
-        
         /** Returns the number of children of this object. */
         public function get numChildren() : int { return _soundList.length; }
+        
         
         
         
@@ -84,8 +72,7 @@ package org.si.sound {
          */
         public function addChild(sound:SoundObject) : SoundObject
         {
-            if (sound._parent != null) sound._parent.removeChild(sound);
-            sound._parent = this;
+            sound._setParent(this);
             _soundList.push(sound);
             return sound;
         }
@@ -99,7 +86,7 @@ package org.si.sound {
          */
         public function addChildAt(sound:SoundObject, index:int) : SoundObject
         {
-            sound._parent = this;
+            sound._setParent(this);
             if (index < _soundList.length) _soundList.splice(index, 0, sound);
             else _soundList.push(sound);
             return sound;
@@ -116,7 +103,7 @@ package org.si.sound {
         {
             var index:int = _soundList.indexOf(sound);
             if (index == -1) throw Error("SoundObjectContainer Error; Specifyed children is not in the children list.");
-            sound._parent = null;
+            sound._setParent(null);
             _soundList.splice(index, 1);
             return sound;
         }
@@ -131,7 +118,9 @@ package org.si.sound {
         public function removeChildAt(index:int) : SoundObject
         {
             if (index >= _soundList.length) throw Error("SoundObjectContainer Error; Specifyed index is not in the children list.");
-            return _soundList.splice(index, 1)[0];
+            var sound:SoundObject = _soundList.splice(index, 1)[0];
+            sound._setParent(null);
+            return sound;
         }
         
         
@@ -178,6 +167,50 @@ package org.si.sound {
         public function setChildIndex(child:SoundObject, index:int) : SoundObject
         {
             return addChildAt(removeChild(child), index);
+        }
+        
+        
+        
+        
+    // oprate ancestor
+    //----------------------------------------
+        /** @private [internal use] */
+        override internal function _updateMute() : void
+        {
+            super._updateMute();
+            for each (var sound:SoundObject in _soundList) sound._updateMute();
+        }
+        
+        
+        /** @private [internal use] */
+        override internal function _updateVolume() : void
+        {
+            super._updateVolume();
+            for each (var sound:SoundObject in _soundList) sound._updateVolume();
+        }
+        
+        
+        /** @private [internal use] */
+        override internal function _limitVolume() : void
+        {
+            super._limitVolume();
+            for each (var sound:SoundObject in _soundList) sound._limitVolume();
+        }
+        
+        
+        /** @private [internal use] */
+        override internal function _updatePan() : void
+        {
+            super._updatePan();
+            for each (var sound:SoundObject in _soundList) sound._updatePan();
+        }
+        
+        
+        /** @private [internal use] */
+        override internal function _limitPan() : void
+        {
+            super._limitPan();
+            for each (var sound:SoundObject in _soundList) sound._limitPan();
         }
     }
 }

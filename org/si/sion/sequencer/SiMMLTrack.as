@@ -37,7 +37,9 @@ package org.si.sion.sequencer {
         /** MIDI track id offset */
         static public const MIDI_TRACK_ID_OFFSET:int = 0x20000;
         /** driver track id offset */
-        static public const DRIVER_TRACK_ID_OFFSET:int = 0x30000;
+        static public const DRIVER_NOTE_ID_OFFSET:int = 0x30000;
+        /** driver track id offset */
+        static public const DRIVER_SEQUENCE_ID_OFFSET:int = 0x30000;
         
         // _processMode
         static private const NORMAL  :int = 0;
@@ -179,7 +181,7 @@ package org.si.sion.sequencer {
         /** Is controlable ? */
         public function get isControlable() : Boolean { return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET); }
         
-        /** Is activate ? In the sequence track, this function always returns true. */
+        /** Is activate ? This function always returns true from the MML sequence track. */
         public function get isActive() : Boolean { return (!isControlable || !channel.isIdling || _keyOnCounter>0 || _trackStartDelay>0); }
         
         /** Is finish to buffering ? */
@@ -393,7 +395,7 @@ package org.si.sion.sequencer {
             else executor.clear();
             return this;
         }
-                
+        
         
         /** Slur without next notes key on. This have to be called just after keyOn(). */
         public function setSlur() : void
@@ -429,6 +431,19 @@ package org.si.sion.sequencer {
             _env_pitch = _set_env_pitch[1];
             
             _processMode = ENVELOP;
+        }
+        
+        
+        /** Limit key on length. 
+         *  @param stopDelay delay to key-off.
+         */
+        public function limitLength(stopDelay:int) : void
+        {
+            var length:int = stopDelay - _trackStartDelay;
+            if (length < _keyOnCounter) {
+                _keyOnLength = stopDelay - _trackStartDelay;
+                _keyOnCounter = _keyOnLength;
+            }
         }
         
         
@@ -937,8 +952,8 @@ package org.si.sion.sequencer {
         {
             var ret:MMLSequence = null;
             if (param[0] != int.MIN_VALUE) {
+                ret = channelModuleSetting.selectTone(this, param[0]);
                 _tone = param[0];
-                ret = channelModuleSetting.selectTone(this, _tone);
             }
             channel.setParameters(param);
             return ret;

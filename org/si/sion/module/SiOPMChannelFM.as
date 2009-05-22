@@ -288,6 +288,17 @@ package org.si.sion.module {
         }
         
         
+        /** Set PCM data. 
+         *  @param pcmData PCM data to set.
+         */
+        override public function setPCMData(pcmData:SiOPMPCMData) : void
+        {
+            _updateOperatorCount(1);
+            activeOperator.setPCMData(pcmData);
+            _funcProcess = _funcProcessList[_lfo_on][4];
+        }
+        
+        
         
         
     // interfaces

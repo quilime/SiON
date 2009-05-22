@@ -5,6 +5,12 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer.base {
+    import org.si.sion.module.SiOPMWaveTable;
+    import org.si.sion.module.SiOPMPCMData;
+    import org.si.sion.module.SiOPMSamplerData;
+    import org.si.sion.module.SiOPMTable;
+    
+    
     /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLData
     {
@@ -25,11 +31,11 @@ package org.si.sion.sequencer.base {
         public var author:String;
         
         /** wave tables */
-        public var waveTables:Vector.<MMLDataWaveTable>;
-        /** pcm data (serialized) */
-        public var pcmData:Vector.<MMLDataWaveTable>;
-        /** wave data (raw wave) */
-        public var waveData:Vector.<MMLDataWaveTable>;
+        public var waveTables:Vector.<SiOPMWaveTable>;
+        /** pcm data (log-transformed) */
+        public var pcmData:Vector.<SiOPMPCMData>;
+        /** wave data */
+        public var samplerData:Vector.<SiOPMSamplerData>;
         
         /** system commands can not be parsed. Examples are for mml string "#ABC5{def}ghi;".<br/>
          *  the array elements are Object. and it has properties of ...<br/>
@@ -39,6 +45,7 @@ package org.si.sion.sequencer.base {
          *  postfix: number after command. ex) postfix = "ghi"
          */
         public var systemCommands:Array;
+        
         
         
         
@@ -60,9 +67,9 @@ package org.si.sion.sequencer.base {
             title = "";
             author = "";
             
-            waveTables = new Vector.<MMLDataWaveTable>();
-            pcmData    = new Vector.<MMLDataWaveTable>();
-            waveData   = new Vector.<MMLDataWaveTable>();
+            waveTables  = new Vector.<SiOPMWaveTable>(SiOPMTable.WAVE_TABLE_MAX);
+            pcmData     = new Vector.<SiOPMPCMData>(SiOPMTable.PCM_DATA_MAX);
+            samplerData = new Vector.<SiOPMSamplerData>(SiOPMTable.SAMPLER_DATA_MAX);
             systemCommands = [];
         }
         
@@ -74,6 +81,8 @@ package org.si.sion.sequencer.base {
         /** Clear all parameters and free all sequence groups. */
         public function clear() : void
         {
+            var i:int, imax:int;
+            
             sequenceGroup.free();
             globalSequence.free();
             
@@ -82,130 +91,80 @@ package org.si.sion.sequencer.base {
             title = "";
             author = "";
             
-            var table:MMLDataWaveTable;
-            for each (table in waveTables) { MMLDataWaveTable.free(table); }
-            for each (table in pcmData)    { MMLDataWaveTable.free(table); }
-            for each (table in waveData)   { MMLDataWaveTable.free(table); }
-            waveTables.length = 0;
-            pcmData.length = 0;
-            waveData.length = 0;
+            for (i=0; i<SiOPMTable.WAVE_TABLE_MAX; i++)   { if (waveTables[i])  { waveTables[i].free();  waveTables[i] = null; } }
+            for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++)     { if (pcmData[i])     { pcmData[i].free();     pcmData[i] = null; } }
+            for (i=0; i<SiOPMTable.SAMPLER_DATA_MAX; i++) { if (samplerData[i]) { samplerData[i].free(); samplerData[i] = null; } }
             systemCommands.length = 0;
         }
         
         
         /** Register all tables before processing audio. */
-        public function regiterAllTables() : void
+        public function regiter() : void
         {
-            var table:MMLDataWaveTable;
-            for each (table in waveTables) { table.register(); }
-            for each (table in pcmData)    { table.register(); }
-            for each (table in waveData)   { table.register(); }
+            SiOPMTable.instance.stencilCustomWaveTables = waveTables;
+            SiOPMTable.instance.stencilPCMData          = pcmData;
+            SiOPMTable.instance.stencilSamplerData      = samplerData;
         }
         
         
-        /** Set wave table data */
-        public function setWaveTable(index:int, table:Vector.<Number>, bits:int) : void
+        /** Set wave table data refered by %4.
+         *  @param index wave table number.
+         *  @param data Vector.<Number> wave shape data ranged from -1 to 1.
+         */
+        public function setWaveTable(index:int, data:Vector.<Number>) : void
         {
-            waveTables.push(MMLDataWaveTable.allocWabeTable(index, table, bits));
+            index &= SiOPMTable.WAVE_TABLE_MAX-1;
+            var i:int, imax:int=data.length;
+            var table:Vector.<int> = new Vector.<int>(imax);
+            for (i=0; i<imax; i++) table[i] = SiOPMTable.calcLogTableIndex(data[i]);
+            waveTables[index] = SiOPMWaveTable.alloc(table);
         }
         
         
-        /** Set PCM data */
-        public function setPCMData(index:int, serialized:Vector.<int>, samplingOctave:int=5) : void
+        /** Set PCM data rederd from %7.
+         *  @param index PCM data number.
+         *  @param data Vector.<Number> wave data. This type ussualy comes from render().
+         *  @param isDataStereo Flag that the wave data is stereo or monoral.
+         *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
+         *  @see #org.si.sion.SiONDriver.render()
+         */
+        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : void
         {
-            pcmData.push(MMLDataWaveTable.allocPCMData(index, serialized, samplingOctave));
+            index &= SiOPMTable.PCM_DATA_MAX-1;
+            
+            var i:int, j:int, imax:int;
+            var pcm:Vector.<int>;
+            if (isDataStereo) {
+                imax = data.length>>1;
+                pcm = new Vector.<int>(imax);
+                for (i=0; i<imax; i++) {
+                    j = i<<1;
+                    pcm[i] = SiOPMTable.calcLogTableIndex(data[j]);
+                }
+            } else {
+                imax = data.length;
+                pcm = new Vector.<int>(imax);
+                for (i=0; i<imax; i++) {
+                    pcm[i] = SiOPMTable.calcLogTableIndex(data[i]);
+                }
+            }
+            pcmData[index] = SiOPMPCMData.alloc(pcm, samplingOctave);
         }
         
         
-        /** Set wave data */
-        public function setWaveData(index:int, rawData:Vector.<int>, isOneShot:Boolean=true, isStereo:Boolean=false) : void
+        /** Set sampler data refered by %10.
+         *  @param index note number. 0-127 for bank0, 128-255 for bank1.
+         *  @param data Vector.<Number> wave data. This type ussualy comes from SiONDriver.render().
+         *  @param isOneShot True to set "one shot" sound. The "one shot" sound ignores note off.
+         *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @see #org.si.sion.SiONDriver.render()
+         */
+        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=2) : void
         {
-            waveData.push(MMLDataWaveTable.allocWaveData(index, rawData, isOneShot, isStereo));
+            index &= SiOPMTable.SAMPLER_DATA_MAX-1;
+            samplerData[index] = new SiOPMSamplerData(data, isOneShot, channelCount);
         }
     }
 }
 
-
-
-
-import flash.utils.ByteArray;
-import org.si.sion.module.SiOPMTable;
-
-// wave table class
-class MMLDataWaveTable
-{
-    public var index:int;
-    public var type:int;
-    public var waveFixedBits:int;
-    public var waveTable:Vector.<int>;
-    static private var _freeTableList:Vector.<MMLDataWaveTable> = new Vector.<MMLDataWaveTable>();
-    static private var _freePCMList:Vector.<MMLDataWaveTable> = new Vector.<MMLDataWaveTable>();
-   
-    
-    function MMLDataWaveTable()
-    {
-        index = -1;
-        waveFixedBits = 0;
-        type = 0;
-        waveTable = new Vector.<int>();
-    }
-    
-    
-    public function register() : void
-    {
-        switch (type) {
-        case 0: SiOPMTable.registerWaveTable(index, waveTable, waveFixedBits);  break;
-        case 1: SiOPMTable.registerPCMData  (index, waveTable, waveFixedBits);  break;
-        case 2: SiOPMTable.registerSample   (index, waveTable, waveFixedBits);  break;
-        }
-    }
-    
-    
-    static public function free(e:MMLDataWaveTable) : void
-    {
-        e.index = -1;
-        if (e.type == 0) _freeTableList.push(e);
-        else _freePCMList.push(e); 
-    }
-
-    
-    static public function allocWabeTable(index:int, table:Vector.<Number>, bits:int) : MMLDataWaveTable
-    { 
-        var e:MMLDataWaveTable = _freeTableList.pop() || new MMLDataWaveTable();
-        e.type  = 0;
-        e.index = index;
-        e.waveFixedBits = SiOPMTable.PHASE_BITS - bits;
-        
-        // copy wave table
-        var i:int, imax:int = 1<<bits;
-        e.waveTable = e.waveTable || new Vector.<int>();
-        e.waveTable.length = imax;
-        for (i=0; i<imax; i++) {
-            e.waveTable[i] = SiOPMTable.calcLogTableIndex(table[i]);
-        }
-        return e;
-    }
-
-    
-    static public function allocPCMData(index:int, serialized:Vector.<int>, samplingOctave:int) : MMLDataWaveTable
-    { 
-        var e:MMLDataWaveTable = _freePCMList.pop() || new MMLDataWaveTable();
-        e.type  = 1;
-        e.index = index;
-        e.waveFixedBits = samplingOctave;
-        e.waveTable = serialized;
-        return e;
-    }
-
-    
-    static public function allocWaveData(index:int, rawData:Vector.<int>, isOneShot:Boolean, isStereo:Boolean) : MMLDataWaveTable
-    { 
-        var e:MMLDataWaveTable = _freePCMList.pop() || new MMLDataWaveTable();
-        e.type  = 2;
-        e.index = index;
-        e.waveFixedBits = ((isOneShot) ? 2 : 0) + ((isStereo) ? 1 : 0);
-        e.waveTable = rawData;
-        return e;
-    }
-}
 
