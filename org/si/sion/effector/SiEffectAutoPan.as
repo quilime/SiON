@@ -27,7 +27,7 @@ package org.si.sion.effector {
         }
         
         
-        /** constructor
+        /** set parameter
          *  @param frequency rotation frequency(Hz).
          *  @param width stereo width(0-1). 0 means stereo auto pan.
          */

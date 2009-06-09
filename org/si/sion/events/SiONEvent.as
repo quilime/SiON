@@ -109,8 +109,8 @@ package org.si.sion.events {
          * <table class=innertable>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
-         * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
-         * <tr><td>data</td><td>SiONData instance to stop streaming. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance playing now.</td></tr>
+         * <tr><td>data</td><td>SiONData instance playing now.</td></tr>
          * <tr><td>streamBuffer</td><td>null</td></tr>
          * </table>
          * @eventType finishSequence

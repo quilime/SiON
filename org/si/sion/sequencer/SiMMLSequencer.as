@@ -42,6 +42,8 @@ package org.si.sion.sequencer {
         public var _eventTriggerOn:Function = null;
         /** @private [internal use] callback event trigger */
         public var _eventTriggerOff:Function = null;
+        /** @private [internal use] callback tempo changed */
+        public var _callbackTempoChanged:Function = null;
         
         private var _module:SiOPMModule;                // Module instance
         private var _connector:MMLExecutorConnector;    // MMLExecutorConnector
@@ -75,6 +77,7 @@ package org.si.sion.sequencer {
         
         /** Is finish buffering ? */
         public function get isFinished() : Boolean {
+            if (!_isSequenceFinished) return false;
             for each (var trk:SiMMLTrack in tracks) { if (!trk.isFinished) return false; }
             return true;
         }
@@ -91,7 +94,7 @@ package org.si.sion.sequencer {
     // constructor
     //--------------------------------------------------
         /** Create new sequencer. */
-        function SiMMLSequencer(module:SiOPMModule, eventTriggerOn:Function, eventTriggerOff:Function)
+        function SiMMLSequencer(module:SiOPMModule, eventTriggerOn:Function, eventTriggerOff:Function, tempoChanged:Function)
         {
             super();
             
@@ -106,6 +109,7 @@ package org.si.sion.sequencer {
             _macroStrings  = new Vector.<String> (MACRO_SIZE, true);
             _eventTriggerOn = eventTriggerOn;
             _eventTriggerOff = eventTriggerOff;
+            _callbackTempoChanged = tempoChanged;
             _currentTrack = null;
             
             // initialize table once
@@ -602,6 +606,7 @@ package org.si.sion.sequencer {
             for each (var trk:SiMMLTrack in tracks) {
                 trk.executor._onTempoChanged(changingRatio);
             }
+            if (_callbackTempoChanged != null) _callbackTempoChanged(globalBufferIndex);
         }
         
         

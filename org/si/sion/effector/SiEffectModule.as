@@ -44,6 +44,8 @@ package org.si.sion.effector {
             register("reverb",  SiEffectStereoReverb);
             register("chorus",  SiEffectStereoChorus);
             register("autopan", SiEffectAutoPan);
+            register("ds",      SiEffectDownSampler);
+            register("speaker", SiEffectSpeakerSimulator);
             //register("comp",    SiEffectCompressor); // bugful!!
             
             register("lf", SiFilterLowPass);
@@ -62,7 +64,7 @@ package org.si.sion.effector {
         
     // operations
     //--------------------------------------------------------------------------------
-        /** @parivate [internal use] initialize all effectors. */
+        /** @private [internal use] initialize all effectors. */
         public function initialize() : void
         {
             for (var slot:int=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) {
@@ -71,7 +73,7 @@ package org.si.sion.effector {
         }
         
         
-        /** @parivate [internal use] prepare for processing. */
+        /** @private [internal use] prepare for processing. */
         public function prepareProcess() : void
         {
             var i:int, slot:int;
@@ -90,7 +92,7 @@ package org.si.sion.effector {
         }
         
         
-        /** @parivate [internal use] processing. */
+        /** @private [internal use] processing. */
         public function process() : void
         {
             var i:int, slot:int, buffer:Vector.<Number>, ec:SiEffectConnector,

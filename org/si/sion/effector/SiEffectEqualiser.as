@@ -88,8 +88,8 @@ package org.si.sion.effector {
         {
             startIndex <<= 1;
             length <<= 1;
-            var i:int, n:Number, l:Number, m:Number, h:Number;
-            for (i=startIndex; i<length;) {
+            var i:int, n:Number, l:Number, m:Number, h:Number, imax:int=startIndex+length;
+            for (i=startIndex; i<imax;) {
                 n = buffer[i];
                 f1p0L += (lf * (n - f1p0L)) + 2.3283064370807974e-10;
                 f1p1L += (lf * (f1p0L - f1p1L));

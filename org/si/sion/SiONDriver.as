@@ -34,8 +34,8 @@ package org.si.sion {
      * @see org.si.sion.events.SiONEvent
      * @see org.si.sion.events.SiONTrackEvent
      * @see org.si.sion.module.SiOPMModule
-     * @see org.si.sion.mml.SiMMLSequencer
-     * @see org.si.sion.effect.SiEffectModule
+     * @see org.si.sion.sequencer.SiMMLSequencer
+     * @see org.si.sion.effector.SiEffectModule
 @example 1) The simplest sample. Create new instance and call play with MML string.<br/>
 <listing version="3.0">
 // create driver instance.
@@ -49,7 +49,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.3";
+        static public const VERSION:String = "0.5.4";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -110,6 +110,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _cannotChangeBPM:Boolean;     // internal flag not to change bpm
         private var _inStreaming:Boolean;         // in streaming
         private var _preserveStop:Boolean;        // preserve stop after streaming
+        private var _isFinishSeqDispatched:Boolean; // FINISH_SEQUENCE event already dispacthed
 
         private var _queueInterval:int;         // interupting interval to execute queued jobs
         private var _queueLength:int;           // queue length to execute
@@ -123,7 +124,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _masterVolume:Number;       // master volume
         private var _faderVolume:Number;        // fader volume
         
-        private var _triggerEventQueue:Vector.<SiONTrackEvent>;
+        private var _trackEventQueue:Vector.<SiONTrackEvent>;
         
         private var _renderBuffer:Vector.<Number>;  // rendering buffer
         private var _renderBufferChannelCount:int;  // rendering buffer channel count
@@ -230,6 +231,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Is playing sound ? */
         public function get isPlaying() : Boolean { return (_soundChannel != null); }
         
+        /** Is paused ? */
+        public function get isPaused() : Boolean { return _isPaused; }
+        
         
         // operation
         /** Buffering position[ms] on mml data. @default 0 */
@@ -296,7 +300,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _jobQueue = new Vector.<SiONDriverJob>();
             module = new SiOPMModule();
             effector = new SiEffectModule(module);
-            sequencer = new SiMMLSequencer(module, _callbackEventTriggerOn, _callbackEventTriggerOff);
+            sequencer = new SiMMLSequencer(module, _callbackEventTriggerOn, _callbackEventTriggerOff, _callbackTempoChanged);
             _sound = new Sound();
             _soundTransform = new SoundTransform();
             _fader = new Fader();
@@ -316,6 +320,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _autoStop = false;
             _noteOnExceptionMode = NEM_IGNORE;
             _debugMode = false;
+            _isFinishSeqDispatched = false;
             
             _backgroundSound = null;
             _backgroundLevel = 1;
@@ -328,7 +333,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _soundTransform.volume = _masterVolume * _faderVolume;
             
             _eventListenerPrior = 1;
-            _triggerEventQueue = new Vector.<SiONTrackEvent>();
+            _trackEventQueue = new Vector.<SiONTrackEvent>();
             
             _queueInterval = 500;
             _jobProgress = 0;
@@ -531,6 +536,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                         _timeProcessData = _timeProcessData.next;
                     }
                     _isPaused = false;
+                    _isFinishSeqDispatched = (data == null);
                 }
             } catch(e:Error) {
                 // error
@@ -650,10 +656,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param index PCM data number.
          *  @param sound Sound instance to set.
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
+         *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
-        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5) : void
+        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, sampleMax:int=1048576) : void
         {
-            var data:Vector.<int> = SiONUtil.logTrans(sound);
+            var data:Vector.<int> = SiONUtil.logTrans(sound, null, sampleMax);
             SiOPMTable.registerPCMData(index, data, samplingOctave);
         }
         
@@ -685,7 +692,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Set envelop table data refered by @@,na,np,nt,nf,_@@,_na,_np,_nt and _nf.
+        /** Set envelop table data refered by &#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt and _nf.
          *  @param index envelop table number.
          *  @param table envelop table vector.
          *  @param loopPoint returning point index of looping. -1 sets no loop.
@@ -723,10 +730,45 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // Interface for intaractivity
     //----------------------------------------
-        /** Play sound registered in sampler table (registered by setSamplerData()). */
-        public function playSound() : SiMMLTrack
+        /** Play sound registered in sampler table (registered by setSamplerData()), same as noteOn(note, new SiONVoice(10), ...).
+         *  @param note note number [0-127].
+         *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
+         *  @param delay note on delay units in 16th beat.
+         *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
+         *  @param trackID new tracks id.
+         *  @param eventTriggerID Event trigger id.
+         *  @param noteOnTrigger note on trigger type.
+         *  @param noteOffTrigger note off trigger type.
+         *  @return SiMMLTrack to play the note.
+         */
+        public function playSound(note:int, length:Number=0, delay:Number=0, quant:Number=0, trackID:int=0, 
+                                  eventTriggerID:int=0, noteOnTrigger:int=0, noteOffTrigger:int=0) : SiMMLTrack
         {
-            return null;
+            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
+            var mmlTrack:SiMMLTrack = null, 
+                delaySamples:Number = sequencer.calcSampleDelay(0, delay, quant);
+            
+            // check track id exception
+            if (_noteOnExceptionMode != NEM_IGNORE) {
+                // find a track sounds at same timing
+                mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                if (_noteOnExceptionMode == NEM_REJECT && mmlTrack != null) return null; // reject
+                else if (_noteOnExceptionMode == NEM_SHIFT) { // shift timing
+                    var step:int = sequencer.calcSampleLength(quant);
+                    while (mmlTrack) {
+                        delaySamples += step;
+                        mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                    }
+                }
+            }
+            
+            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
+            if (mmlTrack) {
+                mmlTrack.setChannelModuleType(10, 0);
+                mmlTrack.setEventTrigger(eventTriggerID, noteOnTrigger, noteOffTrigger);
+                mmlTrack.keyOn(note, sequencer.calcSampleLength(length), delaySamples);
+            }
+            return mmlTrack;
         }
         
         
@@ -863,7 +905,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             var event:SiONTrackEvent;
             if (type & 1) { // frame event. dispatch later
                 event = new SiONTrackEvent(frameEvent, this, track);
-                _triggerEventQueue.push(event);
+                _trackEventQueue.push(event);
             }
             if (type & 2) { // sound event. dispatch immediately
                 event = new SiONTrackEvent(streamEvent, this, track);
@@ -871,6 +913,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 return !(event.isDefaultPrevented());
             }
             return true;
+        }
+        
+        // call back when tempo changed
+        private function _callbackTempoChanged(bufferIndex:int) : void
+        {
+            var event:SiONTrackEvent = new SiONTrackEvent(SiONTrackEvent.CHANGE_BPM, this, null, bufferIndex);
+            _trackEventQueue.push(event);
         }
         
         
@@ -1121,8 +1170,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             if (_preserveStop) stop();
             
             // frame trigger
-            if (_triggerEventQueue.length > 0) {
-                _triggerEventQueue = _triggerEventQueue.filter(function(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
+            if (_trackEventQueue.length > 0) {
+                _trackEventQueue = _trackEventQueue.filter(function(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
                     if (e._decrementTimer(_frameRate)) {
                         dispatchEvent(e);
                         return false;
@@ -1185,6 +1234,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                         var event:SiONEvent = new SiONEvent(SiONEvent.STREAM, this, buffer, true);
                         dispatchEvent(event);
                         if (event.isDefaultPrevented()) stop();   // canceled
+                    }
+                    
+                    // dispatch finishSequence event
+                    if (!_isFinishSeqDispatched) {
+                        if (sequencer.isSequenceFinished) {
+                            dispatchEvent(new SiONEvent(SiONEvent.FINISH_SEQUENCE, this));
+                            _isFinishSeqDispatched = true;
+                        }
                     }
                     
                     // fading

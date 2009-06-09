@@ -63,8 +63,8 @@ package org.si.sion.effector {
         {
             startIndex <<= 1;
             length <<= 1;
-            var i:int, n:Number, c1:Number=1 + _coefficient;
-            for (i=startIndex; i<length; i++) {
+            var i:int, n:Number, c1:Number=1 + _coefficient, imax:int=startIndex+length;
+            for (i=startIndex; i<imax; i++) {
                 n = buffer[i];
                 buffer[i] = c1 * n / (1 + _coefficient * ((n<0) ? -n : n));
             }

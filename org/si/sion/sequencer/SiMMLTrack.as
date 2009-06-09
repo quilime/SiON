@@ -202,6 +202,21 @@ package org.si.sion.sequencer {
             channel.offsetVolume(_expression, _velocity);
         }
         
+        /** output level = @v * v * x. */
+        public function get outputLevel() : Number {
+            return channel.masterVolume * _velocity * _expression * 4.76837158203125e-7; // 1/(128^3)
+        }
+        
+        /** pannning */
+        public function get pan() : int {
+            return channel.pan;
+        }
+        
+        /** program number. this value has no meaning. */
+        public function get programNumber() : int {
+            return _tone;
+        }
+        
         
         
     // constructor

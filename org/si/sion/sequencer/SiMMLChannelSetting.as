@@ -7,6 +7,7 @@
 package org.si.sion.sequencer {
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.module.SiOPMModule;
+    import org.si.sion.module.SiOPMPCMData;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelBase;
     import org.si.sion.module.SiOPMChannelParam;
@@ -21,7 +22,8 @@ package org.si.sion.sequencer {
         static public const SELECT_TONE_NOP   :int = 0;
         static public const SELECT_TONE_NORMAL:int = 1;
         static public const SELECT_TONE_FM    :int = 2;
-        
+        static public const SELECT_TONE_PCM   :int = 3;
+
         
         
         
@@ -92,7 +94,7 @@ package org.si.sion.sequencer {
         {
             if (voiceIndex == -1) return null;
             
-            var voice:SiMMLVoice, param:SiOPMChannelParam=null;
+            var voice:SiMMLVoice, param:SiOPMChannelParam=null, pcm:SiOPMPCMData;
             
             switch (_selectToneType) {
             case SELECT_TONE_NORMAL:
@@ -121,6 +123,12 @@ package org.si.sion.sequencer {
                     */
                 }
                 return (param==null || param.initSequence.isEmpty()) ? null : param.initSequence;
+            case SELECT_TONE_PCM:
+                if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
+                    pcm = SiOPMTable.instance.getPCMData(voiceIndex);
+                    if (pcm) track.channel.setPCMData(pcm);
+                }
+                break;
             default:
                 break;
             }

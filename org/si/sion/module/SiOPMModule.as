@@ -50,8 +50,7 @@ package org.si.sion.module {
         
         
         /** stream buffer count */
-        public function set streamCount(count:int) : void 
-        {
+        public function set streamCount(count:int) : void {
             var i:int;
             
             // allocate streams
@@ -66,6 +65,9 @@ package org.si.sion.module {
                     streamBuffer.length = count;
                 }
             }
+        }
+        public function get streamCount() : int {
+            return streamBuffer.length;
         }
         
         

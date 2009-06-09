@@ -17,7 +17,7 @@ package org.si.sion.module {
         {
             this.wavelet = null;
             this.fixedBits = 0;
-            this.defaultPTType = defaultPTType;
+            this.defaultPTType = 0;
         }
         
         

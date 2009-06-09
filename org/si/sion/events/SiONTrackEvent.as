@@ -88,7 +88,24 @@ package org.si.sion.events {
          * @eventType frameTrigger
          */
         public static const NOTE_OFF_FRAME:String = 'noteOffFrame';
+
         
+        /** Dispatch when the bpm changes.
+         * <p>The properties of the event object have the following values:</p>
+         * <table class=innertable>
+         * <tr><th>Property</th><th>Value</th></tr>
+         * <tr><td>cancelable</td><td>false</td></tr>
+         * <tr><td>driver</td><td>SiONDriver instance.</td></tr>
+         * <tr><td>data</td><td>SiONData instance. This property is null if you call SiONDriver.play() with null of the 1st argument.</td></tr>
+         * <tr><td>streamBuffer</td><td>null</td></tr>
+         * <tr><td>track</td><td>null</td></tr>
+         * <tr><td>eventTriggerID</td><td>null</td></tr>
+         * <tr><td>note</td><td>null</td></tr>
+         * <tr><td>bufferIndex</td><td>Buffering index</td></tr>
+         * </table>
+         * @eventType changeBPM
+         */
+        public static const CHANGE_BPM:String = 'changeBPM';        
         
         
         
@@ -121,7 +138,7 @@ package org.si.sion.events {
         
     // properties
     //----------------------------------------
-        /** Sequencer track. */
+        /** Sequencer track instance. */
         public function get track() : SiMMLTrack { return _track; }
         
         /** Trigger ID. */
@@ -133,7 +150,7 @@ package org.si.sion.events {
         /** Buffering index. */
         public function get bufferIndex() : int { return _bufferIndex; }
         
-        /** Frame trigger delay [ms] */
+        /** Delay time to dispatch frame trigger event [ms]. */
         public function get frameTriggerDelay() : Number { return _frameTriggerDelay; }
         
         
@@ -142,15 +159,23 @@ package org.si.sion.events {
     // functions
     //----------------------------------------
         /** This event can be created only in the callback function inside. @private */
-        public function SiONTrackEvent(type:String, driver:SiONDriver, track:SiMMLTrack)
+        public function SiONTrackEvent(type:String, driver:SiONDriver, track:SiMMLTrack, bufferIndex:int=0)
         {
             super(type, driver, null, true);
             _track = track;
-            _note = track.note;
-            _eventTriggerID = track.eventTriggerID;
-            _bufferIndex = track.channel.bufferIndex;
-            _frameTriggerDelay = track.channel.bufferIndex / driver.sequencer.sampleRate + driver.latency;
-            _frameTriggerTimer = _frameTriggerDelay;
+            if (track) {
+                _note = track.note;
+                _eventTriggerID = track.eventTriggerID;
+                _bufferIndex = track.channel.bufferIndex;
+                _frameTriggerDelay = track.channel.bufferIndex / driver.sequencer.sampleRate + driver.latency;
+                _frameTriggerTimer = _frameTriggerDelay;
+            } else {
+                _note = 0;
+                _eventTriggerID = 0;
+                _bufferIndex = bufferIndex;
+                _frameTriggerDelay = bufferIndex / driver.sequencer.sampleRate + driver.latency;
+                _frameTriggerTimer = _frameTriggerDelay;
+            }
         }
         
         

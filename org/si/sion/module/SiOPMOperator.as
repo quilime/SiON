@@ -534,23 +534,23 @@ package org.si.sion.module {
         }
         
         
-        /** Set PCM Data. */
+        /** Set Wave table data. */
         public function setWaveTable(waveTable:SiOPMWaveTable) : void
         {
             _pgType = SiOPMTable.PG_USER_CUSTOM; // -1
-            _ptType        = waveTable.defaultPTType;
             _waveTable     = waveTable.wavelet;
             _waveFixedBits = waveTable.fixedBits;
+            ptType = waveTable.defaultPTType;
         }
         
         
-        /** Set PCM Data. */
+        /** Set PCM data. */
         public function setPCMData(pcmData:SiOPMPCMData) : void
         {
             _pgType = SiOPMTable.PG_USER_PCM; // -2
-            _ptType        = SiOPMTable.PT_PCM;
             _waveTable     = pcmData.wavelet;
             _waveFixedBits = pcmData.pseudoFixedBits;
+            ptType = SiOPMTable.PT_PCM;
         }
         
         
@@ -742,6 +742,7 @@ package org.si.sion.module {
         {
             var n:int = (_pitchIndex + _pitchIndexShift + _pitchIndexShift2) & _pitchTableFilter;
             _updatePhaseStep(_pitchTable[n] >> _wavePhaseStepShift);
+trace(_pitchTable[n], _wavePhaseStepShift);
         }
         
         

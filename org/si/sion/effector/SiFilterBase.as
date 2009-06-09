@@ -50,8 +50,8 @@ package org.si.sion.effector {
         {
             startIndex <<= 1;
             length <<= 1;
-            var i:int, input:Number, output:Number;
-            for (i=startIndex; i<length;) {
+            var i:int, input:Number, output:Number, imax:int=startIndex+length;
+            for (i=startIndex; i<imax;) {
                 input = buffer[i];
                 output = _b0*input + _b1*_in1L + _b2*_in2L - _a1*_out1L - _a2*_out2L;
                 _in2L  = _in1L;  _in1L  = input;

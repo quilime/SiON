@@ -191,6 +191,7 @@ package org.si.sion.module {
         public var nnToKC:Vector.<int> = null;
         /** PG:Wave tables without any waves. */
         public var noWaveTable:SiOPMWaveTable;
+        public var noWaveTableOPM:SiOPMWaveTable;
         /** PG:Wave tables */
         public var waveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:Custom wave tables */
@@ -556,6 +557,7 @@ package org.si.sion.module {
 
             // allocate table list
             noWaveTable = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_PCM);
+            noWaveTableOPM = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_OPM);
             waveTables = new Vector.<SiOPMWaveTable>(DEFAULT_PG_MAX);
             customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
             pcmData = new Vector.<SiOPMPCMData>(PCM_DATA_MAX);
@@ -702,7 +704,7 @@ package org.si.sion.module {
             waveTables[PG_NOISE_WHITE] = SiOPMWaveTable.alloc(table1, PT_PCM);
             waveTables[PG_NOISE] = waveTables[PG_NOISE_WHITE];
             
-            // pulse noise. NOTE: This is dishonest impelementation. Details are shown in MAME or VirtuaNes source.
+            // pulse noise. NOTE: Dishonest impelementation. Details are shown in MAME or VirtuaNes source.
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
             imax = NOISE_TABLE_SIZE;
             iv = calcLogTableIndex(NOISE_WAVE_OUTPUT);
@@ -711,7 +713,7 @@ package org.si.sion.module {
             }
             waveTables[PG_NOISE_PULSE] = SiOPMWaveTable.alloc(table1, PT_PCM);
             
-            // fc short noise. NOTE: This is dishonest 93*11=1023 aprox.-> 1024.
+            // fc short noise. NOTE: Dishonest impelementation. 93*11=1023 aprox.-> 1024.
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
             imax = SAMPLING_TABLE_SIZE;
             iv = calcLogTableIndex(NOISE_WAVE_OUTPUT);
@@ -734,7 +736,7 @@ package org.si.sion.module {
                 v = (v + logTable[table2[i]] - logTable[table2[i-1]]) * p;
                 table1[i] = calcLogTableIndex(v*n);
             }
-            waveTables[PG_NOISE_SHORT] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            waveTables[PG_NOISE_HIPAS] = SiOPMWaveTable.alloc(table1, PT_PCM);
             
             // periodic noise
             table1 = new Vector.<int>(16, true);
@@ -1086,7 +1088,7 @@ package org.si.sion.module {
             if (index < PG_PCM) {
                 index -= PG_CUSTOM;
                 if (stencilCustomWaveTables && stencilCustomWaveTables[index]) return stencilCustomWaveTables[index];
-                return customWaveTables[index] || noWaveTable;
+                return customWaveTables[index] || noWaveTableOPM;
             }
             return noWaveTable;
         }

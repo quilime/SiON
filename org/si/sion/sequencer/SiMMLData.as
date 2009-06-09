@@ -58,7 +58,7 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Set envelop table data refered by @@,na,np,nt,nf,_@@,_na,_np,_nt and _nf.
+        /** Set envelop table data refered by &#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt and _nf.
          *  @param index envelop table number.
          *  @param envelop envelop table.
          */

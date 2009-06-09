@@ -43,6 +43,8 @@ package org.si.sion.sequencer.base {
         /** Current MMLData to compile or process */
         protected var mmlData:MMLData;
         
+        /** buffer index for global sequence */
+        protected var globalBufferIndex:int;
         /** beat counter in 16th */
         protected var globalBeat16:Number;
         /** 16th beat par sample */
@@ -220,6 +222,7 @@ package org.si.sion.sequencer.base {
                 globalExecutor.initialize(mmlData.globalSequence);
                 mmlData.regiter();
             }
+            globalBufferIndex = 0;
             globalBeat16 = 0;
         }
         
@@ -239,6 +242,7 @@ package org.si.sion.sequencer.base {
         {
             _globalBufferSampleCount = _bufferLength;
             _globalExecuteSampleCount = 0;
+            globalBufferIndex = 0;
         }
         protected function executeGlobalSequence() : int
         {
@@ -260,6 +264,7 @@ package org.si.sion.sequencer.base {
         }
         protected function isEndGlobalSequence() : Boolean
         {
+            globalBufferIndex += _globalExecuteSampleCount;
             globalBeat16 += _globalExecuteSampleCount * beat16ParSample;
             return (_globalBufferSampleCount == 0);
         }

@@ -155,6 +155,8 @@ package org.si.sion.sequencer {
             ms._channelTone[4] = 11;
             // FM setting
             channelModuleSetting[MT_FM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_FM;
+            // PCM setting
+            channelModuleSetting[MT_PCM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_PCM;
             // Sampler
             channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
