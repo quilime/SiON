@@ -515,6 +515,25 @@ package org.si.sion.sequencer {
         }
         
         
+        /** dispatch note on event once (%e) 
+         *  @param id Event trigger ID of this track. This value can be refered from SiONTrackEvent.eventTriggerID.
+         *  @param noteOnType Dispatching event type at note on. 0=no events, 1=NOTE_ON_FRAME, 2=NOTE_ON_STREAM, 3=both.
+         *  @see org.si.sion.events.SiONTrackEvent
+         */
+        public function dispatchNoteOnEvent(id:int, noteOnType:int=1) : void
+        {
+            if (noteOnType) {
+                var currentTID:int  = _eventTriggerID, 
+                    currentType:int = _eventTriggerTypeOn;
+                _eventTriggerID = id;
+                _eventTriggerTypeOn = noteOnType;
+                _eventTriggerOn(this, 0);
+                _eventTriggerID = currentTID;
+                _eventTriggerTypeOn = currentType;
+            }
+        }
+        
+        
         /** set envelop step (&#64;fps) 
          *  @param fps Frame par second
          */
@@ -958,7 +977,9 @@ package org.si.sion.sequencer {
         /** @private [internal use] handler for MMLEvent.NOTE. */
         internal function _setNote(note:int, length:int) : void
         {
-            keyOn(note, int(length * quantRatio) - quantCount - keyOnDelay + 1);
+            length = int(length * quantRatio) - quantCount - keyOnDelay;
+            if (length < 1) length = 1;
+            keyOn(note, length);
         }
         
         

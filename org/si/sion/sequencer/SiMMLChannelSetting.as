@@ -84,7 +84,7 @@ package org.si.sion.sequencer {
             if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
             track.channelNumber = (chNum<0) ? 0 : chNum;
             track.channel.setAlgorism(1, 0);
-            track.channel.setType(_pgTypeList[channelTone], _ptTypeList[channelTone]);
+            selectTone(track, channelTone);
             return (chNum == -1) ? -1 : channelTone;
         }
         

@@ -110,14 +110,16 @@ package org.si.sion.sequencer.base {
         /** Set wave table data refered by %4.
          *  @param index wave table number.
          *  @param data Vector.<Number> wave shape data ranged from -1 to 1.
+         *  @return created data instance
          */
-        public function setWaveTable(index:int, data:Vector.<Number>) : void
+        public function setWaveTable(index:int, data:Vector.<Number>) : SiOPMWaveTable
         {
             index &= SiOPMTable.WAVE_TABLE_MAX-1;
             var i:int, imax:int=data.length;
             var table:Vector.<int> = new Vector.<int>(imax);
             for (i=0; i<imax; i++) table[i] = SiOPMTable.calcLogTableIndex(data[i]);
             waveTables[index] = SiOPMWaveTable.alloc(table);
+            return waveTables[index];
         }
         
         
@@ -126,9 +128,10 @@ package org.si.sion.sequencer.base {
          *  @param data Vector.<Number> wave data. This type ussualy comes from render().
          *  @param isDataStereo Flag that the wave data is stereo or monoral.
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
+         *  @return created data instance
          *  @see #org.si.sion.SiONDriver.render()
          */
-        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : void
+        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : SiOPMPCMData
         {
             index &= SiOPMTable.PCM_DATA_MAX-1;
             
@@ -149,6 +152,7 @@ package org.si.sion.sequencer.base {
                 }
             }
             pcmData[index] = SiOPMPCMData.alloc(pcm, samplingOctave);
+            return pcmData[index];
         }
         
         
@@ -157,12 +161,14 @@ package org.si.sion.sequencer.base {
          *  @param data Vector.<Number> wave data. This type ussualy comes from SiONDriver.render().
          *  @param isOneShot True to set "one shot" sound. The "one shot" sound ignores note off.
          *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @return created data instance
          *  @see #org.si.sion.SiONDriver.render()
          */
-        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=2) : void
+        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=2) : SiOPMSamplerData
         {
             index &= SiOPMTable.SAMPLER_DATA_MAX-1;
             samplerData[index] = new SiOPMSamplerData(data, isOneShot, channelCount);
+            return samplerData[index];
         }
     }
 }

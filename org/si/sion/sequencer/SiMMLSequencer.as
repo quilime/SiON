@@ -142,7 +142,7 @@ package org.si.sion.sequencer {
             setMMLEventListener(MMLEvent.INPUT_PIPE,  _onInput);
             setMMLEventListener(MMLEvent.OUTPUT_PIPE, _onOutput);
             newMMLEventListener('%t',  _setEventTrigger);
-            newMMLEventListener('%e',  _setEffectTrigger);
+            newMMLEventListener('%e',  _dispatchEvent);
             
             // operator setting
             newMMLEventListener('i',   _onSlotIndex);
@@ -1064,9 +1064,9 @@ package org.si.sion.sequencer {
         // *
         private function _onPitchBend(e:MMLEvent) : MMLEvent
         {
-            if (e.next == null || e.next.id != MMLEvent.NOTE) return e.next;    // check next note
-            var term:int = calcSampleCount(e.length);                           // changing time
-            _currentTrack.setPitchBend(e.next.data, term);                     // pitch bending
+            if (e.next == null || e.next.id != MMLEvent.NOTE) return e.next;  // check next note
+            var term:int = calcSampleCount(e.length);                         // changing time
+            _currentTrack.setPitchBend(e.next.data, term);                    // pitch bending
             return currentExecutor.publishProessingEvent(e);
         }
         
@@ -1428,16 +1428,19 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 3);
             var id     :int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
             var typeOn :int = (_p[1] != int.MIN_VALUE) ? _p[1] : 1;
-            var typeOff:int = (_p[2] != int.MIN_VALUE) ? _p[2] : 0;
+            var typeOff:int = (_p[2] != int.MIN_VALUE) ? _p[2] : 1;
             _currentTrack.setEventTrigger(id, typeOn, typeOff);
             return e.next;
         }
         
         
         // %e
-        private function _setEffectTrigger(e:MMLEvent) : MMLEvent
+        private function _dispatchEvent(e:MMLEvent) : MMLEvent
         {
             e = e.getParameters(_p, 2);
+            var id     :int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
+            var typeOn :int = (_p[1] != int.MIN_VALUE) ? _p[1] : 1;
+            _currentTrack.dispatchNoteOnEvent(id, typeOn);
             return e.next;
         }
     

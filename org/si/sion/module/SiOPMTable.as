@@ -1048,7 +1048,7 @@ package org.si.sion.module {
         
         
         /** Register wave table. */
-        static public function registerWaveTable(index:int, table:Vector.<int>) : void
+        static public function registerWaveTable(index:int, table:Vector.<int>) : SiOPMWaveTable
         {
             // register wave table
             var newWaveTable:SiOPMWaveTable = SiOPMWaveTable.alloc(table);
@@ -1060,24 +1060,28 @@ package org.si.sion.module {
                 // index=0,1,2 are same as PG_MA3 waveform 15,23,31.
                 instance.waveTables[15 + index * 8 + PG_MA3_WAVE] = newWaveTable;
             }
+            
+            return newWaveTable;
         }
         
         
         /** Register PCM data. */
-        static public function registerPCMData(index:int, table:Vector.<int>, samplingOctave:int) : void
+        static public function registerPCMData(index:int, table:Vector.<int>, samplingOctave:int) : SiOPMPCMData
         {
             // register PCM data
             index &= PCM_DATA_MAX-1;
             instance.pcmData[index] = SiOPMPCMData.alloc(table, samplingOctave);
+            return instance.pcmData[index];
         }
         
         
         /** Register Sampler data. */
-        static public function registerSamplerData(index:int, table:Vector.<Number>, isOneShot:Boolean, channelCount:int) : void
+        static public function registerSamplerData(index:int, table:Vector.<Number>, isOneShot:Boolean, channelCount:int) : SiOPMSamplerData
         {
             // register sample
             index &= SAMPLER_DATA_MAX-1;
             instance.samplerData[index] = SiOPMSamplerData.alloc(table, isOneShot, channelCount);
+            return instance.samplerData[index];
         }
         
         

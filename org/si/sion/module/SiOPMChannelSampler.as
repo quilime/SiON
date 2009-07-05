@@ -228,7 +228,7 @@ package org.si.sion.module {
                     vol = _volume[0] * _expression;
                     _chip.streamBuffer[0].writeVectorInt(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
                 }
-                if (len > procLen) {
+                if (procLen < len) {
                     _isIdling = true;
                     _sample = null;
                     //_nop(len - procLen);

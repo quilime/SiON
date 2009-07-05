@@ -23,6 +23,9 @@ package org.si.sion {
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.module.SiOPMChannelParam;
+    import org.si.sion.module.SiOPMWaveTable;
+    import org.si.sion.module.SiOPMPCMData;
+    import org.si.sion.module.SiOPMSamplerData;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
@@ -49,7 +52,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.4";
+        static public const VERSION:String = "0.5.5";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -274,7 +277,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @see #NEM_REJECT
          *  @see #NEM_OVERWRITE
          *  @see #NEM_SHIFT
-         *  @see #NEM_SHIFT_OVERWRITE
          */
         public function get noteOnExceptionMode() : int { return _noteOnExceptionMode; }
         public function set noteOnExceptionMode(mode:int) : void { _noteOnExceptionMode = (0<mode && mode<NEM_MAX) ? mode : 0; }
@@ -560,6 +562,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     _soundChannel.stop();
                     _soundChannel = null;
                     _latency = 0;
+                    _fader.stop();
                     _faderVolume = 1;
                     _soundTransform.volume = _masterVolume;
                     
@@ -627,14 +630,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param index wave table number.
          *  @param table wave shape vector ranges in -1 to 1.
          */
-        public function setWaveTable(index:int, table:Vector.<Number>) : void
+        public function setWaveTable(index:int, table:Vector.<Number>) : SiOPMWaveTable
         {
             var len:int, bits:int=-1;
             for (len=table.length; len>0; len>>=1) bits++;
-            if (bits<2) return;
+            if (bits<2) return null;
             var waveTable:Vector.<int> = SiONUtil.logTransVector(table);
             waveTable.length = 1<<bits;
-            SiOPMTable.registerWaveTable(index, waveTable);
+            return SiOPMTable.registerWaveTable(index, waveTable);
         }
         
         
@@ -645,10 +648,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @see #render()
          */
-        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : void
+        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : SiOPMPCMData
         {
             var pcm:Vector.<int> = SiONUtil.logTransVector(data, isDataStereo);
-            SiOPMTable.registerPCMData(index, pcm, samplingOctave);
+            return SiOPMTable.registerPCMData(index, pcm, samplingOctave);
         }
         
         
@@ -658,10 +661,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
-        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, sampleMax:int=1048576) : void
+        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, sampleMax:int=1048576) : SiOPMPCMData
         {
             var data:Vector.<int> = SiONUtil.logTrans(sound, null, sampleMax);
-            SiOPMTable.registerPCMData(index, data, samplingOctave);
+            return SiOPMTable.registerPCMData(index, data, samplingOctave);
         }
         
         
@@ -672,9 +675,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @see #render()
          */
-        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=1) : void
+        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=1) : SiOPMSamplerData
         {
-            SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
+            return SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
         }
         
         
@@ -685,10 +688,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
-        public function setSamplerSound(index:int, sound:Sound, isOneShot:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : void
+        public function setSamplerSound(index:int, sound:Sound, isOneShot:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMSamplerData
         {
             var data:Vector.<Number> = SiONUtil.extract(sound, null, channelCount, sampleMax);
-            SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
+            return SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
         }
         
         
@@ -1295,7 +1298,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         private function errorDriverBusy(execID:int) : Error {
-            var states:Array = ["compiling", "streaming", "rendering"];
+            var states:Array = ["???", "compiling", "streaming", "rendering"];
             return new Error("SiONDriver error: Driver busy. Call " + states[execID] + " while " + states[_listenEvent] + ".");
         }
         

@@ -32,7 +32,7 @@ package org.si.sion.module {
         
         
         /** allocate. */
-        static public function alloc(wavelet:Vector.<int>, defaultPTType:int=SiOPMTable.PT_OPM) : SiOPMWaveTable
+        static public function alloc(wavelet:Vector.<int>, defaultPTType:int=0) : SiOPMWaveTable
         {
             var len:int, bits:int=0;
             for (len=wavelet.length>>1; len!=0; len>>=1) {

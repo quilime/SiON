@@ -173,6 +173,13 @@ package org.si.sion.module {
         /** @private feed back */
         internal var _feedPipe:SLLint;
         
+    // for PCM wave
+        /** @private start point */
+        internal var _pcm_startPoint:int;
+        /** @private end point */
+        internal var _pcm_endPoint:int;
+        /** @private loop point */
+        internal var _pcm_loopPoint:int;
         
         
         
@@ -445,6 +452,9 @@ package org.si.sion.module {
             // reset some other parameters 
             _eg_tl_offset     = 0;  // The _eg_tl_offset is controled by velocity and expression.
             _pitchIndexShift2 = 0;  // The _pitchIndexShift2 is controled by pitch modulation.
+            _pcm_startPoint = 0;
+            _pcm_endPoint   = 0;
+            _pcm_loopPoint  = -1;
             
             // reset pg and eg status
             reset();
@@ -548,8 +558,12 @@ package org.si.sion.module {
         public function setPCMData(pcmData:SiOPMPCMData) : void
         {
             _pgType = SiOPMTable.PG_USER_PCM; // -2
-            _waveTable     = pcmData.wavelet;
-            _waveFixedBits = pcmData.pseudoFixedBits;
+            _waveTable      = pcmData.wavelet;
+            _waveFixedBits  = pcmData.pseudoFixedBits;
+            _pcm_startPoint = pcmData.startPoint;
+            _pcm_endPoint   = pcmData.endPoint;
+            _pcm_loopPoint  = pcmData.loopPoint;
+            _keyon_phase = _pcm_startPoint << _waveFixedBits;
             ptType = SiOPMTable.PT_PCM;
         }
         
@@ -742,7 +756,6 @@ package org.si.sion.module {
         {
             var n:int = (_pitchIndex + _pitchIndexShift + _pitchIndexShift2) & _pitchTableFilter;
             _updatePhaseStep(_pitchTable[n] >> _wavePhaseStepShift);
-trace(_pitchTable[n], _wavePhaseStepShift);
         }
         
         

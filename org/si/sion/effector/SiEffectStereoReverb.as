@@ -40,7 +40,7 @@ package org.si.sion.effector {
          *  @param delay2 short delay(0-1).
          *  @param feedback feedback decay(-1-1). Negative value to invert phase.
          */
-        public function setParameters(delay1:Number=0.55, delay2:Number=0.15, feedback:Number=0.9) : void {
+        public function setParameters(delay1:Number=0.7, delay2:Number=0.4, feedback:Number=0.8) : void {
             if (delay1<0.01) delay1=0.01;
             else if (delay1>0.99) delay1=0.99;
             if (delay2<0.01) delay2=0.01;
@@ -70,9 +70,9 @@ package org.si.sion.effector {
         /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
-            setParameters((!isNaN(args[1])) ? (args[1]*0.01) : 0.55,
-                          (!isNaN(args[1])) ? (args[1]*0.01) : 0.15,
-                          (!isNaN(args[2])) ? (args[2]*0.01) : 0.9);
+            setParameters((!isNaN(args[1])) ? (args[1]*0.01) : 0.7,
+                          (!isNaN(args[1])) ? (args[1]*0.01) : 0.4,
+                          (!isNaN(args[2])) ? (args[2]*0.01) : 0.8);
         }
         
         

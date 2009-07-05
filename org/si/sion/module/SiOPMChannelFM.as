@@ -394,17 +394,15 @@ package org.si.sion.module {
     // interfaces
     //--------------------------------------------------
         /** pitch = (note << 6) | (kf & 63) [0,8191] */
-        override public function get pitch() : int { return operator[0].pitchIndex; }
-        override public function set pitch(p:int) : void
-        {
+        override public function get pitch() : int { return operator[_operatorCount-1].pitchIndex; }
+        override public function set pitch(p:int) : void {
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].pitchIndex = p;
             }
         }
         
         /** active operator index (i) */
-        override public function set activeOperatorIndex(i:int) : void
-        {
+        override public function set activeOperatorIndex(i:int) : void {
             var opeIndex:int = (i<0) ? 0 : (i>=_operatorCount) ? (_operatorCount-1) : i;
             activeOperator = operator[opeIndex];
         }
@@ -1079,8 +1077,7 @@ package org.si.sion.module {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
-                phase_filter:int = SiOPMTable.PHASE_FILTER,
-                tmax:int = ope._waveTable.length;
+                phase_filter:int = SiOPMTable.PHASE_FILTER;
             
             
             // buffering
@@ -1110,17 +1107,22 @@ package org.si.sion.module {
                 // pg_update();
                 //----------------------------------------
                 ope._phase += ope._phase_step;
-                t = (ope._phase + (ip.i<<_inputLevel)) >> 14; // pcm._waveFixedBits = 14
-                if (t >= tmax) {
-                    ope._eg_shiftState(SiOPMOperator.EG_OFF);
-                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
-                    for (;i<len; i++) {
-                        op.i = bp.i;
-                        ip = ip.next;
-                        bp = bp.next;
-                        op = op.next;
+                t = (ope._phase + (ip.i<<_inputLevel)) >>> ope._waveFixedBits;
+                if (t >= ope._pcm_endPoint) {
+                    if (ope._pcm_loopPoint == -1) {
+                        ope._eg_shiftState(SiOPMOperator.EG_OFF);
+                        ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                        for (;i<len; i++) {
+                            op.i = bp.i;
+                            ip = ip.next;
+                            bp = bp.next;
+                            op = op.next;
+                        }
+                        break;
+                    } else {
+                        t -=  ope._pcm_endPoint - ope._pcm_loopPoint;
+                        ope._phase -= (ope._pcm_endPoint - ope._pcm_loopPoint) << ope._waveFixedBits;
                     }
-                    break;
                 }
                 l = ope._waveTable[t];
                 l += ope._eg_out;
@@ -1146,8 +1148,7 @@ package org.si.sion.module {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
-                phase_filter:int = SiOPMTable.PHASE_FILTER,
-                tmax:int = ope._waveTable.length;
+                phase_filter:int = SiOPMTable.PHASE_FILTER;
             
             // buffering
             var ip:SLLint = _inPipe,
@@ -1189,17 +1190,22 @@ package org.si.sion.module {
                 // pg_update();
                 //----------------------------------------
                 ope._phase += ope._phase_step;
-                t = (ope._phase + (ip.i<<_inputLevel)) >> 14; // pcm._waveFixedBits = 14
-                if (t >= tmax) {
-                    ope._eg_shiftState(SiOPMOperator.EG_OFF);
-                    ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
-                    for (;i<len; i++) {
-                        op.i = bp.i;
-                        ip = ip.next;
-                        bp = bp.next;
-                        op = op.next;
+                t = (ope._phase + (ip.i<<_inputLevel)) >>> ope._waveFixedBits;
+                if (t >= ope._pcm_endPoint) {
+                    if (ope._pcm_loopPoint == -1) {
+                        ope._eg_shiftState(SiOPMOperator.EG_OFF);
+                        ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
+                        for (;i<len; i++) {
+                            op.i = bp.i;
+                            ip = ip.next;
+                            bp = bp.next;
+                            op = op.next;
+                        }
+                        break;
+                    } else {
+                        t -=  ope._pcm_endPoint - ope._pcm_loopPoint;
+                        ope._phase -= (ope._pcm_endPoint - ope._pcm_loopPoint) << ope._waveFixedBits;
                     }
-                    break;
                 }
                 l = ope._waveTable[t];
                 l += ope._eg_out + (_am_out>>ope._ams);

@@ -110,6 +110,14 @@ package org.si.sion.utils {
             }
             return dst;
         }
+        
+        
+        /** Calculate sample length from 16th beat. */
+        static public function calcSampleLength(bpm:Number, beat16:Number) : Number
+        {
+            // 661500 = 44100*60/4
+            return beat16 * 661500 / bpm;
+        }
     }
 }
 
