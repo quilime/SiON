@@ -153,7 +153,7 @@ package org.si.sound {
          *  @param sound The SoundObject instance want to know.
          *  @return index of specifyed SoundObject. Returns -1 if its not found.
          */
-        public function getChildIndex(sound:SoundObject) : SoundObject
+        public function getChildIndex(sound:SoundObject) : Number
         {
             return _soundList.indexOf(sound);
         }

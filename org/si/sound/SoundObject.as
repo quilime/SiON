@@ -16,16 +16,16 @@ package org.si.sound {
     // valiables
     //----------------------------------------
         /** Name. */
-        public name:String;
+        public var name:String;
         
         /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
-        public length:Number;
+        public var length:Number;
         
         /** Sound delay uint in 16th beat. @default 0. */
-        public delay:Number;
+        public var delay:Number;
         
         /** Synchronizing quantizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
-        public quantize:Number;
+        public var quantize:Number;
         
         /** @private [internal uses] parent container */
         internal var _parent:SoundObjectContainer;
@@ -130,7 +130,7 @@ package org.si.sound {
     // oprate ancestor
     //----------------------------------------
         /** @private [internal use] */
-        internal function _setParent(parent:SoundObject) : void
+        internal function _setParent(parent:SoundObjectContainer) : void
         {
             if (_parent != null) _parent.removeChild(this);
             _parent = parent;

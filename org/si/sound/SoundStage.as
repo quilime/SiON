@@ -8,7 +8,7 @@
 package org.si.sound {
     import org.si.sion.SiONDriver;
     
-    public class soundStage {
+    public class SoundStage {
         static private var _driver:SiONDriver = new SiONDriver();
         
         
