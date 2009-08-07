@@ -46,7 +46,7 @@ package org.si.sion.effector {
             register("autopan", SiEffectAutoPan);
             register("ds",      SiEffectDownSampler);
             register("speaker", SiEffectSpeakerSimulator);
-            //register("comp",    SiEffectCompressor); // bugful!!
+            register("comp",    SiEffectCompressor); // bugful!!
             
             register("lf", SiFilterLowPass);
             register("hf", SiFilterHighPass);
@@ -179,10 +179,11 @@ package org.si.sion.effector {
         /** Parse MML for effector 
          *  @param slot Effector slot number.
          *  @param mml MML string.
+         *  @param postfix Postfix string.
          */
-        public function parseMML(slot:int, mml:String) : void
+        public function parseMML(slot:int, mml:String, postfix:String) : void
         {
-            _effectConnectors[slot].parseMML(mml);
+            _effectConnectors[slot].parseMML(mml, postfix);
         }
     }
 }

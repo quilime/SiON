@@ -27,11 +27,12 @@ package org.si.sion.sequencer {
         public var channelNum:int;
         /** tone number, 1st argument of '&#64;'. -1;do nothing. @default -1 */
         public var toneNum:int;
-        /** wave data for PCM sound channel. null;not a pcm voice. @default null */
-        public var pcmData:SiOPMPCMData;
         
+        /** wave data for PCM sound channel. null;not pcm voice. @default null */
+        public var pcmData:SiOPMPCMData;
         /** parameters for FM sound channel. null;do nothing. @default null */
         public var channelParam:SiOPMChannelParam;
+        
         /** Attack rate, This parameter is available only when channelParam==null. @default 63 */
         public var attackRate:int;
         /** Release rate, This parameter is available only when channelParam==null. @default 63 */
@@ -188,14 +189,28 @@ package org.si.sion.sequencer {
         /** set sequencer track */
         public function setTrackVoice(track:SiMMLTrack) : SiMMLTrack
         {
-            if (channelParam) { // FM sound module
-                track.setChannelModuleType(6, -1);  // -1 sets no changing.
-                track.channel.setSiOPMChannelParam(channelParam, setVolumes);
-            } else { // set module type and channel number
-                track.setChannelModuleType(moduleType, channelNum, toneNum);
-                track.channel.setAllAttackRate(attackRate);
+            if (moduleType == 11) {
+                // PMS Guitar
+                if (channelParam) { // FM sound module
+                    track.setChannelModuleType(11, 1);
+                    track.channel.setSiOPMChannelParam(channelParam, setVolumes);
+                } else {
+                    track.setChannelModuleType(11, channelNum, toneNum);
+                    track.channel.setAllAttackRate(attackRate);
+                    track.pitchShift = detune;
+                }
                 track.channel.setAllReleaseRate(releaseRate);
-                track.pitchShift = detune;
+            } else {
+                // others
+                if (channelParam) { // FM sound module
+                    track.setChannelModuleType(6, -1);  // -1 sets no changing.
+                    track.channel.setSiOPMChannelParam(channelParam, setVolumes);
+                } else { // set module type and channel number
+                    track.setChannelModuleType(moduleType, channelNum, toneNum);
+                    track.channel.setAllAttackRate(attackRate);
+                    track.channel.setAllReleaseRate(releaseRate);
+                    track.pitchShift = detune;
+                }
             }
             
             // PCM sound module

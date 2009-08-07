@@ -240,8 +240,8 @@ package org.si.sion.module {
         /** Key scaling level [0,3] */
         public function set ksl(i:int) : void {
             _ksl = i;
-            // [0,1,2,3]->[8,2,1,0]
-            _eg_key_scale_level_rshift = (i==0) ? 8 : (3-i);
+            // [0,1,2,3]->[8,4,3,2]
+            _eg_key_scale_level_rshift = (i==0) ? 8 : (5-i);
             _updateTotalLevel();
         }
         /** SSG type envelop control */
@@ -508,7 +508,7 @@ package org.si.sion.module {
                 _pitchFixed = true;
             }
             // key scale level
-            _eg_key_scale_level_rshift = (_ksl==0) ? 8 : (3-_ksl);
+            _eg_key_scale_level_rshift = (_ksl==0) ? 8 : (5-_ksl);
             // ar for ssgec
             _eg_ssgec_ar = (_ssg_type == 8 || _ssg_type == 12) ? ((_ar>=56)?1:0) : ((_ar>=60)?1:0);
             // sl,tl requires some special calculation

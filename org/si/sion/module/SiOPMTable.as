@@ -18,7 +18,7 @@ package org.si.sion.module {
         static public const SAMPLING_TABLE_BITS :int = 10;   // sine wave table entries = 2 ^ SAMPLING_TABLE_BITS = 1024
         static public const HALF_TONE_BITS      :int = 6;    // half tone resolution    = 2 ^ HALF_TONE_BITS      = 64
         static public const NOTE_BITS           :int = 7;    // max note value          = 2 ^ NOTE_BITS           = 128
-        static public const NOISE_TABLE_BITS    :int = 14;   // 16k noise 
+        static public const NOISE_TABLE_BITS    :int = 15;   // 16k noise 
         static public const LOG_TABLE_RESOLUTION:int = 256;  // log table resolution    = LOG_TABLE_RESOLUTION for every 1/2 scaling.
         static public const LOG_VOLUME_BITS     :int = 13;   // _logTable[0] = 2^13 at maximum
         static public const LOG_TABLE_MAX_BITS  :int = 16;   // _logTable entries
@@ -76,7 +76,8 @@ package org.si.sion.module {
         static public const PG_NOISE_PULSE:int = 17;    // 16k pulse noise
         static public const PG_NOISE_SHORT:int = 18;    // fc short noise
         static public const PG_NOISE_HIPAS:int = 19;    // high pass noise
-                                                        // ( 20-  23) reserved
+        static public const PG_NOISE_PINK :int = 20;    // pink noise
+                                                        // ( 21-  23) reserved
         static public const PG_PC_NZ_16BIT:int = 24;    // pitch controlable periodic noise
         static public const PG_PC_NZ_SHORT:int = 25;    // pitch controlable 93byte noise
                                                         // ( 26-  31) reserved
@@ -189,6 +190,8 @@ package org.si.sion.module {
         public var logTable:Vector.<int> = null;
         /** PG:MIDI note number to FM key code. */
         public var nnToKC:Vector.<int> = null;
+        /** PG:pitch sampling count table. */
+        public var pitchSamplingCount:Vector.<int> = null;
         /** PG:Wave tables without any waves. */
         public var noWaveTable:SiOPMWaveTable;
         public var noWaveTableOPM:SiOPMWaveTable;
@@ -208,7 +211,7 @@ package org.si.sion.module {
         public var stencilSamplerData:Vector.<SiOPMSamplerData> = null;
         
         /** Table for dt1 (from fmgen.cpp). */
-    	public var dt1Table:Array = null;
+        public var dt1Table:Array = null;
         /** Table for dt2 (from MAME's opm source). */
         public var dt2Table:Vector.<int> = Vector.<int>([0, 384, 500, 608]);
 
@@ -396,14 +399,28 @@ package org.si.sion.module {
                 nnToKC[j] = (i<16) ? i : (i>=KEY_CODE_TABLE_SIZE) ? (KEY_CODE_TABLE_SIZE-1) : (i-16);
             }
             
+            
         // pitch table
         //----------------------------------------
-            pitchTable = new Vector.<Vector.<int>>(PT_MAX);
-            phaseStepShiftFilter = new Vector.<int>(PT_MAX);
-            
             imax = HALF_TONE_RESOLUTION * 12;   // 12=1octave
             jmax = PITCH_TABLE_SIZE;
             dp   = 1/imax;
+            
+            // sampling count table
+            pitchSamplingCount = new Vector.<int>(PITCH_TABLE_SIZE, true);
+            n = 5393.968278209282;  // = 44100 / 8.175798915643707. sampling count @ MIDI note number = 0 
+            for (i=0, p=0; i<imax; i++, p+=dp) { 
+                v = Math.pow(2, -p) * n;
+                for (j=i; j<jmax; j+=imax) {
+                    pitchSamplingCount[j]  = int(v+0.5);
+                    v *= 0.5;
+                }
+            }
+            
+            
+            // phase step tables
+            pitchTable = new Vector.<Vector.<int>>(PT_MAX);
+            phaseStepShiftFilter = new Vector.<int>(PT_MAX);
             
             // OPM
             table = new Vector.<int>(PITCH_TABLE_SIZE, true);
@@ -500,12 +517,12 @@ package org.si.sion.module {
         // dt1 table
         //----------------------------------------
             // dt1 table from fmgen
-        	var fmgen_dt1:Array = [  //[4][32]
-        	    [  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-        	    [  0,  0,  0,  0,  2,  2,  2,  2,  2,  2,  2,  2,  4,  4,  4,  4,    4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14, 16, 16, 16, 16],
-        		[  2,  2,  2,  2,  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10,   10, 12, 12, 14, 16, 16, 18, 20, 22, 24, 26, 28, 32, 32, 32, 32],
-        		[  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14,   16, 16, 18, 20, 22, 24, 26, 28, 32, 34, 38, 40, 44, 44, 44, 44]
-    	    ];
+            var fmgen_dt1:Array = [  //[4][32]
+                [  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [  0,  0,  0,  0,  2,  2,  2,  2,  2,  2,  2,  2,  4,  4,  4,  4,    4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14, 16, 16, 16, 16],
+                [  2,  2,  2,  2,  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10,   10, 12, 12, 14, 16, 16, 18, 20, 22, 24, 26, 28, 32, 32, 32, 32],
+                [  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14,   16, 16, 18, 20, 22, 24, 26, 28, 32, 34, 38, 40, 44, 44, 44, 44]
+            ];
             dt1Table = new Array(8);
             for (i=0; i<4; i++) {
                 dt1Table[i]   = new Vector.<int>(KEY_CODE_TABLE_SIZE, true);
@@ -696,22 +713,21 @@ package org.si.sion.module {
         // noise tables
         //------------------------------
             // white noise
-            table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
-            imax = NOISE_TABLE_SIZE;
-            for (i=0; i<imax; i++) {
-                table1[i] = calcLogTableIndex((Math.random()*2-1)*NOISE_WAVE_OUTPUT);
-            }
-            waveTables[PG_NOISE_WHITE] = SiOPMWaveTable.alloc(table1, PT_PCM);
-            waveTables[PG_NOISE] = waveTables[PG_NOISE_WHITE];
-            
             // pulse noise. NOTE: Dishonest impelementation. Details are shown in MAME or VirtuaNes source.
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
+            table2 = new Vector.<int>(NOISE_TABLE_SIZE, true);
             imax = NOISE_TABLE_SIZE;
             iv = calcLogTableIndex(NOISE_WAVE_OUTPUT);
+            n = NOISE_WAVE_OUTPUT / 32768;
+            j = 1;                          // 15bit LFSR
             for (i=0; i<imax; i++) {
-                table1[i] = (Math.random()>0.5) ? iv : (iv+1);
+                j = (((j<<13)^(j<<14)) & 0x4000) | (j>>1);
+                table1[i] = calcLogTableIndex((j&0x7fff)*n*2-1);
+                table2[i] = (j&1) ? iv : (iv+1);
             }
-            waveTables[PG_NOISE_PULSE] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            waveTables[PG_NOISE_WHITE] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            waveTables[PG_NOISE_PULSE] = SiOPMWaveTable.alloc(table2, PT_PCM);
+            waveTables[PG_NOISE] = waveTables[PG_NOISE_WHITE];
             
             // fc short noise. NOTE: Dishonest impelementation. 93*11=1023 aprox.-> 1024.
             table1 = new Vector.<int>(SAMPLING_TABLE_SIZE, true);
@@ -728,15 +744,36 @@ package org.si.sion.module {
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
             table2 = waveTables[PG_NOISE_WHITE].wavelet;
             imax = NOISE_TABLE_SIZE;
-            n = 8/Number(1<<LOG_VOLUME_BITS);
+            j = (-ENV_TOP) << 3;
+            n = 16/Number(1<<LOG_VOLUME_BITS);
             p = 0.0625;
-            v = (logTable[table2[0]] - logTable[table2[NOISE_TABLE_SIZE - 1]]) * p;
+            v = (logTable[table2[0]+j] - logTable[table2[NOISE_TABLE_SIZE - 1]+j]) * p;
             table1[0] = calcLogTableIndex(v*n);
             for (i=1; i<imax; i++) {
-                v = (v + logTable[table2[i]] - logTable[table2[i-1]]) * p;
+                imax2 = table2[i]   + j;
+                imax3 = table2[i-1] + j;
+                v = (v + logTable[imax2] - logTable[imax3]) * p;
                 table1[i] = calcLogTableIndex(v*n);
             }
             waveTables[PG_NOISE_HIPAS] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            
+            // pink noise
+            var b0:Number=0, b1:Number=0, b2:Number=0;
+            table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
+            table2 = waveTables[PG_NOISE_WHITE].wavelet;
+            imax = NOISE_TABLE_SIZE;
+            j = (-ENV_TOP) << 3;
+            n = 0.125/Number(1<<LOG_VOLUME_BITS);
+            for (i=0; i<imax; i++) {
+                imax2 = table2[i] + j;
+                v = logTable[imax2];
+                b0 = 0.99765 * b0 + v * 0.0990460;
+                b1 = 0.96300 * b1 + v * 0.2965164;
+                b2 = 0.57000 * b2 + v * 1.0526913;
+                table1[i] = calcLogTableIndex((b0 + b1 + b2 + v * 0.1848) * n);
+            }
+            waveTables[PG_NOISE_PINK] = SiOPMWaveTable.alloc(table1, PT_PCM);
+
             
             // periodic noise
             table1 = new Vector.<int>(16, true);

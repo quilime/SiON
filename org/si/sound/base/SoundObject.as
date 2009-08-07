@@ -5,7 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
+package org.si.sound.base {
     import org.si.sion.SiONDriver;
     
     
@@ -18,20 +18,21 @@ package org.si.sound {
         /** Name. */
         public var name:String;
         
-        /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
-        public var length:Number;
-        
-        /** Sound delay uint in 16th beat. @default 0. */
-        public var delay:Number;
-        
-        /** Synchronizing quantizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
-        public var quantize:Number;
-        
         /** @private [internal uses] parent container */
         internal var _parent:SoundObjectContainer;
         
         /** driver instance to access directly */
         protected var _driver:SiONDriver;
+        
+        /** Base note of this sound */
+        protected var _note:int;
+        
+        /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
+        protected var _length:Number;
+        /** Synchronizing quantizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        protected var _quantize:Number;
+        /** Sound delay uint in 16th beat. @default 0. */
+        protected var _delay:Number;
         
         /** total volume of all ancestors */
         protected var _totalVolume:Number;
@@ -46,8 +47,8 @@ package org.si.sound {
         /** mute flag of this sound object */
         protected var _thisMute:Boolean;
         
-        // next track id
-        static private var _nextTrackID:int=0;
+        /** track id. This value is asigned when its created. */
+        protected var _trackID:int;
         
         
         
@@ -56,6 +57,30 @@ package org.si.sound {
     //----------------------------------------
         /** SiONDriver instrance to operate. */
         public function get driver() : SiONDriver { return _driver; }
+        
+        /** Base note of this sound */
+        public function get note() : int { return _note; }
+        public function set note(n:int) : void {
+            _note = n;
+        }
+        
+        /** Sound length, uint in 16th beat, 0 sets inifinity length. @default 0. */
+        public function get length() : Number { return _length; }
+        public function set length(l:Number) : void {
+            _length = l;
+        }
+        
+        /** Synchronizing quantizing, uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        public function get quantize() : Number { return _quantize; }
+        public function set quantize(q:Number) : void {
+            _quantize = q;
+        }
+        
+        /** Sound delay, uint in 16th beat. @default 0. */
+        public function get delay() : Number { return _delay; }
+        public function set delay(d:Number) : void {
+            _delay = d;
+        }
         
         /** Mute. */
         public function get mute() : Boolean { return _thisMute; }
@@ -83,23 +108,36 @@ package org.si.sound {
         /** parent container. */
         public function get parent() : SoundObjectContainer { return _parent; }
         
-        /** next track id to use */
-        static protected function get nextTrackID() : int {
-            return (_nextTrackID++);
-        }
+        /** track id */
+        public function get trackID() : int { return _trackID; }
+        
+        
+        // counter to asign unique track id
+        static private var _uniqueTrackID:int = 0;
+        
         
         
         
     // constructor
     //----------------------------------------
         /** constructor. */
-        function SoundObject()
+        function SoundObject(name:String = null)
         {
+            this.name = name || "";
             _driver = SiONDriver.mutex || new SiONDriver();
             _parent = null;
-            delay = 0;
-            quantize = 0;
-            name = "";
+            _note = 60;
+            _length = 0;
+            _delay = 0;
+            _quantize = 1;
+            _totalVolume = 0.5;
+            _thisVolume = 0.5;
+            _totalPan = 0;
+            _thisPan = 0;
+            _totalMute = false;
+            _thisMute = false;
+            _trackID = (_uniqueTrackID & 0x7fff) | 0x8000;
+            _uniqueTrackID++;
         }
         
         
@@ -115,12 +153,6 @@ package org.si.sound {
         
         /** Stop sound. */
         public function stop() : void
-        {
-        }
-        
-        
-        /** Puase sound, resume by play() method. */
-        public function pause() : void
         {
         }
         

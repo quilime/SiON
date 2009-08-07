@@ -15,7 +15,6 @@ package org.si.sion.effector {
         
         
         
-        
     // constructor
     //------------------------------------------------------------
         /** Constructor. do nothing. */

@@ -175,7 +175,8 @@ package org.si.sion.module {
         }
         
         
-        private function _lfoSwitch(sw:Boolean) : void
+        /** @private [internal use] lfo on/off */
+        protected function _lfoSwitch(sw:Boolean) : void
         {
             var new_lfo_on:int = int(sw);
             if (_lfo_on != new_lfo_on) {
@@ -540,7 +541,7 @@ package org.si.sion.module {
     //====================================================================================================
     // processing operator x1
     //--------------------------------------------------
-        // without lfo_update() 650[ms]
+        // without lfo_update()
         private function _proc1op_loff(len:int) : void
         {
             var t:int, l:int, i:int, n:Number;
@@ -595,7 +596,7 @@ package org.si.sion.module {
         }
         
         
-        // with lfo_update() 800[ms]
+        // with lfo_update()
         private function _proc1op_lon(len:int) : void
         {
             var t:int, l:int, i:int, n:Number;

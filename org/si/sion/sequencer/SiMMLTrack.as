@@ -468,7 +468,7 @@ package org.si.sion.sequencer {
     //--------------------------------------------------
         /** Channel module type (%) and select tone (1st argument of '@').
          *  @param type Channel module type
-         *  @param channelNum Channel number. For %2-5 and %7-10, this value is same as 1st argument of '@'.
+         *  @param channelNum Channel number. For %2-5 and %7-11, this value is same as 1st argument of '@'.
          *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG, %1;APU and %6;FM.
          */
         public function setChannelModuleType(type:int, channelNum:int, toneNum:int=-1) : void
@@ -957,7 +957,7 @@ package org.si.sion.sequencer {
                 _env_exp_offset   = (_set_exp_offset[keyOn]) ? _expression : 0;
                 _env_pitch_active = _pns_or[keyOn];
                 // activate filter
-                channel.activateFilter(Boolean(_env_filter));
+                if (!channel.isFilterActive) channel.activateFilter(Boolean(_env_filter));
                 // reset index
                 _residue = 0;
             }

@@ -67,6 +67,33 @@ package org.si.sion {
         
         /** Set by #MA&#64; parameters Array */
         public function set paramMA3(args:Array) : void { channelParam = Translator.setMA3Param(new SiOPMChannelParam(), args); }
+        
+        /** Set phisical modeling synth guitar parameters.
+         *  @param ar attack rate of plunk energy
+         *  @param dr decay rate of plunk energy
+         *  @param tl total level of plunk energy
+         *  @param fixedPitch plunk noise pitch
+         *  @param ws wave shape of plunk
+         *  @param tension sustain rate of the tone
+         */
+        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=0, ws:int=20, tension:int=8) : void {
+            moduleType = 11;
+            channelNum = 1;
+            param = [1, 0, 0, ws, ar, dr, 0, 63, 15, tl, 0, 0, 1, 0, 0, 0, 0, fixedPitch];
+            releaseRate = tension;
+        }
+        
+        
+        /** Set low pass filter parameters.
+         *  @param ar attack rate of plunk energy
+         *  @param dr decay rate of plunk energy
+         *  @param tl total level of plunk energy
+         *  @param fixedPitch plunk noise pitch
+         *  @param ws wave shape of plunk
+         *  @param tension sustain rate of the tone
+         */
+        public function setLPFilter() : void {
+        }
     }
 }
 

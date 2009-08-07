@@ -242,6 +242,38 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** Get MMLEvent id by mml command letter. 
+         *  @param mmlCommand letter of MML command.
+         *  @return Event id. Returns 0 if not found.
+         */
+        static public function getEventID(mmlCommand:String) : int
+        {
+            switch (mmlCommand) {
+            case 'c': case 'd': case 'e': case 'f': case 'g': case 'a': case 'b':   return MMLEvent.NOTE;
+            case 'r':   return MMLEvent.REST;
+            case 'q':   return MMLEvent.QUANT_RATIO;
+            case '@q':  return MMLEvent.QUANT_COUNT;
+            case 'v':   return MMLEvent.VOLUME;
+            case '@v':  return MMLEvent.FINE_VOLUME;
+            case '%':   return MMLEvent.MOD_TYPE;
+            case '@':   return MMLEvent.MOD_PARAM;
+            case '@i':  return MMLEvent.INPUT_PIPE;
+            case '@o':  return MMLEvent.OUTPUT_PIPE;
+            case '(':   case ')':   return MMLEvent.VOLUME_SHIFT;
+            case '&':   return MMLEvent.SLUR;
+            case '&&':  return MMLEvent.SLUR_WEAK;
+            case '*':   return MMLEvent.PITCHBEND;
+            case ',':   return MMLEvent.PARAMETER;
+            case '$':   return MMLEvent.REPEAT_ALL;
+            case '[':   return MMLEvent.REPEAT_BEGIN;
+            case ']':   return MMLEvent.REPEAT_END;
+            case '|':   return MMLEvent.REPEAT_BREAK;
+            case 't':   return MMLEvent.TEMPO;
+            }
+            return 0;
+        }
+        
+        
         /** @private [internal use] get system event string */
         static internal function _getSystemEventString(e:MMLEvent) : String
         {

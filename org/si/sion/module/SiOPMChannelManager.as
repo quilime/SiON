@@ -12,7 +12,8 @@ package org.si.sion.module {
     //--------------------------------------------------
         static public const CT_CHANNEL_FM:int = 0;
         static public const CT_CHANNEL_SAMPLER:int = 1;
-        static public const CT_MAX:int = 2;
+        static public const CT_CHANNEL_KS:int = 2;
+        static public const CT_MAX:int = 3;
         
         
         
@@ -162,6 +163,7 @@ package org.si.sion.module {
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
             _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
             _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler,     CT_CHANNEL_SAMPLER);
+            _channelManagers[CT_CHANNEL_KS]      = new SiOPMChannelManager(SiOPMChannelKS,          CT_CHANNEL_KS);
         }
         
         

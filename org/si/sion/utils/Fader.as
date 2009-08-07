@@ -9,6 +9,8 @@ package org.si.sion.utils {
     /** Fader class. */
     public class Fader
     {
+    // valiables
+    //--------------------------------------------------
         // end value
         private var _end:Number = 0;
         // increment step
@@ -20,6 +22,11 @@ package org.si.sion.utils {
         // callback function
         private var _callback:Function = null;
         
+        
+        
+        
+    // properties
+    //--------------------------------------------------
         /** is active. */
         public function get isActive() : Boolean { return (_counter>0); }
         /** is incrementation, */
@@ -27,13 +34,26 @@ package org.si.sion.utils {
         /** controling value. */
         public function get value() : Number { return _value; }
         
-        /** constructor */
+        
+        
+        
+    // constructor
+    //--------------------------------------------------
+        /** constructor.
+         *  @param valueFrom The starting value.
+         *  @param valueTo The value chaging to.
+         *  @param term Changing term.
+         */
         function Fader(callback:Function=null, valueFrom:Number=0, valueTo:Number=1, term:int=60)
         {
             if (callback != null) setFade(callback, valueFrom, valueTo, term);
         }
         
         
+        
+        
+    // operations
+    //--------------------------------------------------
         /** set fading values 
          *  @param valueFrom The starting value.
          *  @param valueTo The value chaging to.

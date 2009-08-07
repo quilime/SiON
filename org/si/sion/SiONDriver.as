@@ -16,6 +16,7 @@ package org.si.sion {
     import org.si.utils.SLLNumber;
     import org.si.sion.events.*;
     import org.si.sion.sequencer.base.MMLSequence;
+    import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.SiMMLSequencer;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sion.sequencer.SiMMLEnvelopTable;
@@ -52,7 +53,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.5";
+        static public const VERSION:String = "0.5.6";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -128,6 +129,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _faderVolume:Number;        // fader volume
         
         private var _trackEventQueue:Vector.<SiONTrackEvent>;
+        private var _timerSequence:MMLSequence;
+        private var _timerIntervalEvent:MMLEvent;
+        private var _timerCallback:Function;
         
         private var _renderBuffer:Vector.<Number>;  // rendering buffer
         private var _renderBufferChannelCount:int;  // rendering buffer channel count
@@ -306,6 +310,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _sound = new Sound();
             _soundTransform = new SoundTransform();
             _fader = new Fader();
+            _timerSequence = new MMLSequence();
 
             // initialize
             _tempData = null;
@@ -323,6 +328,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _noteOnExceptionMode = NEM_IGNORE;
             _debugMode = false;
             _isFinishSeqDispatched = false;
+            _timerCallback = null;
+            _timerSequence.alloc();
+            _timerSequence.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
+            _timerSequence.appendNewEvent(MMLEvent.TIMER, 0);
+            _timerIntervalEvent = _timerSequence.appendNewEvent(MMLEvent.WAIT, 0, 0);
             
             _backgroundSound = null;
             _backgroundLevel = 1;
@@ -622,6 +632,31 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
+        /** Set timer interruption.
+         *  @param length16th Interupting interval in 16th beat.
+         *  @param callback Callback function. the Type is function():void.
+         */
+        public function setTimerInterruption(length16th:Number=0, callback:Function=null) : void
+        {
+            _timerIntervalEvent.length = length16th * sequencer.setting.resolution * 0.0625;
+            _timerCallback = callback;
+        }
+        
+        
+        /** Set callback interval of SiONTrackEvent.BEAT.
+         *  @param length16th Interval in 16th beat. 2^n is only available(1,2,4,8,16....).
+         */
+        public function setBeatCallbackInterval(length16th:Number=1) : void
+        {
+            var filter:int = 1;
+            while (length16th > 1.5) {
+                filter <<= 1;
+                length16th *= 0.5
+            }
+            sequencer.onBeatCallbackFilter = filter - 1;
+        }
+        
+        
         
         
     // Interface for public data registration
@@ -635,7 +670,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             var len:int, bits:int=-1;
             for (len=table.length; len>0; len>>=1) bits++;
             if (bits<2) return null;
-            var waveTable:Vector.<int> = SiONUtil.logTransVector(table);
+            var waveTable:Vector.<int> = SiONUtil.logTransVector(table, false);
             waveTable.length = 1<<bits;
             return SiOPMTable.registerWaveTable(index, waveTable);
         }
@@ -740,12 +775,18 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
          *  @param eventTriggerID Event trigger id.
-         *  @param noteOnTrigger note on trigger type.
-         *  @param noteOffTrigger note off trigger type.
+         *  @param noteOnTrigger note on trigger type. 0 sets no trigger at note on.
+         *  @param noteOffTrigger note off trigger type. 0 sets no trigger at note off.
          *  @return SiMMLTrack to play the note.
          */
-        public function playSound(note:int, length:Number=0, delay:Number=0, quant:Number=0, trackID:int=0, 
-                                  eventTriggerID:int=0, noteOnTrigger:int=0, noteOffTrigger:int=0) : SiMMLTrack
+        public function playSound(note:int, 
+                                  length:Number      = 0, 
+                                  delay:Number       = 0, 
+                                  quant:Number       = 0, 
+                                  trackID:int        = 0, 
+                                  eventTriggerID:int = 0, 
+                                  noteOnTrigger:int  = 0, 
+                                  noteOffTrigger:int = 0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
             var mmlTrack:SiMMLTrack = null, 
@@ -777,7 +818,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Note on. This function only is available after play(). The NOTE_ON_STREAM event is dispatched inside.
          *  @param note note number [0-127].
-         *  @param voice SiONVoice to play note. You can spqcify null, but it sets only a default square wave...
+         *  @param voice SiONVoice to play note. You can spqcify null, but it sets only a default square wave.
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
@@ -787,9 +828,15 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param noteOffTrigger note off trigger type.
          *  @return SiMMLTrack to play the note.
          */
-        public function noteOn(note:int, voice:SiONVoice, 
-                               length:Number=0, delay:Number=0, quant:Number=0, trackID:int=0, 
-                               eventTriggerID:int=0, noteOnTrigger:int=0, noteOffTrigger:int=0) : SiMMLTrack
+        public function noteOn(note:int, 
+                               voice:SiONVoice    = null, 
+                               length:Number      = 0, 
+                               delay:Number       = 0, 
+                               quant:Number       = 0, 
+                               trackID:int        = 0, 
+                               eventTriggerID:int = 0, 
+                               noteOnTrigger:int  = 0, 
+                               noteOffTrigger:int = 0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
             var mmlTrack:SiMMLTrack = null, 
@@ -843,10 +890,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
-         *  @return delay time in sample count
+         *  @return SiMMLTrack of the last sequence channel.
          */
-        public function sequenceOn(data:SiONData, voice:SiONVoice=null, 
-                                   length:Number=0, delay:Number=0, quant:Number=1, trackID:int=0) : int
+        public function sequenceOn(data:SiONData, 
+                                   voice:SiONVoice  = null, 
+                                   length:Number    = 0, 
+                                   delay:Number     = 0, 
+                                   quant:Number     = 1, 
+                                   trackID:int      = 0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
             // create new sequence tracks
@@ -860,7 +911,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 if (voice) voice.setTrackVoice(mmlTrack);
                 seq = seq.nextSequence;
             }
-            return delaySamples;
+            return mmlTrack;
         }
         
         
@@ -868,18 +919,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID tracks id to stop.
          *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @return delay time in sample count
+         *  @return SiMMLTrack of the last stopped channel.
          */
-        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : int
+        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
-            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
+            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null;
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
                 if (mmlTrack.trackID == trackID) {
                     mmlTrack.sequenceOff(delaySamples);
+                    stoppedTrack = mmlTrack;
                 }
             }
-            return delaySamples;
+            return stoppedTrack;
         }
         
         
@@ -925,6 +977,15 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _trackEventQueue.push(event);
         }
         
+        // call back on beat
+        private function _callbackBeat(bufferIndex:int, beatCounter:int) : void
+        {
+            var event:SiONTrackEvent = new SiONTrackEvent(SiONTrackEvent.BEAT, this, null, bufferIndex, 0, beatCounter);
+            _trackEventQueue.push(event);
+        }
+        
+        
+        
         
     // operate event listener
     //----------------------------------------
@@ -942,6 +1003,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         {
             if (_listenEvent != NO_LISTEN) throw errorDriverBusy(LISTEN_PROCESS);
             addEventListener(Event.ENTER_FRAME, _process_onEnterFrame, false, _eventListenerPrior);
+            if (hasEventListener(SiONTrackEvent.BEAT)) sequencer._callbackBeat = _callbackBeat;
+            else sequencer._callbackBeat = null;
             _dispatchStreamEvent = (hasEventListener(SiONEvent.STREAM));
             _prevFrameTime = getTimer();
             _listenEvent = LISTEN_PROCESS;
@@ -957,6 +1020,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 break;
             case LISTEN_PROCESS:
                 removeEventListener(Event.ENTER_FRAME, _process_onEnterFrame);
+                sequencer._callbackBeat = null;
                 _dispatchStreamEvent = false;
                 break;
             }
@@ -971,12 +1035,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // parse system command on SiONDriver
         private function _parseSystemCommand(systemCommands:Array) : Boolean
         {
-            var id:int, effectSet:Boolean = false;
+            var id:int, wcol:uint, effectSet:Boolean = false;
             for each (var cmd:* in systemCommands) {
                 switch(cmd.command){
                 case "#EFFECT":
                     effectSet = true;
-                    effector.parseMML(cmd.number, cmd.content);
+                    effector.parseMML(cmd.number, cmd.content, cmd.postfix);
+                    break;
+                case "#WAVCOLOR":
+                    wcol = parseInt(cmd.content, 16);
+                    setWaveTable(cmd.number, SiONUtil.waveColor(wcol));
                     break;
                 }
             }
@@ -1158,7 +1226,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
             effector.prepareProcess();                                      // set stream number inside
-        }
+            _trackEventQueue.length = 0;                                    // clear event que
+            
+            
+            if (_timerCallback != null) {
+                sequencer.setGlobalSequence(_timerSequence); // set timer interruption
+                sequencer._callbackTimer = _timerCallback;
+            }
+       }
         
         
         // on enterFrame

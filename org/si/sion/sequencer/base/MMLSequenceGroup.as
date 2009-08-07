@@ -59,7 +59,7 @@ package org.si.sion.sequencer.base {
                 if (headEvent.id != MMLEvent.SEQUENCE_HEAD) {
                     throw new Error("MMLSequence: Unknown error on dividing sequences. " + headEvent);
                 }
-                seq = addTail(newSequence());       // push new sequence
+                seq = appendNewSequence();          // push new sequence
                 headEvent = seq._cutout(headEvent); // cutout sequence
                 seq._updateMMLString();             // update mml string
             }
@@ -78,6 +78,15 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** get sequence
+         *  @param index The index of sequence.
+         */
+        public function getSequence(index:int) : MMLSequence
+        {
+            if (index >= _sequences.length) return null;
+            return _sequences[index];
+        }
+        
         
         
     // factory
@@ -88,19 +97,20 @@ package org.si.sion.sequencer.base {
         static private var _freeList:Array = [];
         
         
-        /** Allocate new sequence and push sequence chain. */
-        public function newSequence() : MMLSequence
+        /** append new sequence */
+        public function appendNewSequence() : MMLSequence
         {
-            var seq:MMLSequence = _freeList.pop() || new MMLSequence();
-            _sequences.push(seq);
+            var seq:MMLSequence = _newSequence();
+            seq._insertBefore(_term);
             return seq;
         }
         
         
-        /** push sequence */
-        public function addTail(seq:MMLSequence) : MMLSequence
+        /** @private [internal use] Allocate new sequence and push sequence chain. */
+        internal function _newSequence() : MMLSequence
         {
-            seq._insertBefore(_term);
+            var seq:MMLSequence = _freeList.pop() || new MMLSequence();
+            _sequences.push(seq);
             return seq;
         }
     }

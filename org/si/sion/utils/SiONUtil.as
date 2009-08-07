@@ -9,6 +9,7 @@ package org.si.sion.utils {
     import flash.media.*;
     import flash.utils.ByteArray;
     import org.si.sion.module.SiOPMTable;
+    import org.si.sion.module.SiOPMWaveTable;
     
     
     /** Utilities for SiON */
@@ -112,11 +113,64 @@ package org.si.sion.utils {
         }
         
         
-        /** Calculate sample length from 16th beat. */
+        /** Calculate sample length from 16th beat. 
+         *  @param bpm Beat per minuits.
+         *  @param beat16 Count of 16th beat.
+         */
         static public function calcSampleLength(bpm:Number, beat16:Number) : Number
         {
             // 661500 = 44100*60/4
             return beat16 * 661500 / bpm;
+        }
+        
+        
+        
+        
+    // wave table
+    //--------------------------------------------------
+        /** create Wave table Vector from wave color.
+         *  @param color wave color value
+         *  @param waveType wave type (the voice number of '%5')
+         *  @param dst returning Vector.<Number>. if null, allocate new Vector inside.
+         */
+        static public function waveColor(color:uint, waveType:int=0, dst:Vector.<Number>=null) : Vector.<Number>
+        {
+            if (dst == null) dst = new Vector.<Number>(SiOPMTable.SAMPLING_TABLE_SIZE);
+            var len:int, bits:int=0;
+            for (len=dst.length>>1; len!=0; len>>=1) bits++;
+            dst.length = 1<<bits;
+            bits = SiOPMTable.PHASE_BITS - bits;
+            
+            var i:int, imax:int, j:int, gain:int, mul:int, n:Number, nmax:Number, 
+                bars:Vector.<Number> = new Vector.<Number>(7),
+                barr:Vector.<int> = Vector.<int>([1,2,3,4,5,6,8]),
+                log:Vector.<int> = SiOPMTable.instance.logTable,
+                waveTable:SiOPMWaveTable = SiOPMTable.instance.getWaveTable(waveType + (color>>>28)),
+                wavelet:Vector.<int> = waveTable.wavelet, fixedBits:int = waveTable.fixedBits,
+                filter:int = SiOPMTable.PHASE_FILTER, envtop:int = (-SiOPMTable.ENV_TOP)<<3,
+                index:int, step:int = SiOPMTable.PHASE_MAX >> bits;
+            
+            for (i=0; i<7; i++, color>>=4) bars[i] = (color & 15) * 0.0625;
+
+            imax = SiOPMTable.PHASE_MAX;
+            nmax = 0;
+            for (i=0; i<imax; i+=step) {
+                j = i>>bits;
+                dst[j] = 0;
+                for (mul=0; mul<7; mul++) {
+                    index = (((i * barr[mul]) & filter) >> fixedBits);
+                    gain = wavelet[index] + envtop;
+                    dst[j] += log[gain] * bars[mul];
+                }
+                n = (dst[j]<0) ? -dst[j] : dst[j];
+                if (nmax < n) nmax = n;
+            }
+
+            if (nmax < 8192) nmax = 8192
+            n = 1/nmax;
+            imax = dst.length;
+            for (i=0; i<imax; i++) dst[i] *= n;
+            return dst;
         }
     }
 }

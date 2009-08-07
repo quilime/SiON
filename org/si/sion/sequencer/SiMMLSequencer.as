@@ -44,6 +44,10 @@ package org.si.sion.sequencer {
         public var _eventTriggerOff:Function = null;
         /** @private [internal use] callback tempo changed */
         public var _callbackTempoChanged:Function = null;
+        /** @private [internal use] callback timer interruption */
+        public var _callbackTimer:Function = null;
+        /** @private [internal use] callback on beat */
+        public var _callbackBeat:Function = null;
         
         private var _module:SiOPMModule;                // Module instance
         private var _connector:MMLExecutorConnector;    // MMLExecutorConnector
@@ -88,6 +92,9 @@ package org.si.sion.sequencer {
         /** Current working track */
         public function get currentTrack() : SiMMLTrack { return _currentTrack; }
         
+        /** SiONTrackEvent.BEAT_ON_FRAME is called if (beatCount16th & onBeatCallbackFilter) == 0. */ 
+        public function set onBeatCallbackFilter(filter:int) : void { _onBeatCallbackFilter = filter; }
+        public function get onBeatCallbackFilter() : int { return _onBeatCallbackFilter; }
         
         
         
@@ -608,7 +615,20 @@ package org.si.sion.sequencer {
             }
             if (_callbackTempoChanged != null) _callbackTempoChanged(globalBufferIndex);
         }
+
         
+        /** @private [internal uses] Callback when the timer interrupt. */
+        override protected function onTimerInterruption() : void
+        {
+            if (_callbackTimer != null) _callbackTimer();
+        }
+        
+        
+        /** @private [internal uses] Callback on every 16th beats. */
+        override protected function onBeat(delaySamples:int, beatCounter:int) : void
+        {
+            if (_callbackBeat != null) _callbackBeat(delaySamples, beatCounter);
+        }
         
         
         
@@ -740,11 +760,6 @@ package org.si.sion.sequencer {
                     mmlData.setWaveTable(num, _parseWavbMacro((noData) ? pfx : dat));
                     return true;
                 }
-                case '#RENDER': {
-                    if (num < 0 || num > 255) throw _errorParameterNotValid("#RENDER", String(num));
-                    _parsePreRenderPCM(dat, pfx);
-                    return true;
-                }
                     
                 // system command after parsing
                 case '#FM':
@@ -848,37 +863,7 @@ package org.si.sion.sequencer {
             
             return _tempWaveTable5;
         }
-        
-        
-        // #RENDER
-        private function _parsePreRenderPCM(dat:String, pfx:String) : void
-        {
-            return;
-            
-/*
-            var seq:MMLSequence, count:int, prev:MMLEvent, e:MMLEvent;
-            
-            // parse
-            //var seqGroup:MMLSequenceGroup = newSequenceGroup().parse(_expandMacro(dat));
 
-            // expand internal tables
-            for (seq = seqGroup.headSequence; seq != null; seq = seq.nextSequence) {
-                count = seq.headEvent.data;
-                if (count == 0) continue;
-                for (prev = seq.headEvent; prev.next != null; prev = e) {
-                    e = prev.next;
-                    if (e.id == MMLEvent.TABLE_EVENT) {
-                        _callOnTableParse(prev);
-                        e = prev;
-                    }
-                }
-            }
-            
-            // #FM connections
-            onAfterParse(seqGroup);
-*/
-        }
-        
         
         // parse initializing sequence, called by __splitDataString()
         private function __parseInitSequence(param:SiOPMChannelParam, mml:String) : void

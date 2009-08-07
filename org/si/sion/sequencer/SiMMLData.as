@@ -23,6 +23,7 @@ package org.si.sion.sequencer {
         
         
         
+        
     // constructor
     //----------------------------------------
         /** constructor. */
@@ -49,15 +50,6 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Register all tables before processing audio. */
-        override public function regiter() : void
-        {
-            super.regiter();
-            SiMMLTable.instance.stencilEnvelops = _envelops;
-            SiMMLTable.instance.stencilVoices   = _voices;
-        }
-        
-        
         /** Set envelop table data refered by &#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt and _nf.
          *  @param index envelop table number.
          *  @param envelop envelop table.
@@ -78,6 +70,19 @@ package org.si.sion.sequencer {
                 if (!voice._isSuitableForFMVoice) throw errorNotGoodFMVoice();
                  _voices[index] = voice;
             }
+        }
+        
+        
+        
+        
+    // internal function
+    //--------------------------------------------------
+        /** @private [internal use] Register all tables before processing audio. */
+        override public function _regiterTables() : void
+        {
+            super._regiterTables();
+            SiMMLTable.instance.stencilEnvelops = _envelops;
+            SiMMLTable.instance.stencilVoices   = _voices;
         }
         
         

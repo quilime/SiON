@@ -51,6 +51,9 @@ package org.si.sion.sequencer.base {
         protected var beat16ParSample:Number;
         /** sample par 16th beat */
         protected var sampleParBeat16:Number;
+        /** filter for onBeat() callback. 0=16th beat, 1=8th beat, 3=4th beat, 7=2dn beat, 15=whole tone ...*/
+        protected var _onBeatCallbackFilter:int;
+
         
         private var _newUserDefinedEventID:int = MMLEvent.USER_DEFINE;  // id value of new user-defined event.
         private var _userDefinedEventID:Object = {};                    // id map of user-defined event letter set by newMMLEventListener().
@@ -64,7 +67,6 @@ package org.si.sion.sequencer.base {
         private var _bpm:Number;                    // beat per minute
         private var _samplePerTick:int;             // samples per tick << FIXED_BITS
         private var _bufferLength:int;              // buffering length
-        
         
         
         
@@ -103,10 +105,14 @@ package org.si.sion.sequencer.base {
             setMMLEventListener(MMLEvent.SEQUENCE_TAIL,_default_onSequenceTail, false);
             setMMLEventListener(MMLEvent.WAIT,         _default_onWait,         true);
             setMMLEventListener(MMLEvent.TEMPO,        _default_onTempo,        true);
+            setMMLEventListener(MMLEvent.TIMER,        _default_onTimer,        true);
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
             
             globalExecutor = new MMLExecutor();
+            
+            // 3 : callback every 4 beat
+            _onBeatCallbackFilter = 3;
         }
         
         
@@ -137,6 +143,19 @@ package org.si.sion.sequencer.base {
             _eventHandlers[id] = func;
             _eventGlobalFlags[id] = isGlobal;
             return id;
+        }
+        
+        
+        /** Get MMLEvent id by mml command letter. 
+         *  @param mmlCommand letter of MML command.
+         *  @return Event id. Returns 0 if not found.
+         */
+        public function getEventID(mmlCommand:String) : int
+        {
+            var id:int = MMLParser.getEventID(mmlCommand);
+            if (id != 0) return id;
+            if (mmlCommand in _userDefinedEventID) return _userDefinedEventID[mmlCommand];
+            return 0;
         }
         
         
@@ -220,7 +239,7 @@ package org.si.sion.sequencer.base {
             } else {
                 bpm = mmlData.defaultBPM;
                 globalExecutor.initialize(mmlData.globalSequence);
-                mmlData.regiter();
+                mmlData._regiterTables();
             }
             globalBufferIndex = 0;
             globalBeat16 = 0;
@@ -236,14 +255,21 @@ package org.si.sion.sequencer.base {
             // You dont have to call this in your overrided function.
         }
         
+
+        /** Set global sequence. This function must be called after prepareProcess() and before process(). */
+        public function setGlobalSequence(seq:MMLSequence) : void
+        {
+            globalExecutor.initialize(seq);
+        }
         
-        /** Execute global sequence. */
+        /** start global sequence. */
         protected function startGlobalSequence() : void
         {
             _globalBufferSampleCount = _bufferLength;
             _globalExecuteSampleCount = 0;
             globalBufferIndex = 0;
         }
+        /** execute global sequence. returns executing sample length. */
         protected function executeGlobalSequence() : int
         {
             currentExecutor = globalExecutor;
@@ -262,10 +288,20 @@ package org.si.sion.sequencer.base {
             } while (_globalExecuteSampleCount == 0);
             return _globalExecuteSampleCount;
         }
+        /** check global sequences pointer acheives to the end. */
         protected function isEndGlobalSequence() : Boolean
         {
+            var prevBeat:Number = globalBeat16,
+                floorPrevBeat:int = int(prevBeat);
             globalBufferIndex += _globalExecuteSampleCount;
             globalBeat16 += _globalExecuteSampleCount * beat16ParSample;
+            var floorCurrBeat:int = int(globalBeat16); 
+            while (floorPrevBeat < floorCurrBeat) {
+                floorPrevBeat++;
+                if ((floorPrevBeat & _onBeatCallbackFilter) == 0) {
+                    onBeat((floorPrevBeat - prevBeat) * sampleParBeat16, floorPrevBeat);
+                }
+            }
             return (_globalBufferSampleCount == 0);
         }
         
@@ -362,6 +398,18 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** Callback when streaming interrupted by timer . */
+        protected function onTimerInterruption() : void
+        {
+        }
+        
+        
+        /** Callback on every 16th beats. */
+        protected function onBeat(delaySamples:int, beatCounter:int) : void
+        {
+        }
+        
+        
         
         
     // private functions
@@ -449,7 +497,7 @@ package org.si.sion.sequencer.base {
                     count = e.length - pos;
                     pos = e.length;
                     e.length = 0;
-                    if (count > 0) seq.pushEvent(MMLEvent.WAIT, 0, count);
+                    if (count > 0) seq.appendNewEvent(MMLEvent.WAIT, 0, count);
                     seq.connectEvent(e);
                 }
             }
@@ -602,6 +650,14 @@ package org.si.sion.sequencer.base {
         protected function _default_onTempo(e:MMLEvent) : MMLEvent
         {
             bpm = e.data;
+            return e.next;
+        }
+        
+        
+        /** default operation for MMLEvent.TIMER. */
+        protected function _default_onTimer(e:MMLEvent) : MMLEvent
+        {
+            onTimerInterruption();
             return e.next;
         }
     }

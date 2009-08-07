@@ -140,29 +140,29 @@ package org.si.sion.sequencer.base {
                 }
 
                 // assign sequence to executor
-                var preprocess:MMLSequence = seqGroup.newSequence();
+                var preprocess:MMLSequence = seqGroup._newSequence();
                 preprocess.alloc();
 //trace("#FM "+elem.number+";");
                 
                 // out pipe
                 if (outPipe != -1) {
-                    preprocess.pushEvent(MMLEvent.OUTPUT_PIPE, (firstOsc) ? SiOPMChannelBase.OUTPUT_OVERWRITE : SiOPMChannelBase.OUTPUT_ADD);
-                    preprocess.pushEvent(MMLEvent.PARAMETER,   outPipe);
+                    preprocess.appendNewEvent(MMLEvent.OUTPUT_PIPE, (firstOsc) ? SiOPMChannelBase.OUTPUT_OVERWRITE : SiOPMChannelBase.OUTPUT_ADD);
+                    preprocess.appendNewEvent(MMLEvent.PARAMETER,   outPipe);
 //trace(" @o"+((firstOsc)?'1,':'2,')+outPipe);
                 } else {
-                    preprocess.pushEvent(MMLEvent.OUTPUT_PIPE, SiOPMChannelBase.OUTPUT_STANDARD);
-                    preprocess.pushEvent(MMLEvent.PARAMETER,   0);
+                    preprocess.appendNewEvent(MMLEvent.OUTPUT_PIPE, SiOPMChannelBase.OUTPUT_STANDARD);
+                    preprocess.appendNewEvent(MMLEvent.PARAMETER,   0);
 //trace(" @o0,0");
                 }
                 
                 // in pipe
                 if (elem.firstChild != null) {
-                    preprocess.pushEvent(MMLEvent.INPUT_PIPE, elem.modulation);
-                    preprocess.pushEvent(MMLEvent.PARAMETER,  inPipe);
+                    preprocess.appendNewEvent(MMLEvent.INPUT_PIPE, elem.modulation);
+                    preprocess.appendNewEvent(MMLEvent.PARAMETER,  inPipe);
 //trace(" @i"+elem.modulation+","+inPipe);
                 } else {
-                    preprocess.pushEvent(MMLEvent.INPUT_PIPE, 0);
-                    preprocess.pushEvent(MMLEvent.PARAMETER,  0);
+                    preprocess.appendNewEvent(MMLEvent.INPUT_PIPE, 0);
+                    preprocess.appendNewEvent(MMLEvent.PARAMETER,  0);
 //trace(" @i0,0");
                 }
                 

@@ -85,8 +85,9 @@ package org.si.sion.effector {
         
         /** Parse MML for effector 
          *  @param mml MML string.
+         *  @param postfix Postfix string.
          */
-        public function parseMML(mml:String) : void
+        public function parseMML(mml:String, postfix:String) : void
         {
             var res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
                 cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true);

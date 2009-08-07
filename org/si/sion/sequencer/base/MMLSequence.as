@@ -55,6 +55,7 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** toString returns the event ids. */
         public function toString() : String
         {
             if (_isTerminal) return "terminator";
@@ -69,6 +70,38 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** Returns events as an Vector.<MMLEvent>. 
+         *  @param lengthLimit maximum length of returning Vector. When this argument set to 0, the Vector includes all events.
+         *  @param offset starting index of returning Vector.
+         *  @param eventID event id to get. When this argument set to -1, the Vector includes all kind of events.
+         */
+        public function toVector(lengthLimit:int=0, offset:int=0, eventID:int=-1) : Vector.<MMLEvent>
+        {
+            if (headEvent == null) return null;
+            var e:MMLEvent, i:int=0, result:Vector.<MMLEvent> = new Vector.<MMLEvent>();
+            for (e=headEvent.next; e!=null && e.id!=MMLEvent.SEQUENCE_TAIL; e=e.next) {
+                if (eventID == -1 || eventID == e.id) {
+                    if (i >= offset) result.push(e);
+                    if (lengthLimit > 0 && i >= lengthLimit) break;
+                    i++;
+                }
+            }
+            return result;
+        }
+        
+        
+        /** Create sequence from Vector.<MMLEvent>. 
+         *  @param events event list of the sequence.
+         */
+        public function fromVector(events:Vector.<MMLEvent>) : MMLSequence
+        {
+            alloc();
+            for each (var e:MMLEvent in events) connectEvent(e);
+            return this;
+        }
+        
+        
+        
         
         
     // operations
@@ -76,6 +109,10 @@ package org.si.sion.sequencer.base {
         /** Alloc. */
         public function alloc() : MMLSequence
         {
+            if (!isEmpty()) {
+                headEvent.jump.next = tailEvent;
+                MMLParser._freeAllEvents(this);
+            }
             headEvent = MMLParser._allocEvent(MMLEvent.SEQUENCE_HEAD, 0);
             tailEvent = MMLParser._allocEvent(MMLEvent.SEQUENCE_TAIL, 0);
             headEvent.next = tailEvent;
@@ -123,10 +160,23 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** push new MMLEvent */
-        public function pushEvent(id:int, data:int, length:int=0) : MMLSequence
+        /** Append new MMLEvent at tail */
+        public function appendNewEvent(id:int, data:int, length:int=0) : MMLEvent
         {
-            return connectEvent(MMLParser._allocEvent(id, data, length));
+            var e:MMLEvent = MMLParser._allocEvent(id, data, length);
+            connectEvent(e);
+            return e;
+        }
+        
+        
+        /** Prepend new MMLEvent at head */
+        public function prependNewEvent(id:int, data:int, length:int=0) : MMLEvent
+        {
+            var e:MMLEvent = MMLParser._allocEvent(id, data, length);
+            e.next = headEvent;
+            headEvent.next = e;
+            if (headEvent.jump == headEvent) headEvent.jump = e;
+            return e;
         }
         
         

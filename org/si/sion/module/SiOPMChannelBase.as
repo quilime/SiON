@@ -170,6 +170,10 @@ package org.si.sion.module {
         /** is idling ? */
         public function get isIdling() : Boolean { return _isIdling; }
         
+        /** Is filter active ? */
+        public function get isFilterActive() : Boolean { return _filterOn; }
+        
+        
         
         
     // volume control
@@ -519,8 +523,8 @@ package org.si.sion.module {
         }
         
         
-        // ring modulation
-        private function _applyRingModulation(pointer:SLLint, len:int) : void
+        /** ring modulation */
+        protected function _applyRingModulation(pointer:SLLint, len:int) : void
         {
             var i:int, rp:SLLint = _ringPipe;
             for (i=0; i<len; i++) {
@@ -532,8 +536,8 @@ package org.si.sion.module {
         }
         
         
-        // low-pass filter
-        private function _applyLPFilter(pointer:SLLint, len:int) : void
+        /** low-pass filter */
+        protected function _applyLPFilter(pointer:SLLint, len:int) : void
         {
             var i:int, imax:int, step:int, I:int, V:int, out:int, cut:Number, fb:Number;
             

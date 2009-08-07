@@ -101,8 +101,8 @@ package org.si.sion.sequencer {
                 if (voiceIndex <0 || voiceIndex >=_pgTypeList.length) voiceIndex = _initIndex;
                 track.channel.setType(_pgTypeList[voiceIndex], _ptTypeList[voiceIndex]);
                 break;
-            case SELECT_TONE_FM:
-                voiceIndex += track.channelNumber << 8;
+            case SELECT_TONE_FM: // %6
+                //voiceIndex += track.channelNumber << 8;
                 if (voiceIndex<0 || voiceIndex>=SiMMLTable.VOICE_MAX) voiceIndex=0;
                 voice = SiMMLTable.instance.getSiMMLVoice(voiceIndex);
                 if (voice) {
@@ -123,7 +123,7 @@ package org.si.sion.sequencer {
                     */
                 }
                 return (param==null || param.initSequence.isEmpty()) ? null : param.initSequence;
-            case SELECT_TONE_PCM:
+            case SELECT_TONE_PCM: // %7
                 if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
                     pcm = SiOPMTable.instance.getPCMData(voiceIndex);
                     if (pcm) track.channel.setPCMData(pcm);

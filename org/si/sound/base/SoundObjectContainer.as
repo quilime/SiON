@@ -5,7 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
+package org.si.sound.base {
     /** The SoundObjectContainer class is the base class for all objects that can serve as sound object containers on the sound list. 
      */
     public class SoundObjectContainer extends SoundObject
@@ -26,11 +26,43 @@ package org.si.sound {
         
         
         
+        
+        
+    // properties
+    //----------------------------------------
+        /** Base note of this sound */
+        override public function set note(n:int) : void {
+            _note = n;
+            for each (var sound:SoundObject in _soundList) sound.note = n;
+        }
+        
+        /** Sound length, uint in 16th beat, 0 sets inifinity length. @default 0. */
+        override public function set length(l:Number) : void {
+            _length = l;
+            for each (var sound:SoundObject in _soundList) sound.length = l;
+        }
+        
+        /** Synchronizing quantizing, uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        override public function set quantize(q:Number) : void {
+            _quantize = q;
+            for each (var sound:SoundObject in _soundList) sound.quantize = q;
+        }
+        
+        /** Sound delay, uint in 16th beat. @default 0. */
+        override public function set delay(d:Number) : void {
+            _delay = d;
+            for each (var sound:SoundObject in _soundList) sound.delay = d;
+        }
+        
+        
+        
+        
     // constructor
     //----------------------------------------
         /** constructor. */
-        function SoundObjectContainer()
+        function SoundObjectContainer(name:String = "")
         {
+            super(name);
             _soundList = new Vector.<SoundObject>();
         }
         
@@ -50,13 +82,6 @@ package org.si.sound {
         override public function stop() : void
         {
             for each (var sound:SoundObject in _soundList) sound.stop();
-        }
-        
-        
-        /** Puase sound, resume by play() method. */
-        override public function pause() : void
-        {
-            for each (var sound:SoundObject in _soundList) sound.pause();
         }
         
         

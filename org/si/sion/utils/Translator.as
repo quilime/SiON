@@ -35,7 +35,7 @@ package org.si.sion.utils {
     // tsscp
     //--------------------------------------------------
         /** Translate pTSSCP mml to SiOPM mml. */
-        static public function tsscp(tsscpMML:String) : String
+        static public function tsscp(tsscpMML:String, volumeByX:Boolean=true) : String
         {
             var mml:String, com:String, str1:String, str2:String, i:int, imax:int, volUp:String, volDw:String, rex:RegExp, rex_sys:RegExp, rex_com:RegExp, res:*;
             
@@ -120,25 +120,49 @@ package org.si.sion.utils {
                                     }
                                 }break;
                                 case 'v': {
-                                    p0 = (res[3].length == 0) ? 40 : ((int(res[3])<<2)+(int(res[3])>>2));
-                                    if (res[4]) {
-                                        p1 = (int(res[4])<<2) + (int(res[4])>>2);
-                                        p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
-                                        p3 = (p0 > p1) ? p0 : p1;
-                                        mml += "@p" + String(p2) + "x" + String(p3);
+                                    if (volumeByX) {
+                                        p0 = (res[3].length == 0) ? 40 : ((int(res[3])<<2)+(int(res[3])>>2));
+                                        if (res[4]) {
+                                            p1 = (int(res[4])<<2) + (int(res[4])>>2);
+                                            p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
+                                            p3 = (p0 > p1) ? p0 : p1;
+                                            mml += "@p" + String(p2) + "x" + String(p3);
+                                        } else {
+                                            mml += "x" + String(p0);
+                                        }
                                     } else {
-                                        mml += "x" + String(p0);
+                                        p0 = (res[3].length == 0) ? 10 : (res[3]);
+                                        if (res[4]) {
+                                            p1 = res[4];
+                                            p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
+                                            p3 = (p0 > p1) ? p0 : p1;
+                                            mml += "@p" + String(p2) + "v" + String(p3);
+                                        } else {
+                                            mml += "v" + String(p0);
+                                        }
                                     }
                                 }break;
                                 case '@v': {
-                                    p0 = (res[3].length == 0) ? 40 : (int(res[3])>>2);
-                                    if (res[4]) {
-                                        p1 = int(res[4])>>2;
-                                        p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
-                                        p3 = (p0 > p1) ? p0 : p1;
-                                        mml += "@p" + String(p2) + "x" + String(p3);
+                                    if (volumeByX) {
+                                        p0 = (res[3].length == 0) ? 40 : (int(res[3])>>2);
+                                        if (res[4]) {
+                                            p1 = int(res[4])>>2;
+                                            p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
+                                            p3 = (p0 > p1) ? p0 : p1;
+                                            mml += "@p" + String(p2) + "x" + String(p3);
+                                        } else {
+                                            mml += "x" + String(p0);
+                                        }
                                     } else {
-                                        mml += "x" + String(p0);
+                                        p0 = (res[3].length == 0) ? 10 : (int(res[3])>>4);
+                                        if (res[4]) {
+                                            p1 = int(res[4])>>4;
+                                            p2 = (p1 > 0) ? (int(Math.atan(p0/p1)*81.48733086305041)) : 128; // 81.48733086305041 = 128/(PI*0.5)
+                                            p3 = (p0 > p1) ? p0 : p1;
+                                            mml += "@p" + String(p2) + "v" + String(p3);
+                                        } else {
+                                            mml += "v" + String(p0);
+                                        }
                                     }
                                 }break;
                                 case 's': {
@@ -437,7 +461,7 @@ package org.si.sion.utils {
             var dataIndex:int = 3, n:Number, i:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.opeParam[opeIndex];
-                opp.setPGType(int(data[dataIndex++]) & 1023); // 1
+                opp.setPGType(int(data[dataIndex++]) & 511); // 1
                 opp.ar     = int(data[dataIndex++]) & 63;   // 2
                 opp.dr     = int(data[dataIndex++]) & 63;   // 3
                 opp.sr     = int(data[dataIndex++]) & 63;   // 4

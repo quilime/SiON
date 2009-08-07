@@ -28,7 +28,8 @@ package org.si.sion.sequencer {
         static public const MT_PULSE :int = 8;  // pulse wave
         static public const MT_RAMP  :int = 9;  // ramp wave
         static public const MT_SAMPLE:int = 10; // sampler
-        static public const MT_MAX   :int = 11;
+        static public const MT_KS    :int = 11; // karplus strong
+        static public const MT_MAX   :int = 12;
         
         static private const MT_ARRAY_SIZE:int = 11;
         
@@ -126,6 +127,7 @@ package org.si.sion.sequencer {
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 32);  // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
             channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         1,   1, 1);   // sampler. this is based on SiOPMChannelSampler
+            channelModuleSetting[MT_KS]     = new SiMMLChannelSetting(MT_KS,     0,                         3,   1, 3);   // karplus strong (0 or 1 to chouse seed generator algrism)
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -160,7 +162,9 @@ package org.si.sion.sequencer {
             // Sampler
             channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
-            
+            // Karplus strong
+            channelModuleSetting[MT_KS]._channelType = SiOPMChannelManager.CT_CHANNEL_KS;
+
             // tables
             _masterEnvelops = new Vector.<SiMMLEnvelopTable>(ENV_TABLE_MAX);
             for (i=0; i<ENV_TABLE_MAX; i++) _masterEnvelops[i] = null;

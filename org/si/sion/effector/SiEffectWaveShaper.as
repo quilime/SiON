@@ -52,7 +52,7 @@ package org.si.sion.effector {
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0]*0.01 : 0.5,
-                          (!isNaN(args[0])) ? args[0]*0.01 : 1.0);
+                          (!isNaN(args[1])) ? args[1]*0.01 : 1.0);
         }
         
         

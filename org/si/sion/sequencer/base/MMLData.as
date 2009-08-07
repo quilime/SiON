@@ -98,12 +98,24 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Register all tables before processing audio. */
-        public function regiter() : void
+        /** Append new sequence.
+         *  @param sequence event list for new sequence. when null, create empty sequence.
+         *  @return created sequence
+         */
+        public function appendNewSequence(sequence:Vector.<MMLEvent> = null) : MMLSequence
         {
-            SiOPMTable.instance.stencilCustomWaveTables = waveTables;
-            SiOPMTable.instance.stencilPCMData          = pcmData;
-            SiOPMTable.instance.stencilSamplerData      = samplerData;
+            var seq:MMLSequence = sequenceGroup.appendNewSequence();
+            if (sequence) seq.fromVector(sequence);
+            return seq;
+        }
+        
+        
+        /** Get sequence. 
+         *  @param index The index of seuence
+         */
+        public function getSequence(index:int) : MMLSequence
+        {
+            return sequenceGroup.getSequence(index);
         }
         
         
@@ -169,6 +181,19 @@ package org.si.sion.sequencer.base {
             index &= SiOPMTable.SAMPLER_DATA_MAX-1;
             samplerData[index] = new SiOPMSamplerData(data, isOneShot, channelCount);
             return samplerData[index];
+        }
+        
+        
+        
+        
+    // internal function
+    //--------------------------------------------------
+        /** @private [internal use] Register all tables before processing audio. */
+        public function _regiterTables() : void
+        {
+            SiOPMTable.instance.stencilCustomWaveTables = waveTables;
+            SiOPMTable.instance.stencilPCMData          = pcmData;
+            SiOPMTable.instance.stencilSamplerData      = samplerData;
         }
     }
 }

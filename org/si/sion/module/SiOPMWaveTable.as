@@ -35,9 +35,7 @@ package org.si.sion.module {
         static public function alloc(wavelet:Vector.<int>, defaultPTType:int=0) : SiOPMWaveTable
         {
             var len:int, bits:int=0;
-            for (len=wavelet.length>>1; len!=0; len>>=1) {
-                bits++;
-            }
+            for (len=wavelet.length>>1; len!=0; len>>=1) bits++;
             
             var newInstance:SiOPMWaveTable = _freeList.pop() || new SiOPMWaveTable();
             newInstance.wavelet = wavelet;

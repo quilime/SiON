@@ -19,6 +19,7 @@ package org.si.sion.effector {
         private var _feedback:Number;
         private var _readBufferL:Vector.<Number>;
         private var _readBufferR:Vector.<Number>;
+        private var _wet:Number;
         
         
         
@@ -42,8 +43,9 @@ package org.si.sion.effector {
          *  @param delayTime delay time[ms]. maximum value is about 1500.
          *  @param feedback feedback decay(-1-1). Negative value to invert phase.
          *  @param isCross stereo crossing delay.
+         *  @param wet mixing level.
          */
-        public function setParameters(delayTime:Number=250, feedback:Number=0.25, isCross:Boolean=false) : void {
+        public function setParameters(delayTime:Number=250, feedback:Number=0.25, isCross:Boolean=false, wet:Number=1) : void {
             var offset:int = int(delayTime * 44.1),
                 cross:int  = (isCross) ? 1 : 0;
             if (offset > DELAY_BUFFER_FILTER) offset = DELAY_BUFFER_FILTER;
@@ -51,6 +53,7 @@ package org.si.sion.effector {
             _feedback = (feedback>=1) ? 0.9990234375 : (feedback<=-1) ? -0.9990234375 : feedback;
             _readBufferL = _delayBuffer[cross];
             _readBufferR = _delayBuffer[1-cross];
+            _wet = wet;
         }
         
         
@@ -70,7 +73,8 @@ package org.si.sion.effector {
         {
             setParameters((!isNaN(args[0])) ? args[0] : 250,
                           (!isNaN(args[1])) ? (args[1]*0.01) : 0.25,
-                          (args[2] == 1));
+                          (args[2] == 1),
+                          (!isNaN(args[3])) ? (args[3]*0.01) : 1);
         }
         
         
@@ -92,14 +96,17 @@ package org.si.sion.effector {
             length <<= 1;
             var i:int, n:Number, imax:int = startIndex + length,
                 writeBufferL:Vector.<Number> = _delayBuffer[0],
-                writeBufferR:Vector.<Number> = _delayBuffer[1];
+                writeBufferR:Vector.<Number> = _delayBuffer[1],
+                dry:Number = 1-_wet;
             for (i=startIndex; i<imax;) {
                 n = _readBufferL[_pointerRead];
                 writeBufferL[_pointerWrite] = buffer[i] - n * _feedback;
-                buffer[i] = n; i++;
+                buffer[i] *= dry;
+                buffer[i] += n * _wet; i++;
                 n = _readBufferR[_pointerRead];
                 writeBufferR[_pointerWrite] = buffer[i] - n * _feedback;
-                buffer[i] = n; i++;
+                buffer[i] *= dry;
+                buffer[i] += n * _wet; i++;
                 _pointerWrite = (_pointerWrite+1) & DELAY_BUFFER_FILTER;
                 _pointerRead  = (_pointerRead +1) & DELAY_BUFFER_FILTER;
             }
