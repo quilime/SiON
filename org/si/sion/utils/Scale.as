@@ -173,7 +173,7 @@ package org.si.sion.utils {
         }
         
         
-        /** base note (0-11) */
+        /** base note number */
         public function get baseNote() : int { return _scaleNotes[0]; }
         
         
@@ -199,7 +199,7 @@ package org.si.sion.utils {
 @example If you want to set "F japanese scale (1 2 4 5 b7)".<br/>
 <listing version="3.0">
     var table:Array = [1,0,1,0,0,1,0,1,0,0,1,0];  // c,d,f,g,b- is available on "C japanese scale".
-    scale.setScaleTable("Fjap", 5, table);        // "F" is 5th tone from "C".
+    scale.setScaleTable("Fjap", 65, table);       // 65="F"s note number
 </listing>
          */
         public function setScaleTable(name:String, baseNote:int, table:Array) : void
@@ -221,7 +221,7 @@ package org.si.sion.utils {
     //--------------------------------------------------
         /** check note availability on this scale. 
          *  @param note MIDI note number (0-127).
-         *  @return Returns true if the note on this scale.
+         *  @return Returns true if the note is on this scale.
          */
         public function check(note:int) : Boolean {
             note = note % 12;
@@ -231,7 +231,7 @@ package org.si.sion.utils {
         
         /** shift note to the nearest note on this scale. 
          *  @param note MIDI note number (0-127).
-         *  @return Returns shifted note. if the note on this scale, no shift.
+         *  @return Returns shifted note. if the note is on this scale, no shift.
          */
         public function shift(note:int) : int {
             var n:int, down:int, up:int;

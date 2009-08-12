@@ -27,6 +27,8 @@ package org.si.sion.sequencer.base {
         // Is terminal sequence.
         private var _isTerminal:Boolean;
         
+        /** @private [internal use] owner data */
+        public var _owner:MMLData;
         
         
         
@@ -46,6 +48,7 @@ package org.si.sion.sequencer.base {
         /** Constructor. */
         function MMLSequence(term:Boolean = false)
         {
+            _owner = null;
             headEvent = null;
             tailEvent = null;
             mmlString = "";

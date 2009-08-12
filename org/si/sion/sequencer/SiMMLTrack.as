@@ -8,6 +8,7 @@ package org.si.sion.sequencer {
     import org.si.utils.SLLint;
     import org.si.sion.module.SiOPMChannelBase;
     import org.si.sion.module.SiOPMTable;
+    import org.si.sion.sequencer.base.MMLData;
     import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.base.MMLExecutor;
@@ -88,6 +89,7 @@ package org.si.sion.sequencer {
         private var _trackID:int;           // track ID number
 
         // internal use
+        private var _mmlData:MMLData;       // mml data
         private var _table:SiMMLTable;      // table
         private var _keyOnCounter:int;      // key on counter
         private var _keyOnLength:int;       // key on length
@@ -226,6 +228,7 @@ package org.si.sion.sequencer {
             _table = SiMMLTable.instance;
             executor = new MMLExecutor();
             
+            _mmlData = null;
             _set_processMode = new Vector.<int>(2, true);
             
             _set_env_exp    = new Vector.<SLLint>(2, true);
@@ -261,6 +264,7 @@ package org.si.sion.sequencer {
             _eventTriggerID = -1;
             _eventTriggerTypeOn = 0;
             _eventTriggerTypeOff = 0;
+            _mmlData = (seq) ? seq._owner : null;
             executor.initialize(seq);
             
             return this;
@@ -468,8 +472,8 @@ package org.si.sion.sequencer {
     //--------------------------------------------------
         /** Channel module type (%) and select tone (1st argument of '@').
          *  @param type Channel module type
-         *  @param channelNum Channel number. For %2-5 and %7-11, this value is same as 1st argument of '@'.
-         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG, %1;APU and %6;FM.
+         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '@'.
+         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG and %1;APU.
          */
         public function setChannelModuleType(type:int, channelNum:int, toneNum:int=-1) : void
         {
@@ -692,6 +696,9 @@ package org.si.sion.sequencer {
         /** @private [internal use] prepare buffer */
         internal function prepareBuffer(bufferingTick:int) : int
         {
+            // register tables
+            if (_mmlData) _mmlData._regiterTables();
+            
             // almost executing this
             if (_trackStartDelay == 0) return bufferingTick;
             

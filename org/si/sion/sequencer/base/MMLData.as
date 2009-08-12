@@ -59,7 +59,7 @@ package org.si.sion.sequencer.base {
     //--------------------------------------------------
         function MMLData()
         {
-            sequenceGroup = new MMLSequenceGroup();
+            sequenceGroup = new MMLSequenceGroup(this);
             globalSequence = new MMLSequence();
             
             defaultBPM = 120;

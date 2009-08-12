@@ -13,8 +13,11 @@ package org.si.sion.sequencer.base {
     {
     // valiables
     //--------------------------------------------------
-       // terminator
+        // terminator
         private var _term:MMLSequence;
+        
+        // owner data
+        private var _owner:MMLData
         
         
         
@@ -37,8 +40,9 @@ package org.si.sion.sequencer.base {
         
     // constructor
     //--------------------------------------------------
-        function MMLSequenceGroup()
+        function MMLSequenceGroup(owner:MMLData)
         {
+            _owner = owner;
             _sequences = new Vector.<MMLSequence>();
             _term = new MMLSequence(true);
         }
@@ -110,6 +114,7 @@ package org.si.sion.sequencer.base {
         internal function _newSequence() : MMLSequence
         {
             var seq:MMLSequence = _freeList.pop() || new MMLSequence();
+            seq._owner = _owner;
             _sequences.push(seq);
             return seq;
         }

@@ -8,7 +8,6 @@
 package org.si.sound.base {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
     
     
     /** Sound object with single track */
@@ -54,7 +53,7 @@ package org.si.sound.base {
             _data = d;
         }
         
-        /** track. Available only after play(). */
+        /** track. Available only after play(). Returns null when the track is not playing. */
         public function get track() : SiMMLTrack { 
             if (_track && !_track.isActive) _track = null;
             return _track;

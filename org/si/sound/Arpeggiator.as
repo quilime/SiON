@@ -86,26 +86,34 @@ package org.si.sound {
         }
         
         
-        /** Arpeggio pattern */
+        /** Note index array of the arpeggio pattern. If the index is out of range, insert rest instead.*/
         public function set pattern(pat:Array) : void
         {
-            _dataNormal.clear();
-            _dataPort.clear();
-            if (pat) {
-                _arpeggio = Vector.<int>(pat);
-                var i:int, imax:int = pat.length,
-                    seqNormal:MMLSequence = _dataNormal.appendNewSequence(),
-                    seqPort:MMLSequence   = _dataPort.appendNewSequence();
-                _noteEventsNormal.length = imax;
-                _noteEventsPort.length = imax;
-                seqNormal.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
-                seqPort.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
-                for (i=0; i<imax; i++) {
-                    _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.NOTE, scale.getNote(pat[i]), _step);
-                    _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, scale.getNote(pat[i]), 0);
-                    seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
+            if (track) {
+                _dataNormal.clear();
+                _dataPort.clear();
+                if (pat) {
+                    _arpeggio = Vector.<int>(pat);
+                    var i:int, imax:int = pat.length, note:int,
+                        seqNormal:MMLSequence = _dataNormal.appendNewSequence(),
+                        seqPort:MMLSequence   = _dataPort.appendNewSequence();
+                    _noteEventsNormal.length = imax;
+                    _noteEventsPort.length = imax;
+                    seqNormal.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
+                    seqPort.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
+                    for (i=0; i<imax; i++) {
+                        note = scale.getNote(pat[i]);
+                        if (note>=0 && note<128) {
+                            _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.NOTE, note, _step);
+                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, note, 0);
+                            seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
+                        } else {
+                            _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.REST, 0, _step);
+                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.REST, 0, _step);
+                        }
+                    }
+                    _data = (_portament == 0) ? _dataNormal : _dataPort;
                 }
-                _data = (_portament == 0) ? _dataNormal : _dataPort;
             }
         }
         
@@ -139,7 +147,7 @@ package org.si.sound {
         /** Play sound. */
         override public function play() : void { 
             _data = (_portament == 0) ? _dataNormal : _dataPort;
-            sequenceOn(); 
+            sequenceOn();
             var t:SiMMLTrack = track;
             if (t) t.setPortament(_portament);
         }
