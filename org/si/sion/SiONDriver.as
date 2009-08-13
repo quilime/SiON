@@ -1062,6 +1062,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _data = null;
             _mmlString = null;
             _currentJob = 0;
+            _jobProgress = 0;
             _jobQueue.length = 0;
             _queueLength = 0;
             _removeAllEventListners();
@@ -1124,7 +1125,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 if (event.isDefaultPrevented()) _cancelAllJobs();   // canceled
             } catch (e:Error) {
                 // error
-                _removeAllEventListners();
+                _cancelAllJobs();
                 if (_debugMode) throw e;
                 else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
             }

@@ -153,12 +153,6 @@ package org.si.sion.module {
         {
             _ks_seedType = pgType;
             _ks_seedIndex = 0;
-            setAlgorism(1, 0);
-            setFeedBack(0, 0);
-            setSiOPMParameters(48, 48, 0, 63, 15, 0, 0, 0, 1, 0, 0, 0, 0, 0);
-            activeOperator.pgType = SiOPMTable.PG_NOISE_PINK;
-            activeOperator.ptType = SiOPMTable.PT_PCM;
-            setAllReleaseRate(8);
         }
         
         
@@ -232,7 +226,12 @@ package org.si.sion.module {
             _expression = 1;
             
             super.initialize(prev, bufferIndex);
-            setType(0, 0);
+            
+            _ks_seedType = 0;
+            _ks_seedIndex = 0;
+            setSiOPMParameters(48, 48, 0, 63, 15, 0, 0, 0, 1, 0, 0, 0, 0, 0);
+            activeOperator.pgType = SiOPMTable.PG_NOISE_PINK;
+            activeOperator.ptType = SiOPMTable.PT_PCM;
         }
         
         

@@ -206,6 +206,8 @@ package org.si.sion.sequencer {
         
         /** output level = @v * v * x. */
         public function get outputLevel() : Number {
+            var vol:int = channel.masterVolume;
+            if (vol == 0) return _velocity * _expression * 0.000030517578125; // 0.5/(128^2);
             return channel.masterVolume * _velocity * _expression * 4.76837158203125e-7; // 1/(128^3)
         }
         
