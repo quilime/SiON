@@ -1138,12 +1138,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // prepare to compile
         private function _prepareCompile(mml:String, data:SiONData) : void
         {
-            _data = data || new SiONData();
-            _mmlString = mml;
-            sequencer.prepareCompile(_data, _mmlString);
-            _jobProgress = 0.01;
-            _timeCompile = 0; 
-            _currentJob = 1;
+            try {
+                _data = data || new SiONData();
+                _mmlString = mml;
+                sequencer.prepareCompile(_data, _mmlString);
+                _jobProgress = 0.01;
+                _timeCompile = 0; 
+                _currentJob = 1;
+            } catch (e:Error) {
+                // error
+                _cancelAllJobs();
+                if (_debugMode) throw e;
+                else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
+            }
         }
         
         
