@@ -12,7 +12,7 @@ package org.si.sion.sequencer {
     import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.base.MMLExecutor;
-    
+    import org.si.sion.sequencer.base.BeatPerMinutes;
 
     /** Track for SiMMLSequencer. <br/>
      *  There are 2 types of SiMMLTrack. One is "sequence track", and another is "controlable track". 
@@ -32,15 +32,20 @@ package org.si.sion.sequencer {
         /** track id filter */
         static public const TRACK_ID_FILTER:int = 0xffff;
         /** track type filter */
-        static public const TRACK_TYPE_FILTER:int = 0xff0000;
+        static public const TRACK_TYPE_FILTER:int = 0x1ff0000;
+        /** flag to activate always */
+        static public const FLAG_ACTIVE:int = 0x1000000;
         /** MML track id offset */
-        static public const MML_TRACK_ID_OFFSET:int = 0x10000;
+        static public const MML_TRACK_ID_OFFSET:int = 0x1010000;
         /** MIDI track id offset */
         static public const MIDI_TRACK_ID_OFFSET:int = 0x20000;
-        /** driver track id offset */
+        /** driver track id offset for noteOn() */
         static public const DRIVER_NOTE_ID_OFFSET:int = 0x30000;
-        /** driver track id offset */
-        static public const DRIVER_SEQUENCE_ID_OFFSET:int = 0x30000;
+        /** driver track id offset for sequenceOn() */
+        static public const DRIVER_SEQUENCE_ID_OFFSET:int = 0x40000;
+        /** user controlled id offset */
+        static public const USER_CONTROLLED_ID_OFFSET:int = 0x1050000;
+        
         
         // _processMode
         static private const NORMAL  :int = 0;
@@ -86,10 +91,10 @@ package org.si.sion.sequencer {
         private var _eventTriggerTypeOn:int;
         private var _eventTriggerTypeOff:int;
         
-        private var _trackID:int;           // track ID number
+        private var _trackID:int;               // track ID number
 
         // internal use
-        private var _mmlData:MMLData;       // mml data
+        private var _mmlData:SiMMLData;     // mml data
         private var _table:SiMMLTable;      // table
         private var _keyOnCounter:int;      // key on counter
         private var _keyOnLength:int;       // key on length
@@ -180,15 +185,11 @@ package org.si.sion.sequencer {
         /** Stop delay in sample count. Ussualy this returns 0 except after SiONDriver.noteOff. */
         public function get trackStopDelay() : int { return _trackStopDelay; }
         
-        /** Is controlable ? */
-        public function get isControlable() : Boolean { return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET); }
-        
         /** Is activate ? This function always returns true from the MML sequence track. */
-        public function get isActive() : Boolean { return (!isControlable || !channel.isIdling || _keyOnCounter>0 || _trackStartDelay>0); }
+        public function get isActive() : Boolean { return ((Boolean(_trackID & FLAG_ACTIVE)) || !channel.isIdling || _keyOnCounter>0 || _trackStartDelay>0); }
         
         /** Is finish to buffering ? */
         public function get isFinished() : Boolean { return (executor.pointer==null && channel.isIdling && _keyOnCounter==0 && _trackStartDelay==0); }
-        
         
         /** velocity(0-256). linked to operator's total level. */
         public function get velocity()        : int  { return _velocity; }
@@ -212,13 +213,18 @@ package org.si.sion.sequencer {
         }
         
         /** pannning */
-        public function get pan() : int {
-            return channel.pan;
-        }
+        public function get pan() : int { return channel.pan; }
         
         /** program number. this value has no meaning. */
-        public function get programNumber() : int {
-            return _tone;
+        public function get programNumber() : int { return _tone; }
+        
+        /** mml data to play */
+        public function get mmlData() : SiMMLData { return _mmlData; }
+        
+        
+        /** @private [internal use] bpm setting */
+        internal function get _bpmSetting() : BeatPerMinutes { 
+            return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET && _mmlData) ? _mmlData._initialBPM : null;
         }
         
         
@@ -266,7 +272,7 @@ package org.si.sion.sequencer {
             _eventTriggerID = -1;
             _eventTriggerTypeOn = 0;
             _eventTriggerTypeOff = 0;
-            _mmlData = (seq) ? seq._owner : null;
+            _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
             executor.initialize(seq);
             
             return this;
@@ -404,6 +410,7 @@ package org.si.sion.sequencer {
         {
             _trackStartDelay = delay;
             _trackStopDelay = length;
+            _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
             executor.initialize(seq);
             return this;
         }
@@ -698,8 +705,14 @@ package org.si.sion.sequencer {
         /** @private [internal use] prepare buffer */
         internal function prepareBuffer(bufferingTick:int) : int
         {
-            // register tables
-            if (_mmlData) _mmlData._regiterTables();
+            if (_mmlData) {
+                // register tables
+                SiOPMTable.instance.stencilCustomWaveTables = _mmlData.waveTables;
+                SiOPMTable.instance.stencilPCMData          = _mmlData.pcmData;
+                SiOPMTable.instance.stencilSamplerData      = _mmlData.samplerData;
+                SiMMLTable.instance.stencilEnvelops         = _mmlData.envelops;
+                SiMMLTable.instance.stencilVoices           = _mmlData.voices;
+            }
             
             // almost executing this
             if (_trackStartDelay == 0) return bufferingTick;

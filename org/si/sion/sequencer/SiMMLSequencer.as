@@ -51,11 +51,12 @@ package org.si.sion.sequencer {
         
         private var _module:SiOPMModule;                // Module instance
         private var _connector:MMLExecutorConnector;    // MMLExecutorConnector
-        private var _currentTrack:SiMMLTrack;  // Current processing track
+        private var _currentTrack:SiMMLTrack;           // Current processing track
         private var _macroStrings:Vector.<String>;      // Macro strings
         private var _flagMacroExpanded:uint;            // Expanded macro flag to avoid circular reference
         private var _envelopEventID:int;                // Event id of first envelop
         private var _macroExpandDynamic:Boolean;        // Macro expantion mode
+        private var _enableChangeBPM:Boolean;           // internal flag enable to change bpm
         
         private var _p:Vector.<int> = new Vector.<int>(PARAM_MAX);  // temporary area to get plural parameters
         private var _internalTableIndex:int = 0                     // internal table index
@@ -88,6 +89,10 @@ package org.si.sion.sequencer {
 
         /** Is finish executing sequence ? */
         public function get isSequenceFinished() : Boolean { return _isSequenceFinished; }
+        
+        /** Is enable to change BPM ? */
+        public function get isEnableChangeBPM() : Boolean { return _enableChangeBPM; }
+
         
         /** Current working track */
         public function get currentTrack() : SiMMLTrack { return _currentTrack; }
@@ -272,22 +277,6 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Find track except for mml sequencer track by trackID and note. 
-         *  @param trackID Search Tracks ID.
-         *  @param trackID Search note number. The value of -1 hits all tracks.
-         *  @return found track instance. Returns null when didnt find.
-         */
-        public function findControlableTrack(trackID:int, note:int=-1) : SiMMLTrack
-        {
-            var i:int, trk:SiMMLTrack;
-            for (i=tracks.length-1; i>=0; i--) {
-                trk = tracks[i];
-                if (trk.trackID == trackID && (note == -1 || (note == trk.note && trk.channel.isNoteOn()))) return trk;
-            }
-            return null;
-        }
-        
-        
         /** Get free controlable track.
          *  @param trackID New Tracks ID.
          *  @return Returns null when there are no free tracks.
@@ -319,7 +308,7 @@ package org.si.sion.sequencer {
         private function _initializeTrack(track:SiMMLTrack, trackID:int) : SiMMLTrack
         {
             track._initialize(null, 60, (trackID>=0) ? trackID : 0, _eventTriggerOn, _eventTriggerOff);
-            track.reset(0);
+            track.reset(globalBufferIndex);
             
             track.velocity   = setting.defaultVolume<<3;
             track.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
@@ -359,6 +348,7 @@ package org.si.sion.sequencer {
             // initialize all channels
             freeAllTracks();
             _processedSampleCount = 0;
+            _enableChangeBPM = true;
             
             // call super function (set mmlData/grobalSequence/defaultBPM inside)
             super.prepareProcess(data, sampleRate, bufferLength);
@@ -385,24 +375,27 @@ package org.si.sion.sequencer {
         /** Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess(). */
         override public function process() : void
         {
-            var i:int, bufferingTick:int, len:int, trk:SiMMLTrack;
+            var i:int, bufferingTick:int, len:int, trk:SiMMLTrack, data:SiMMLData;
             
             // prepare buffering
-            for each (trk in tracks) trk.channel.prepareBuffer();
+            for each (trk in tracks) trk.channel.resetChannelBufferStatus();
 
             // clear all buffers
             _module.clearAllBuffers();
-            
+
             // buffering
             _isSequenceFinished = true;
             startGlobalSequence();
             do {
                 bufferingTick = executeGlobalSequence();
+                _enableChangeBPM = false;
                 for each (trk in tracks) {
                     _currentTrack = trk;
                     len = trk.prepareBuffer(bufferingTick);
+                    _bpm = trk._bpmSetting ||  _changableBPM;
                     _isSequenceFinished = processMMLExecutor(trk.executor, len) && _isSequenceFinished;
                 }
+                _enableChangeBPM = true;
             } while (!isEndGlobalSequence());
             _currentTrack = null;
             
@@ -415,7 +408,7 @@ package org.si.sion.sequencer {
          */
         public function dummyProcess(sampleCount:int) : void
         {
-            var i:int, bufferingTick:int, len:int, count:int, trk:SiMMLTrack,
+            var i:int, bufferingTick:int, len:int, count:int, trk:SiMMLTrack, data:SiMMLData,
                 bufCount:int = sampleCount / _module.bufferLength;
             
             if (bufCount == 0) return;
@@ -425,7 +418,7 @@ package org.si.sion.sequencer {
             
             for (count=0; count<bufCount; count++) {
                 // prepare buffering
-                for each (trk in tracks) trk.channel.prepareBuffer();
+                for each (trk in tracks) trk.channel.resetChannelBufferStatus();
                 
                 // buffering
                 startGlobalSequence();
@@ -434,6 +427,7 @@ package org.si.sion.sequencer {
                     for each (trk in tracks) {
                         _currentTrack = trk;
                         len = trk.prepareBuffer(bufferingTick);
+                        _bpm = trk._bpmSetting || _changableBPM;
                         processMMLExecutor(trk.executor, len);
                     }
                 } while (!isEndGlobalSequence());
@@ -453,7 +447,7 @@ package org.si.sion.sequencer {
          *  @param beat16 The beat number in 16th calculating from.
          */
         public function calcSampleLength(beat16:Number) : Number {
-            return beat16 * sampleParBeat16;
+            return beat16 * _bpm.sampleParBeat16;
         }
         
         
@@ -463,10 +457,10 @@ package org.si.sion.sequencer {
          *  @param quant Quantizing beat in 16th. The 0 sets no quantization, 1 sets quantization by 16th, 4 sets quantization by 4th beat.
          */
         public function calcSampleDelay(sampleOffset:int=0, beat16Offset:Number=0, quant:Number=0) : Number {
-            if (quant == 0) return sampleOffset + beat16Offset * sampleParBeat16;
-            var iBeats:int = int(sampleOffset * beat16ParSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
+            if (quant == 0) return sampleOffset + beat16Offset * _bpm.sampleParBeat16;
+            var iBeats:int = int(sampleOffset * _bpm.beat16ParSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
             if (quant != 1) iBeats = (int((iBeats+quant-1) / quant)) * quant;
-            return (iBeats - globalBeat16) * sampleParBeat16;
+            return (iBeats - globalBeat16) * _bpm.sampleParBeat16;
         }
         
         
@@ -611,7 +605,7 @@ package org.si.sion.sequencer {
         override protected function onTempoChanged(changingRatio:Number) : void
         {
             for each (var trk:SiMMLTrack in tracks) {
-                trk.executor._onTempoChanged(changingRatio);
+                if (trk._bpmSetting == null) trk.executor._onTempoChanged(changingRatio);
             }
             if (_callbackTempoChanged != null) _callbackTempoChanged(globalBufferIndex);
         }

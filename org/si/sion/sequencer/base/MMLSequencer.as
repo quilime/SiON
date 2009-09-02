@@ -22,9 +22,9 @@ package org.si.sion.sequencer.base {
     // constant
     //--------------------------------------------------
         /** bits for fixed decimal */
-        protected const FIXED_BITS:int = 8;
+        internal static const FIXED_BITS:int = 8;
         /** filter for decimal fraction area */
-        protected const FIXED_FILTER:int = (1<<FIXED_BITS)-1;
+        internal static const FIXED_FILTER:int = (1<<FIXED_BITS)-1;
         
         
         
@@ -42,15 +42,15 @@ package org.si.sion.sequencer.base {
         protected var currentExecutor:MMLExecutor; 
         /** Current MMLData to compile or process */
         protected var mmlData:MMLData;
+        /** changable beat per minutes */
+        protected var _changableBPM:BeatPerMinutes;
+        /** beat per minutes */
+        protected var _bpm:BeatPerMinutes;
         
         /** buffer index for global sequence */
         protected var globalBufferIndex:int;
         /** beat counter in 16th */
         protected var globalBeat16:Number;
-        /** 16th beat par sample */
-        protected var beat16ParSample:Number;
-        /** sample par 16th beat */
-        protected var sampleParBeat16:Number;
         /** filter for onBeat() callback. 0=16th beat, 1=8th beat, 3=4th beat, 7=2dn beat, 15=whole tone ...*/
         protected var _onBeatCallbackFilter:int;
 
@@ -64,8 +64,6 @@ package org.si.sion.sequencer.base {
         private var _globalBufferSampleCount:int;   // leftover of buffer sample count in global sequence
         private var _globalExecuteSampleCount:int;  // executing buffer length in global sequence
         
-        private var _bpm:Number;                    // beat per minute
-        private var _samplePerTick:int;             // samples per tick << FIXED_BITS
         private var _bufferLength:int;              // buffering length
         
         
@@ -73,17 +71,15 @@ package org.si.sion.sequencer.base {
     // properties
     //--------------------------------------------------
         /** beat per minute. */
-        public function set bpm(b:Number) : void
-        {
-            if (b<1) b=1;
-            else if (b>511) b=511;
-            _samplePerTick = int((sampleRate * 240 / (setting.resolution * b)) * (1<<FIXED_BITS));
-            beat16ParSample = b / (sampleRate * 15); // 60/4
-            sampleParBeat16 = 1 / beat16ParSample;
-            onTempoChanged(_bpm/b);
-            _bpm = b;
+        public function get bpm() : Number { 
+            return _changableBPM.bpm;
         }
-        public function get bpm() : Number { return _bpm; }
+        public function set bpm(newValue:Number) : void { 
+            var oldValue:Number=_changableBPM.bpm;
+            if (_changableBPM.update(newValue, sampleRate)) {
+                onTempoChanged(oldValue/newValue);
+            }
+        }
                 
         
         
@@ -109,6 +105,8 @@ package org.si.sion.sequencer.base {
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
             
+            _changableBPM = new BeatPerMinutes(120, 44100);
+            _bpm = _changableBPM;
             globalExecutor = new MMLExecutor();
             
             // 3 : callback every 4 beat
@@ -234,13 +232,14 @@ package org.si.sion.sequencer.base {
             this.sampleRate = sampleRate;
             _bufferLength = bufferLength;
             if (mmlData == null) {
-                bpm = setting.defaultBPM;
+                _changableBPM.update(setting.defaultBPM, sampleRate);
                 globalExecutor.initialize(null);
             } else {
-                bpm = mmlData.defaultBPM;
+                _changableBPM.update(mmlData._initialBPM.bpm, sampleRate);
                 globalExecutor.initialize(mmlData.globalSequence);
-                mmlData._regiterTables();
+                //mmlData._regiterTables(); /**/
             }
+            _bpm = _changableBPM;
             globalBufferIndex = 0;
             globalBeat16 = 0;
         }
@@ -294,15 +293,19 @@ package org.si.sion.sequencer.base {
             var prevBeat:Number = globalBeat16,
                 floorPrevBeat:int = int(prevBeat);
             globalBufferIndex += _globalExecuteSampleCount;
-            globalBeat16 += _globalExecuteSampleCount * beat16ParSample;
+            globalBeat16 += _globalExecuteSampleCount * _bpm.beat16ParSample;
             var floorCurrBeat:int = int(globalBeat16); 
             while (floorPrevBeat < floorCurrBeat) {
                 floorPrevBeat++;
                 if ((floorPrevBeat & _onBeatCallbackFilter) == 0) {
-                    onBeat((floorPrevBeat - prevBeat) * sampleParBeat16, floorPrevBeat);
+                    onBeat((floorPrevBeat - prevBeat) * _bpm.sampleParBeat16, floorPrevBeat);
                 }
             }
-            return (_globalBufferSampleCount == 0);
+            if (_globalBufferSampleCount == 0) {
+                globalBufferIndex = 0;
+                return true;
+            }
+            return false;
         }
         
 
@@ -339,7 +342,7 @@ package org.si.sion.sequencer.base {
         /** @private [internal use] Calculate sample count from length of MMLEvent. */
         protected function calcSampleCount(len:int) : int
         {
-            return (len * _samplePerTick) >> FIXED_BITS;
+            return (len * _bpm._samplePerTick) >> FIXED_BITS;
         }
         
         
@@ -488,10 +491,10 @@ package org.si.sion.sequencer.base {
             seq.alloc();
             list = list.sortOn(length, Array.NUMERIC);
             pos = 0;
-            defaultBPM = setting.defaultBPM;
+            defaultBPM = 0;
             for each (e in list) {
                 if (e.length == 0 && e.id == MMLEvent.TEMPO) {
-                    // first tempo command is defaultBPM.
+                    // first tempo command is default bpm.
                     defaultBPM = e.data;
                 } else {
                     count = e.length - pos;
@@ -504,7 +507,9 @@ package org.si.sion.sequencer.base {
 //trace(seq);
             
             // set default bpm in mmlData
-            mmlData.defaultBPM = defaultBPM;
+            if (defaultBPM > 0) {
+                mmlData._initialBPM = new BeatPerMinutes(defaultBPM, 44100, setting.resolution);
+            }
         }
         
         
@@ -533,7 +538,7 @@ package org.si.sion.sequencer.base {
             
             // set processing length
             if (exec._residueSampleCount == 0) {
-                var sampleCountFixed:int = e.length * _samplePerTick + exec._decimalFractionSampleCount;
+                var sampleCountFixed:int = e.length * _bpm._samplePerTick + exec._decimalFractionSampleCount;
                 exec._residueSampleCount = sampleCountFixed >> FIXED_BITS;
                 exec._decimalFractionSampleCount = sampleCountFixed & FIXED_FILTER;
             }
@@ -562,7 +567,7 @@ package org.si.sion.sequencer.base {
             
             // set processing length
             if (exec._residueSampleCount == 0) {
-                var sampleCountFixed:int = e.length * _samplePerTick + exec._decimalFractionSampleCount;
+                var sampleCountFixed:int = e.length * _bpm._samplePerTick + exec._decimalFractionSampleCount;
                 exec._residueSampleCount = sampleCountFixed >> FIXED_BITS;
                 exec._decimalFractionSampleCount = sampleCountFixed & FIXED_FILTER;
             }
@@ -591,7 +596,7 @@ package org.si.sion.sequencer.base {
             
             // set processing length
             if (exec._residueSampleCount == 0) {
-                var sampleCountFixed:int = e.length * _samplePerTick + exec._decimalFractionSampleCount;
+                var sampleCountFixed:int = e.length * _bpm._samplePerTick + exec._decimalFractionSampleCount;
                 exec._residueSampleCount = sampleCountFixed >> FIXED_BITS;
                 exec._decimalFractionSampleCount = sampleCountFixed & FIXED_FILTER;
             }

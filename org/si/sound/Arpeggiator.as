@@ -26,6 +26,8 @@ package org.si.sound {
         protected var _noteEventsNormal:Vector.<MMLEvent>;
         /** Note events in the sequence with portament */
         protected var _noteEventsPort:Vector.<MMLEvent>;
+        /** Slur events in the sequence with portament */
+        protected var _slurEventsPort:Vector.<MMLEvent>;
         /** Note length */
         protected var _step:int;
         /** Data for normal arpeggio */
@@ -81,7 +83,7 @@ package org.si.sound {
             var i:int, imax:int = _noteEventsNormal.length;
             for (i=0; i<imax; i++) {
                 _noteEventsNormal[i].length = _step;
-                _noteEventsPort[i].length   = _step;
+                _slurEventsPort[i].length   = _step;
             }
         }
         
@@ -89,27 +91,30 @@ package org.si.sound {
         /** Note index array of the arpeggio pattern. If the index is out of range, insert rest instead.*/
         public function set pattern(pat:Array) : void
         {
-            if (track) {
+            if (!track) {
                 _dataNormal.clear();
                 _dataPort.clear();
                 if (pat) {
                     _arpeggio = Vector.<int>(pat);
-                    var i:int, imax:int = pat.length, note:int,
+                    var i:int, imax:int = pat.length, note:int = 60, 
                         seqNormal:MMLSequence = _dataNormal.appendNewSequence(),
                         seqPort:MMLSequence   = _dataPort.appendNewSequence();
                     _noteEventsNormal.length = imax;
                     _noteEventsPort.length = imax;
+                    _slurEventsPort.length = imax;
                     seqNormal.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
                     seqPort.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
                     for (i=0; i<imax; i++) {
-                        note = scale.getNote(pat[i]);
-                        if (note>=0 && note<128) {
+                        var newNote:int = scale.getNote(pat[i]);
+                        if (newNote>=0 && newNote<128) {
+                            note = newNote;
                             _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.NOTE, note, _step);
                             _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, note, 0);
-                            seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
+                            _slurEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
                         } else {
                             _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.REST, 0, _step);
-                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.REST, 0, _step);
+                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, note, 0);
+                            _slurEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
                         }
                     }
                     _data = (_portament == 0) ? _dataNormal : _dataPort;
@@ -134,6 +139,7 @@ package org.si.sound {
             _dataPort = new SiONData();
             _noteEventsNormal = new Vector.<MMLEvent>();
             _noteEventsPort = new Vector.<MMLEvent>();
+            _slurEventsPort = new Vector.<MMLEvent>();
             this.noteLength = noteLength;
             this.pattern = pattern;
             _portament = 0;

@@ -88,11 +88,16 @@ package org.si.midi {
          */
         public function noteOff(trackNumber:int, note:int) : SiMMLTrack
         {
-            var trackID:int = (trackNumber & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.MIDI_TRACK_ID_OFFSET,
-                midiTrack:SiMIDITrack = tracks[trackNumber],
-                seqTrack:SiMMLTrack = _sequencer.findControlableTrack(trackID, note);
-            if (seqTrack) seqTrack.keyOff();
-            return seqTrack;
+            var trackID:int = (trackNumber & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.MIDI_TRACK_ID_OFFSET;
+            for each (var mmlTrack:SiMMLTrack in _sequencer.tracks) {
+                if (mmlTrack.trackID == trackID) {
+                    if (note == -1 || (note == mmlTrack.note && mmlTrack.channel.isNoteOn())) {
+                        mmlTrack.keyOff(0);
+                        return mmlTrack;
+                    }
+                }
+            }
+            return null;
         }
         
         

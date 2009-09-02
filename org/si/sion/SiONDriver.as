@@ -53,7 +53,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.6";
+        static public const VERSION:String = "0.5.7";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -92,18 +92,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // private:
-        private var _data:SiONData;             // data to compile or process
-        private var _tempData:SiONData;         // temporary data
-        private var _mmlString:String;          // mml string of previous compiling
-        private var _sound:Sound;               // sound stream instance
+        //----- general
+        private var _data:SiONData;         // data to compile or process
+        private var _tempData:SiONData;     // temporary data
+        private var _mmlString:String;      // mml string of previous compiling
+        //----- sound related
+        private var _sound:Sound;                   // sound stream instance
         private var _soundChannel:SoundChannel;     // sound channel instance
         private var _soundTransform:SoundTransform; // sound transform
         private var _fader:Fader;                   // sound fader
-
-        private var _backgroundSound:Sound;      // background Sound
-        private var _backgroundLevel:Number;     // background Sound mixing level
-        private var _backgroundBuffer:ByteArray; // buffer for background Sound
-        
+        //----- SiOPM module related
         private var _channelCount:int;          // module output channels (1 or 2)
         private var _sampleRate:int;            // module output frequency ratio (44100 or 22050)
         private var _bitRate:int;               // module output bitrate (0 or 8 or 16)
@@ -111,33 +109,37 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _debugMode:Boolean;         // true; throw Error, false; throw ErrorEvent
         private var _dispatchStreamEvent:Boolean; // dispatch steam event
         private var _dispatchFadingEvent:Boolean; // dispatch fading event
-        private var _cannotChangeBPM:Boolean;     // internal flag not to change bpm
         private var _inStreaming:Boolean;         // in streaming
         private var _preserveStop:Boolean;        // preserve stop after streaming
         private var _isFinishSeqDispatched:Boolean; // FINISH_SEQUENCE event already dispacthed
-
-        private var _queueInterval:int;         // interupting interval to execute queued jobs
-        private var _queueLength:int;           // queue length to execute
-        private var _jobProgress:Number;        // progression of current job
-        private var _currentJob:int;            // current job 0=no job, 1=compile, 2=render
-        
+        //----- operation related
         private var _autoStop:Boolean;          // auto stop when the sequence finished
-        private var _noteOnExceptionMode:int;  // track id exception mode
+        private var _noteOnExceptionMode:int;   // track id exception mode
         private var _isPaused:Boolean;          // flag to pause
         private var _position:Number;           // start position [ms]
         private var _masterVolume:Number;       // master volume
         private var _faderVolume:Number;        // fader volume
-        
-        private var _trackEventQueue:Vector.<SiONTrackEvent>;
-        private var _timerSequence:MMLSequence;
-        private var _timerIntervalEvent:MMLEvent;
-        private var _timerCallback:Function;
-        
+        //----- background sound
+        private var _backgroundSound:Sound;      // background Sound
+        private var _backgroundLevel:Number;     // background Sound mixing level
+        private var _backgroundBuffer:ByteArray; // buffer for background Sound
+        //----- queue
+        private var _queueInterval:int;         // interupting interval to execute queued jobs
+        private var _queueLength:int;           // queue length to execute
+        private var _jobProgress:Number;        // progression of current job
+        private var _currentJob:int;            // current job 0=no job, 1=compile, 2=render
+        private var _jobQueue:Vector.<SiONDriverJob> = null;   // compiling/rendering jobs queue
+        private var _trackEventQueue:Vector.<SiONTrackEvent>;  // SiONTrackEvents queue
+        //----- timer interruption
+        private var _timerSequence:MMLSequence;     // global sequence
+        private var _timerIntervalEvent:MMLEvent;   // MMLEvent.WAIT event
+        private var _timerCallback:Function;        // callback function
+        //----- rendering
         private var _renderBuffer:Vector.<Number>;  // rendering buffer
         private var _renderBufferChannelCount:int;  // rendering buffer channel count
         private var _renderBufferIndex:int;         // rendering buffer writing index
         private var _renderBufferSizeMax:int;       // maximum value of rendering buffer size
-        
+        //----- timers
         private var _timeCompile:int;           // previous compiling time.
         private var _timeRender:int;            // previous rendering time.
         private var _timeProcess:int;           // averge processing time in 1sec.
@@ -148,12 +150,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _latency:Number;            // streaming latency [ms]
         private var _prevFrameTime:int;         // previous frame time
         private var _frameRate:int;             // frame rate
-        
+        //----- listeners management
         private var _eventListenerPrior:int;    // event listeners priority
         private var _listenEvent:int;           // current lintening event
         
-        private var _jobQueue:Vector.<SiONDriverJob> = null;   // compiling/rendering jobs queue
-        
+        // mutex instance
         static private var _mutex:SiONDriver = null;     // unique instance
         
         
@@ -261,7 +262,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         public function set bpm(t:Number) : void {
             if (sequencer.isReadyToProcess) {
-                if (_cannotChangeBPM) throw errorCannotChangeBPM();
+                if (sequencer.isEnableChangeBPM) throw errorCannotChangeBPM();
                 sequencer.bpm = t;
             } else {
                 sequencer.setting.defaultBPM = t;
@@ -321,7 +322,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _listenEvent = NO_LISTEN;
             _dispatchStreamEvent = false;
             _dispatchFadingEvent = false;
-            _cannotChangeBPM = false;
             _preserveStop = false;
             _inStreaming = false;
             _autoStop = false;
@@ -494,12 +494,20 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function startQueue(interval:int=500) : int
         {
-            stop();
-            _queueLength = _jobQueue.length;
-            if (_jobQueue.length > 0) {
-                _queueInterval = interval;
-                _executeNextJob();
-                _queue_addAllEventListners();
+            try {
+                stop();
+                _queueLength = _jobQueue.length;
+                if (_jobQueue.length > 0) {
+                    _queueInterval = interval;
+                    _executeNextJob();
+                    _queue_addAllEventListners();
+                }
+            } catch (e:Error) {
+                // error
+                _removeAllEventListners();
+                _cancelAllJobs();
+                if (_debugMode) throw e;
+                else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
             }
             return _queueLength;
         }
@@ -676,7 +684,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Set PCM data rederd from %7.
+        /** Set PCM data rederd by %7.
          *  @param index PCM data number.
          *  @param data Vector.<Number> wave data. This type ussualy comes from render().
          *  @param isDataStereo Flag that the wave data is stereo or monoral.
@@ -690,7 +698,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Set PCM sound rederd from %7.
+        /** Set PCM sound rederd by %7.
          *  @param index PCM data number.
          *  @param sound Sound instance to set.
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
@@ -818,7 +826,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Note on. This function only is available after play(). The NOTE_ON_STREAM event is dispatched inside.
          *  @param note note number [0-127].
-         *  @param voice SiONVoice to play note. You can spqcify null, but it sets only a default square wave.
+         *  @param voice SiONVoice to play note. You can specify null, but it sets only a default square wave.
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
@@ -826,7 +834,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param eventTriggerID Event trigger id.
          *  @param noteOnTrigger note on trigger type.
          *  @param noteOffTrigger note off trigger type.
-         *  @return SiMMLTrack to play the note.
+         *  @return SiMMLTrack to play the note. Returns null when tracks are overflowed.
          */
         public function noteOn(note:int, 
                                voice:SiONVoice    = null, 
@@ -871,15 +879,22 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID track id to note off.
          *  @param delay note off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @return The SiMMLTrack switched key off. Returns null when tracks are overflowed.
+         *  @return All SiMMLTracks switched key off.
          */
-        public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0) : SiMMLTrack
+        public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0) : Vector.<SiMMLTrack>
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
-            var mmlTrack:SiMMLTrack = sequencer.findControlableTrack(trackID, note),
-                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant);
-            if (mmlTrack) mmlTrack.keyOff(delaySamples);
-            return mmlTrack;
+            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), 
+                tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
+            for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
+                if (mmlTrack.trackID == trackID) {
+                    if (note == -1 || (note == mmlTrack.note && mmlTrack.channel.isNoteOn())) {
+                        mmlTrack.keyOff(delaySamples);
+                        tracks.push(mmlTrack);
+                    }
+                }
+            }
+            return tracks;
         }
         
         
@@ -890,18 +905,18 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
-         *  @return SiMMLTrack of the last sequence channel.
+         *  @return list of SiMMLTracks to play sequence.
          */
         public function sequenceOn(data:SiONData, 
                                    voice:SiONVoice  = null, 
                                    length:Number    = 0, 
                                    delay:Number     = 0, 
                                    quant:Number     = 1, 
-                                   trackID:int      = 0) : SiMMLTrack
+                                   trackID:int      = 0) : Vector.<SiMMLTrack>
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
             // create new sequence tracks
-            var mmlTrack:SiMMLTrack, 
+            var mmlTrack:SiMMLTrack, tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>(), 
                 seq:MMLSequence = data.sequenceGroup.headSequence, 
                 delaySamples:int = sequencer.calcSampleDelay(0, delay, quant),
                 lengthSamples:int = sequencer.calcSampleLength(length);
@@ -909,9 +924,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 mmlTrack = sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
                 mmlTrack.sequenceOn(seq, delaySamples, lengthSamples);
                 if (voice) voice.setTrackVoice(mmlTrack);
+                tracks.push(mmlTrack);
                 seq = seq.nextSequence;
             }
-            return mmlTrack;
+            return tracks;
         }
         
         
@@ -919,19 +935,30 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID tracks id to stop.
          *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @return SiMMLTrack of the last stopped channel.
+         *  @return list of SiMMLTracks stopped to play sequence.
          */
-        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : SiMMLTrack
+        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : Vector.<SiMMLTrack>
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
-            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null;
+            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null,
+                tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
                 if (mmlTrack.trackID == trackID) {
                     mmlTrack.sequenceOff(delaySamples);
-                    stoppedTrack = mmlTrack;
+                    tracks.push(mmlTrack);
                 }
             }
-            return stoppedTrack;
+            return tracks;
+        }
+        
+        
+        /** Create new user controlable track.
+         *  @param new tracks id.
+         */
+        public function newUserControlableTrack(trackID:int=0) : SiMMLTrack
+        {
+            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.USER_CONTROLLED_ID_OFFSET;
+            return sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
         }
         
         
@@ -1125,6 +1152,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 if (event.isDefaultPrevented()) _cancelAllJobs();   // canceled
             } catch (e:Error) {
                 // error
+                _removeAllEventListners();
                 _cancelAllJobs();
                 if (_debugMode) throw e;
                 else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
@@ -1138,19 +1166,12 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // prepare to compile
         private function _prepareCompile(mml:String, data:SiONData) : void
         {
-            try {
-                _data = data || new SiONData();
-                _mmlString = mml;
-                sequencer.prepareCompile(_data, _mmlString);
-                _jobProgress = 0.01;
-                _timeCompile = 0; 
-                _currentJob = 1;
-            } catch (e:Error) {
-                // error
-                _cancelAllJobs();
-                if (_debugMode) throw e;
-                else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
-            }
+            _data = data || new SiONData();
+            _mmlString = mml;
+            sequencer.prepareCompile(_data, _mmlString);
+            _jobProgress = 0.01;
+            _timeCompile = 0; 
+            _currentJob = 1;
         }
         
         
@@ -1291,11 +1312,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 } else {
                     var t:int = getTimer();
                     // processing
-                    _cannotChangeBPM = true;
                     sequencer.process();
                     effector.process();
                     module.limitLevel();
-                    _cannotChangeBPM = false;
                     
                     // calculate the average of processing time
                     _timePrevStream = t;

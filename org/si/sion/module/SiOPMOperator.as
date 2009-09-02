@@ -692,7 +692,6 @@ package org.si.sion.module {
                     r = (_dr) ? (_dr + _eg_key_scale_rate) : 96;
                     _eg_incTable = _table.eg_incTables[_table.eg_tableSelector[r]];
                     _eg_timer_step = _table.eg_timerSteps[r];
-                    
                     break;
                 }
                 // fail through

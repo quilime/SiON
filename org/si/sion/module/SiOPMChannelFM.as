@@ -519,7 +519,7 @@ package org.si.sion.module {
         
         
         /** Prepare buffering */
-        override public function prepareBuffer() : void
+        override public function resetChannelBufferStatus() : void
         {
             _bufferIndex = 0;
             

@@ -142,13 +142,17 @@ package org.si.sound.base {
         public function sequenceOn() : void
         {
             var oldTrack:SiMMLTrack = track;
-            _track = driver.sequenceOn(_data, voice, _length, _delay, _quantize, _trackID);
-            if (_track) {
-                if (oldTrack) oldTrack.sequenceOff(_track.trackStartDelay-8);
+            var tracks:Vector.<SiMMLTrack> = driver.sequenceOn(_data, voice, _length, _delay, _quantize, _trackID);
+            if (tracks.length > 0) {
+                _track = tracks[0];
+                if (oldTrack) oldTrack.sequenceOff(_track.trackStartDelay-1);
                 _track.channel.pan = _totalPan;
                 _track.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
                 _track.quantRatio = _noteQuantize * 0.125;
                 _track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+            } else {
+                _track = null;
+                if (oldTrack) oldTrack.sequenceOff(0);
             }
         }
         

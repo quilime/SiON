@@ -17,9 +17,9 @@ package org.si.sion.sequencer {
     // valiables
     //----------------------------------------
         /** envelop tables */
-        protected var _envelops:Vector.<SiMMLEnvelopTable>;
+        public var envelops:Vector.<SiMMLEnvelopTable>;
         /** voice data */
-        protected var _voices:Vector.<SiMMLVoice>;
+        public var voices:Vector.<SiMMLVoice>;
         
         
         
@@ -29,8 +29,8 @@ package org.si.sion.sequencer {
         /** constructor. */
         function SiMMLData()
         {
-            _envelops = new Vector.<SiMMLEnvelopTable>(SiMMLTable.ENV_TABLE_MAX);
-            _voices   = new Vector.<SiMMLVoice>(SiMMLTable.VOICE_MAX);
+            envelops = new Vector.<SiMMLEnvelopTable>(SiMMLTable.ENV_TABLE_MAX);
+            voices   = new Vector.<SiMMLVoice>(SiMMLTable.VOICE_MAX);
         }
         
         
@@ -43,10 +43,10 @@ package org.si.sion.sequencer {
         {
             super.clear();
             var i:int, imax:int;
-            imax = _envelops.length;
-            for (i=0; i<imax; i++) _envelops[i] = null;
-            imax = _voices.length;
-            for (i=0; i<imax; i++) _voices[i] = null;
+            imax = envelops.length;
+            for (i=0; i<imax; i++) envelops[i] = null;
+            imax = voices.length;
+            for (i=0; i<imax; i++) voices[i] = null;
         }
         
         
@@ -56,7 +56,7 @@ package org.si.sion.sequencer {
          */
         public function setEnvelopTable(index:int, envelop:SiMMLEnvelopTable) : void
         {
-            if (index >= 0 && index < SiMMLTable.ENV_TABLE_MAX) _envelops[index] = envelop;
+            if (index >= 0 && index < SiMMLTable.ENV_TABLE_MAX) envelops[index] = envelop;
         }
         
         
@@ -68,7 +68,7 @@ package org.si.sion.sequencer {
         {
             if (index >= 0 && index < SiMMLTable.VOICE_MAX) {
                 if (!voice._isSuitableForFMVoice) throw errorNotGoodFMVoice();
-                 _voices[index] = voice;
+                 voices[index] = voice;
             }
         }
         
@@ -77,21 +77,12 @@ package org.si.sion.sequencer {
         
     // internal function
     //--------------------------------------------------
-        /** @private [internal use] Register all tables before processing audio. */
-        override public function _regiterTables() : void
-        {
-            super._regiterTables();
-            SiMMLTable.instance.stencilEnvelops = _envelops;
-            SiMMLTable.instance.stencilVoices   = _voices;
-        }
-        
-        
         /** @private [internal use] Set envelop table data */
         internal function _setEnvelopTable(index:int, head:SLLint, tail:SLLint) : void
         {
             var t:SiMMLEnvelopTable = new SiMMLEnvelopTable();
             t._initialize(head, tail);
-            _envelops[index] = t;
+            envelops[index] = t;
         }
         
         
@@ -100,7 +91,7 @@ package org.si.sion.sequencer {
         {
             var v:SiMMLVoice = new SiMMLVoice();
             v.channelParam = new SiOPMChannelParam();
-            _voices[index] = v;
+            voices[index] = v;
             return v.channelParam;
         }
         

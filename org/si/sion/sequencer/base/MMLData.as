@@ -21,14 +21,14 @@ package org.si.sion.sequencer.base {
         /** Global sequence */
         public var globalSequence:MMLSequence;
         
-        /** default BPM */
-        public var defaultBPM:int;
         /** default FPS */
         public var defaultFPS:int;
         /** Title */
         public var title:String;
         /** Author */
         public var author:String;
+        /** @private [internal use] default BPM */
+        public var _initialBPM:BeatPerMinutes;
         
         /** wave tables */
         public var waveTables:Vector.<SiOPMWaveTable>;
@@ -51,7 +51,10 @@ package org.si.sion.sequencer.base {
         
     // properties
     //--------------------------------------------------
-        
+        /** Beat per minutes. Returns 0 when there are no bpm definitions. */
+        public function get bpm() : Number {
+            return (_initialBPM) ? _initialBPM.bpm : 0;
+        }
         
         
         
@@ -62,7 +65,7 @@ package org.si.sion.sequencer.base {
             sequenceGroup = new MMLSequenceGroup(this);
             globalSequence = new MMLSequence();
             
-            defaultBPM = 120;
+            _initialBPM = null;
             defaultFPS = 60;
             title = "";
             author = "";
@@ -86,7 +89,7 @@ package org.si.sion.sequencer.base {
             sequenceGroup.free();
             globalSequence.free();
             
-            defaultBPM = 120;
+            _initialBPM = null;
             defaultFPS = 60;
             title = "";
             author = "";
@@ -181,19 +184,6 @@ package org.si.sion.sequencer.base {
             index &= SiOPMTable.SAMPLER_DATA_MAX-1;
             samplerData[index] = new SiOPMSamplerData(data, isOneShot, channelCount);
             return samplerData[index];
-        }
-        
-        
-        
-        
-    // internal function
-    //--------------------------------------------------
-        /** @private [internal use] Register all tables before processing audio. */
-        public function _regiterTables() : void
-        {
-            SiOPMTable.instance.stencilCustomWaveTables = waveTables;
-            SiOPMTable.instance.stencilPCMData          = pcmData;
-            SiOPMTable.instance.stencilSamplerData      = samplerData;
         }
     }
 }

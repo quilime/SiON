@@ -473,8 +473,8 @@ package org.si.sion.module {
         
     // processing
     //--------------------------------------------------
-        /** Prepare buffering */
-        public function prepareBuffer() : void
+        /** reset channel buffering status */
+        public function resetChannelBufferStatus() : void
         {
             _bufferIndex = 0;
         }
