@@ -626,6 +626,7 @@ package org.si.sion.sequencer {
         
         
         
+        
     // sub routines for parser
     //--------------------------------------------------
         // Reset parser parameters.

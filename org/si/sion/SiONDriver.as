@@ -261,11 +261,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             return (sequencer.isReadyToProcess) ? sequencer.bpm : sequencer.setting.defaultBPM;
         }
         public function set bpm(t:Number) : void {
+            sequencer.setting.defaultBPM = t;
             if (sequencer.isReadyToProcess) {
-                if (sequencer.isEnableChangeBPM) throw errorCannotChangeBPM();
+                if (!sequencer.isEnableChangeBPM) throw errorCannotChangeBPM();
                 sequencer.bpm = t;
-            } else {
-                sequencer.setting.defaultBPM = t;
             }
         }
         

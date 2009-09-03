@@ -75,7 +75,7 @@ package org.si.sion.sequencer.base {
             return _changableBPM.bpm;
         }
         public function set bpm(newValue:Number) : void { 
-            var oldValue:Number=_changableBPM.bpm;
+            var oldValue:Number = _changableBPM.bpm;
             if (_changableBPM.update(newValue, sampleRate)) {
                 onTempoChanged(oldValue/newValue);
             }
@@ -237,7 +237,6 @@ package org.si.sion.sequencer.base {
             } else {
                 _changableBPM.update(mmlData._initialBPM.bpm, sampleRate);
                 globalExecutor.initialize(mmlData.globalSequence);
-                //mmlData._regiterTables(); /**/
             }
             _bpm = _changableBPM;
             globalBufferIndex = 0;
@@ -424,7 +423,7 @@ package org.si.sion.sequencer.base {
             var seqGroup:MMLSequenceGroup = mmlData.sequenceGroup;
             
             var list:Array = [];
-            var seq:MMLSequence, prev:MMLEvent, e:MMLEvent, pos:int, count:int, hasNoEvent:Boolean, i:int, defaultBPM:int;
+            var seq:MMLSequence, prev:MMLEvent, e:MMLEvent, pos:int, count:int, hasNoEvent:Boolean, i:int, initialBPM:int;
             
             for (seq = seqGroup.headSequence; seq != null; seq = seq.nextSequence) {
                 count = seq.headEvent.data;
@@ -491,11 +490,11 @@ package org.si.sion.sequencer.base {
             seq.alloc();
             list = list.sortOn(length, Array.NUMERIC);
             pos = 0;
-            defaultBPM = 0;
+            initialBPM = 0;
             for each (e in list) {
                 if (e.length == 0 && e.id == MMLEvent.TEMPO) {
                     // first tempo command is default bpm.
-                    defaultBPM = e.data;
+                    initialBPM = e.data;
                 } else {
                     count = e.length - pos;
                     pos = e.length;
@@ -507,8 +506,8 @@ package org.si.sion.sequencer.base {
 //trace(seq);
             
             // set default bpm in mmlData
-            if (defaultBPM > 0) {
-                mmlData._initialBPM = new BeatPerMinutes(defaultBPM, 44100, setting.resolution);
+            if (initialBPM > 0) {
+                mmlData._initialBPM = new BeatPerMinutes(initialBPM, 44100, setting.resolution);
             }
         }
         

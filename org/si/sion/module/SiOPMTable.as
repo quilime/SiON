@@ -59,7 +59,7 @@ package org.si.sion.module {
         static public const PT_APU_NOISE:int = 5;
         static public const PT_MAX:int = 5;
                 
-        // pulse generator type (0-1023)
+        // pulse generator type (0-511)
         static public const PG_SINE       :int = 0;     // sine wave
         static public const PG_SAW_UP     :int = 1;     // upward saw wave
         static public const PG_SAW_DOWN   :int = 2;     // downward saw wave
