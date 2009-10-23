@@ -65,7 +65,10 @@ package org.si.sion.sequencer {
         
     // tone setting
     //--------------------------------------------------
-        /** initialize tone by channel number. */
+        /** initialize tone by channel number. 
+         *  call from SiMMLTrack::reset()/setChannelModuleType().
+         *  call from "%" MML command
+         */
         public function initializeTone(track:SiMMLTrack, chNum:int, bufferIndex:int) : int
         {
             if (track.channel == null) {
@@ -80,7 +83,8 @@ package org.si.sion.sequencer {
             }
 
             // initialize
-            var channelTone:int = _initIndex;
+            // channelTone = chNum except for PSG and APU
+            var channelTone:int = _initIndex; 
             if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
             track.channelNumber = (chNum<0) ? 0 : chNum;
             track.channel.setAlgorism(1, 0);
@@ -89,12 +93,15 @@ package org.si.sion.sequencer {
         }
         
         
-        /** select tone by tone number. */
+        /** select tone by tone number. 
+         *  call from initializeTone(), SiMMLTrack::setChannelModuleType()/_bufferEnvelop()/_keyOn()/_setChannelParameters().
+         *  call from "%" and "&#64;" MML command
+         */
         public function selectTone(track:SiMMLTrack, voiceIndex:int) : MMLSequence
         {
             if (voiceIndex == -1) return null;
             
-            var voice:SiMMLVoice, param:SiOPMChannelParam=null, pcm:SiOPMPCMData;
+            var voice:SiMMLVoice, pcm:SiOPMPCMData;
             
             switch (_selectToneType) {
             case SELECT_TONE_NORMAL:
@@ -102,27 +109,13 @@ package org.si.sion.sequencer {
                 track.channel.setType(_pgTypeList[voiceIndex], _ptTypeList[voiceIndex]);
                 break;
             case SELECT_TONE_FM: // %6
-                //voiceIndex += track.channelNumber << 8;
                 if (voiceIndex<0 || voiceIndex>=SiMMLTable.VOICE_MAX) voiceIndex=0;
                 voice = SiMMLTable.instance.getSiMMLVoice(voiceIndex);
-                if (voice) {
-                    param = voice.channelParam;
-                    if (param) {
-                        track.channel.setSiOPMChannelParam(param, false);
-                    } else { // set module type and channel number
-                        track.setChannelModuleType(voice.moduleType, voice.channelNum, voice.toneNum);
-                        track.channel.setAllAttackRate(voice.attackRate);
-                        track.channel.setAllReleaseRate(voice.releaseRate);
-                        track.pitchShift = voice.detune;
-                    }
-                    /* // comment out not to set these parameters
-                    track.setPortament(voice.portament);
-                    track.setReleaseSweep(voice.releaseSweep);
-                    track.setModulationEnvelop(false, voice.amDepth, voice.amDepthEnd, voice.amDelay, voice.amTerm);
-                    track.setModulationEnvelop(true,  voice.pmDepth, voice.pmDepthEnd, voice.pmDelay, voice.pmTerm);
-                    */
+                if (voice) { // this module changes only channel params, not track params.
+                    track.channel.setSiOPMChannelParam(voice.channelParam, false);
+                    return (voice.channelParam.initSequence.isEmpty()) ? null : voice.channelParam.initSequence;
                 }
-                return (param==null || param.initSequence.isEmpty()) ? null : param.initSequence;
+                break;
             case SELECT_TONE_PCM: // %7
                 if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
                     pcm = SiOPMTable.instance.getPCMData(voiceIndex);

@@ -15,9 +15,9 @@ package org.si.sound.base {
     {
     // variables
     //----------------------------------------
-        /** voice */
+        /** voice data. */
         public var voice:SiONVoice;
-        /** sequence */
+        /** sequence data. */
         protected var _data:SiONData;
 
         /** note quantize */
@@ -29,8 +29,9 @@ package org.si.sound.base {
         /** note off trigger type */
         protected var _noteOffTrigger:int;
         
-        // track
+        // track to control
         private var _track:SiMMLTrack;
+        
         
         
         
@@ -48,38 +49,38 @@ package org.si.sound.base {
         
         /** sequence data */
         public function get data() : SiONData { return _data; }
-        public function set data(d:SiONData) : void {
-            if (_data) _data.clear();
-            _data = d;
-        }
         
-        /** track. Available only after play(). Returns null when the track is not playing. */
+        /** track. Available only after play(). Returns null when the track is stopped. */
         public function get track() : SiMMLTrack { 
             if (_track && !_track.isActive) _track = null;
             return _track;
         }
         
-        /** @private Mute. */
+        /** @private */
         override public function set mute(m:Boolean) : void { 
             super.mute = m;
             var t:SiMMLTrack = track;
             if (t) t.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
         }
         
-        /** @private Volume (0:Minimum - 1:Maximum). */
+        /** @private */
         override public function set volume(v:Number) : void {
             super.volume = v;
             var t:SiMMLTrack = track;
             if (t) t.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
         }
         
-        /** @private Panning (-1:Left - 0:Center - +1:Right). */
+        /** @private */
         override public function set pan(p:Number) : void {
             super.pan = p;
             var t:SiMMLTrack = track;
             if (t) t.channel.pan = _totalPan;
         }
         
+        /** @private */
+        override public function get isPlaying() : Boolean {
+            return (_track && _track.isActive);
+        }
         
         
         
@@ -118,7 +119,7 @@ package org.si.sound.base {
         
         
         /** call driver.noteOn() */
-        public function noteOn() : void
+        protected function noteOn() : void
         {
             var oldTrack:SiMMLTrack = track;
             _track = driver.noteOn(_note, voice, _length, _delay, _quantize, _trackID, _eventTriggerID, _noteOnTrigger, _noteOffTrigger);
@@ -132,14 +133,14 @@ package org.si.sound.base {
         
         
         /** call driver.noteOff() */
-        public function noteOff() : void
+        protected function noteOff() : void
         {
             driver.noteOff(_note, _trackID, 0, 1);
         }
         
         
-        /** call driver.sequenceOn() */
-        public function sequenceOn() : void
+        /** call driver.sequenceOn(_data) */
+        protected function sequenceOn() : void
         {
             var oldTrack:SiMMLTrack = track;
             var tracks:Vector.<SiMMLTrack> = driver.sequenceOn(_data, voice, _length, _delay, _quantize, _trackID);
@@ -158,18 +159,18 @@ package org.si.sound.base {
         
         
         /** call driver.sequenceOff() */
-        public function sequenceOff() : void
+        protected function sequenceOff() : void
         {
             driver.sequenceOff(_trackID, 0, 1);
         }
         
         
         /** Play sound. */
-        override public function play() : void { sequenceOn(); }
+        override public function play() : void { noteOn(); }
         
         
         /** Stop sound. */
-        override public function stop() : void { sequenceOff(); }
+        override public function stop() : void { noteOff(); }
     }
 }
 

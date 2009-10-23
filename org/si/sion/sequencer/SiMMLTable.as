@@ -127,7 +127,7 @@ package org.si.sion.sequencer {
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 32);  // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
             channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         1,   1, 1);   // sampler. this is based on SiOPMChannelSampler
-            channelModuleSetting[MT_KS]     = new SiMMLChannelSetting(MT_KS,     0,                         3,   1, 3);   // karplus strong (0 or 1 to chouse seed generator algrism)
+            channelModuleSetting[MT_KS]     = new SiMMLChannelSetting(MT_KS,     0,                         3,   1, 3);   // karplus strong (0-2 to choose seed generator algrism)
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -242,6 +242,29 @@ package org.si.sion.sequencer {
             if (index<0 || index>=VOICE_MAX) return null;
             if (stencilVoices && stencilVoices[index]) return stencilVoices[index];
             return _masterVoices[index];
+        }
+        
+        
+        /** get 0th operators pgType number from moduleType, channelNum and toneNum. 
+         *  @param moduleType Channel module type
+         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '_&#64;'.
+         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG and %1;APU.
+         *  @return pgType value, or -1 when moduleType == 6(FM) or 7(PCM).
+         */
+        static public function getPGType(moduleType:int, channelNum:int, toneNum:int=-1) : int
+        {
+            var ms:SiMMLChannelSetting = instance.channelModuleSetting[moduleType];
+            
+            if (ms._selectToneType == SiMMLChannelSetting.SELECT_TONE_NORMAL) {
+                if (toneNum == -1) {
+                    if (channelNum>=0 && channelNum<ms._channelTone.length) toneNum = ms._channelTone[channelNum];
+                    else channelNum = ms._initIndex;
+                }
+                if (toneNum <0 || toneNum >=ms._pgTypeList.length) toneNum = ms._initIndex;
+                return ms._pgTypeList[toneNum];
+            }
+            
+            return -1;
         }
     }
 }

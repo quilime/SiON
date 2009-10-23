@@ -7,7 +7,7 @@
 package org.si.sion.sequencer.base {
     import flash.utils.getTimer;
     
-    
+    /** MML parser class. */
     public class MMLParser
     {
     // tables

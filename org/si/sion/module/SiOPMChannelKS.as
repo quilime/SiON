@@ -127,7 +127,7 @@ package org.si.sion.module {
             case KS_SEED_FM:
                 if (_ks_seedIndex>=0 && _ks_seedIndex<SiMMLTable.VOICE_MAX) {
                     var voice:SiMMLVoice = SiMMLTable.instance.getSiMMLVoice(_ks_seedIndex);
-                    if (voice && voice.channelParam) setSiOPMChannelParam(voice.channelParam, false);
+                    if (voice) setSiOPMChannelParam(voice.channelParam, false);
                 }
                 break;
             case KS_SEED_PCM:

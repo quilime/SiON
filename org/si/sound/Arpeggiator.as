@@ -50,7 +50,7 @@ package org.si.sound {
             _data = (_portament == 0) ? _dataNormal : _dataPort;
         }
         
-        /** note */
+        /** @private */
         override public function set note(n:int) : void {
             super.note = n;
             var i:int, imax:int = _noteEventsNormal.length;
@@ -62,7 +62,7 @@ package org.si.sound {
         }
         
         
-        /** index on scale */
+        /** @private */
         override public function set scaleIndex(index:int) : void {
             super.scaleIndex = index;
             var i:int, imax:int = _noteEventsNormal.length;

@@ -231,12 +231,15 @@ package org.si.sion.sequencer.base {
             mmlData = data;
             this.sampleRate = sampleRate;
             _bufferLength = bufferLength;
-            if (mmlData == null) {
-                _changableBPM.update(setting.defaultBPM, sampleRate);
-                globalExecutor.initialize(null);
-            } else {
+            if (mmlData && mmlData._initialBPM) {
                 _changableBPM.update(mmlData._initialBPM.bpm, sampleRate);
                 globalExecutor.initialize(mmlData.globalSequence);
+<<<<<<< .mine
+            } else {
+                _changableBPM.update(setting.defaultBPM, sampleRate);
+                globalExecutor.initialize(null);
+=======
+>>>>>>> .r3164
             }
             _bpm = _changableBPM;
             globalBufferIndex = 0;
@@ -308,7 +311,7 @@ package org.si.sion.sequencer.base {
         }
         
 
-        /** Processing audio of one sequence executor. Calls onProcess() inside.
+        /** Processing audio by one executor. Calls onProcess() inside.
          *  @param  exe MMLExecutor to process.
          *  @param  bufferSampleCount Buffering length of processing samples at once.
          *  @return Returns true if the sequence already finished.

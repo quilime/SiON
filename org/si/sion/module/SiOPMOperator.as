@@ -667,7 +667,7 @@ package org.si.sion.module {
                 // update ssgec_state
                 if (++_eg_ssgec_state == 3) _eg_ssgec_state = 1;
                 if (_ar + _eg_key_scale_rate < 62) {
-                    if (_erst) _eg_level = 0;
+                    if (_erst) _eg_level = SiOPMTable.ENV_BOTTOM;
                     _eg_state = EG_ATTACK;
                     r = (_ar) ? (_ar + _eg_key_scale_rate) : 96;
                     _eg_incTable = _table.eg_incTablesAtt[_table.eg_tableSelector[r]];

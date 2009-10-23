@@ -161,9 +161,9 @@ package org.si.sion.module {
             _chip         = chip;
             _enableExpand = enableExpand;
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
-            _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,          CT_CHANNEL_FM);
-            _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler,     CT_CHANNEL_SAMPLER);
-            _channelManagers[CT_CHANNEL_KS]      = new SiOPMChannelManager(SiOPMChannelKS,          CT_CHANNEL_KS);
+            _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,      CT_CHANNEL_FM);
+            _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler, CT_CHANNEL_SAMPLER);
+            _channelManagers[CT_CHANNEL_KS]      = new SiOPMChannelManager(SiOPMChannelKS,      CT_CHANNEL_KS);
         }
         
         

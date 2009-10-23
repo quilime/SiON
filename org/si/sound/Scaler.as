@@ -27,7 +27,7 @@ package org.si.sound {
         
     // properties
     //----------------------------------------
-        /** note */
+        /** @private */
         override public function set note(n:int) : void {
             _note = scale.shift(n);
             _scaleIndex = scale.getScaleIndex(_note);
@@ -55,18 +55,6 @@ package org.si.sound {
             this.scale = scale;
             _scaleIndex = 0;
         }
-        
-        
-        
-        
-    // operations
-    //----------------------------------------
-        /** Play sound. */
-        override public function play() : void { noteOn(); }
-        
-        
-        /** Stop sound. */
-        override public function stop() : void { noteOff(); }
     }
 }
 

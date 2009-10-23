@@ -127,6 +127,17 @@ package org.si.sion.effector {
                 for (var i:int=0; i<16; i++) args[i]=Number.NaN;
             }
         }
+        
+
+        /** Get connected effector
+         *  @param slot Effector slot number.
+         *  @param index The index of connected effector.
+         *  @return Effector instance.
+         */
+        public function getEffector(index:int) : SiEffectBase 
+        {
+            return (index < _chain.length) ? _chain[index] : null;
+        }
     }
 }
 

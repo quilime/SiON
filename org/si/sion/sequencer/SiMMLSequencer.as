@@ -279,14 +279,15 @@ package org.si.sion.sequencer {
         
         /** Get free controlable track.
          *  @param trackID New Tracks ID.
+         *  @param isDisposable disposable flag
          *  @return Returns null when there are no free tracks.
          */
-        public function getFreeControlableTrack(trackID:int=0) : SiMMLTrack
+        public function getFreeControlableTrack(trackID:int=0, isDisposable:Boolean=true) : SiMMLTrack
         {
             var i:int, trk:SiMMLTrack;
             for (i=tracks.length-1; i>=0; i--) {
                 trk = tracks[i];
-                if (!trk.isActive) return _initializeTrack(trk, trackID);
+                if (!trk.isActive) return _initializeTrack(trk, trackID, isDisposable);
             }
             return null;
         }
@@ -294,20 +295,21 @@ package org.si.sion.sequencer {
         
         /** new controlable track.
          *  @param trackID New Tracks ID.
+         *  @param isDisposable disposable flag
          *  @return new track
          */
-        public function newControlableTrack(trackID:int=0) : SiMMLTrack
+        public function newControlableTrack(trackID:int=0, isDisposable:Boolean=true) : SiMMLTrack
         {
-            var trk:SiMMLTrack = _initializeTrack(_freeTracks.pop() || (new SiMMLTrack()), trackID);
+            var trk:SiMMLTrack = _initializeTrack(_freeTracks.pop() || (new SiMMLTrack()), trackID, isDisposable);
             tracks.push(trk);
             return trk;
         }
         
         
         // initialize track
-        private function _initializeTrack(track:SiMMLTrack, trackID:int) : SiMMLTrack
+        private function _initializeTrack(track:SiMMLTrack, trackID:int, isDisposable:Boolean) : SiMMLTrack
         {
-            track._initialize(null, 60, (trackID>=0) ? trackID : 0, _eventTriggerOn, _eventTriggerOff);
+            track._initialize(null, 60, (trackID>=0) ? trackID : 0, _eventTriggerOn, _eventTriggerOff, isDisposable);
             track.reset(globalBufferIndex);
             
             track.velocity   = setting.defaultVolume<<3;
@@ -361,7 +363,7 @@ package org.si.sion.sequencer {
 
                 while (seq) {
                     trk = _freeTracks.pop() || (new SiMMLTrack());
-                    tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, idx|SiMMLTrack.MML_TRACK_ID_OFFSET, _eventTriggerOn, _eventTriggerOff);
+                    tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, idx|SiMMLTrack.MML_TRACK_ID_OFFSET, _eventTriggerOn, _eventTriggerOff, true);
                     seq = seq.nextSequence;
                     idx++;
                 }
@@ -384,7 +386,7 @@ package org.si.sion.sequencer {
             _module.clearAllBuffers();
 
             // buffering
-            _isSequenceFinished = true;
+            var finished:Boolean = true;
             startGlobalSequence();
             do {
                 bufferingTick = executeGlobalSequence();
@@ -393,10 +395,12 @@ package org.si.sion.sequencer {
                     _currentTrack = trk;
                     len = trk.prepareBuffer(bufferingTick);
                     _bpm = trk._bpmSetting ||  _changableBPM;
-                    _isSequenceFinished = processMMLExecutor(trk.executor, len) && _isSequenceFinished;
+                    finished = processMMLExecutor(trk.executor, len) && finished;
                 }
                 _enableChangeBPM = true;
             } while (!isEndGlobalSequence());
+            
+            _isSequenceFinished = finished;
             _currentTrack = null;
             
             _processedSampleCount += _module.bufferLength;

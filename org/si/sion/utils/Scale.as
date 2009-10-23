@@ -35,6 +35,8 @@ package org.si.sion.utils {
         protected const ST_CHROMATIC:int        = 0xfff;
         /** Scale table of Csus4 */
         protected const ST_PERFECT:int          = 0x0a1;
+        /** Scale table of Csus47 */
+        protected const ST_DPERFECT:int         = 0x4a1;
         /** Scale table of C5 */
         protected const ST_POWER:int            = 0x081;
         /** Scale table of Cu */
@@ -97,6 +99,7 @@ package org.si.sion.utils {
          *  <tr><td>w</td><td>Whole tone scale</td></tr>
          *  <tr><td>c</td><td>Chromatic scale</td></tr>
          *  <tr><td>sus4</td><td>table of sus4 chord</td></tr>
+         *  <tr><td>sus47</td><td>table of sus47 chord</td></tr>
          *  <tr><td>5</td><td>Power chord</td></tr>
          *  <tr><td>u</td><td>Unison (octave scale)</td></tr>
          *  <tr><td>dor</td><td>Dorian mode</td></tr>
@@ -143,6 +146,7 @@ package org.si.sion.utils {
                     case "w":    _scaleTable = ST_WHOLE_TONE;       break;
                     case "c":    _scaleTable = ST_CHROMATIC;        break;
                     case "sus4": _scaleTable = ST_PERFECT;          break;
+                    case "sus47":_scaleTable = ST_DPERFECT;         break;
                     case "5":    _scaleTable = ST_POWER;            break;
                     case "u":    _scaleTable = ST_UNISON;           break;
                     case "dor":  _scaleTable = ST_DORIAN;           break;

@@ -53,7 +53,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.7";
+        static public const VERSION:String = "0.5.8";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -167,24 +167,24 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // data
-        /** MML string (this property is only available during compile). */
+        /** MML string (this property is only available during compiling ). */
         public function get mmlString() : String { return _mmlString; }
         
         /** Data to compile, render and process. */
         public function get data() : SiONData { return _data; }
         
-        /** Sound instance. */
+        /** Sound instance to stream. */
         public function get sound() : Sound { return _sound; }
         
-        /** Sound channel, this property is only available during playing sound. */
+        /** Sound channel (this property is only available during streaming). */
         public function get soundChannel() : SoundChannel { return _soundChannel; }
 
-        /** Fader to control fade-in/out. fader.isActive refers fading or not. */
+        /** Fader to control fade-in/out. You can check activity by "fader.isActive". */
         public function get fader() : Fader { return _fader; }
         
         
         // paramteters
-        /** Track count, this value is only available after play(). */
+        /** Track count (this property is only available during streaming). */
         public function get trackCount() : int { return sequencer.tracks.length; }
         
         /** Streaming buffer length. */
@@ -206,7 +206,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        // measured time
+        // measured times
         /** previous compiling time [ms]. */
         public function get compileTime() : int { return _timeCompile; }
         
@@ -236,7 +236,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Is job executing ? */
         public function get isJobExecuting() : Boolean { return (_jobProgress>0 && _jobProgress<1); }
         
-        /** Is playing sound ? */
+        /** Is streaming ? */
         public function get isPlaying() : Boolean { return (_soundChannel != null); }
         
         /** Is paused ? */
@@ -244,7 +244,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // operation
-        /** Buffering position[ms] on mml data. @default 0 */
+        /** Playing position[ms] on mml data. @default 0 */
         public function get position() : Number {
             return sequencer.processedSampleCount * 1000 / _sampleRate;
         }
@@ -276,7 +276,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function get debugMode() : Boolean { return _debugMode; }
         public function set debugMode(mode:Boolean) : void { _debugMode = mode; }
         
-        /** track id exception mode. This value have to be SiONDriver.NEM_*. @default NEM_IGNORE. 
+        /** Note on exception mode. This value have to be SiONDriver.NEM_*. @default NEM_IGNORE. 
          *  @see #NEM_IGNORE
          *  @see #NEM_REJECT
          *  @see #NEM_OVERWRITE
@@ -290,12 +290,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // constructor
     //----------------------------------------
-        /** Create driver to manage the sound module, sequencer and effectors. Only one SiONDriver instance can be created.
+        /** Create driver to manage the synthesizer, sequencer and effector. Only one SiONDriver instance can be created.
          *  @param bufferLength Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
-         *  @param channel Channel count. 1 or 2 is available.
+         *  @param channel Channel count. 1(monoral) or 2(stereo) is available.
          *  @param sampleRate Sampling ratio of wave. 22050 or 44100 is available.
          *  @param bitRate Bit ratio of wave. 0, 8 or 16 is available. 0 means float value [-1 to 1].
-         *  @param frameRate frame rate of stage.
          */
         function SiONDriver(bufferLength:int=2048, channelCount:int=2, sampleRate:int=44100, bitRate:int=0)
         {
@@ -643,10 +642,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param length16th Interupting interval in 16th beat.
          *  @param callback Callback function. the Type is function():void.
          */
-        public function setTimerInterruption(length16th:Number=0, callback:Function=null) : void
+        public function setTimerInterruption(length16th:Number=1, callback:Function=null) : void
         {
             _timerIntervalEvent.length = length16th * sequencer.setting.resolution * 0.0625;
-            _timerCallback = callback;
+            _timerCallback = (length16th > 0) ? callback : null;
         }
         
         
@@ -784,7 +783,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param eventTriggerID Event trigger id.
          *  @param noteOnTrigger note on trigger type. 0 sets no trigger at note on.
          *  @param noteOffTrigger note off trigger type. 0 sets no trigger at note off.
-         *  @return SiMMLTrack to play the note.
+         *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
+         *         This means you should not keep a dieposable track in your code perpetually. 
+         *         If you want to keep track, set this argument false. And after using, SiMMLTrack::setDisposal() to disposed by system.<br/>
+         *         [REMARKS] Not disposable track is kept perpetually in the system while streaming, this may causes critical performance loss.
+         *  @return SiMMLTrack to play the note. 
          */
         public function playSound(note:int, 
                                   length:Number      = 0, 
@@ -793,7 +796,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                                   trackID:int        = 0, 
                                   eventTriggerID:int = 0, 
                                   noteOnTrigger:int  = 0, 
-                                  noteOffTrigger:int = 0) : SiMMLTrack
+                                  noteOffTrigger:int = 0,
+                                  isDisposable:Boolean = true) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
             var mmlTrack:SiMMLTrack = null, 
@@ -813,7 +817,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 }
             }
             
-            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
+            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
             if (mmlTrack) {
                 mmlTrack.setChannelModuleType(10, 0);
                 mmlTrack.setEventTrigger(eventTriggerID, noteOnTrigger, noteOffTrigger);
@@ -833,7 +837,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param eventTriggerID Event trigger id.
          *  @param noteOnTrigger note on trigger type.
          *  @param noteOffTrigger note off trigger type.
-         *  @return SiMMLTrack to play the note. Returns null when tracks are overflowed.
+         *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
+         *         This means you should not keep a dieposable track in your code perpetually. 
+         *         If you want to keep track, set this argument false. And after using, SiMMLTrack::setDisposal() to disposed by system.<br/>
+         *         [REMARKS] Not disposable track is kept perpetually in the system while streaming, this may causes critical performance loss.
+         *  @return SiMMLTrack to play the note.
          */
         public function noteOn(note:int, 
                                voice:SiONVoice    = null, 
@@ -843,7 +851,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                                trackID:int        = 0, 
                                eventTriggerID:int = 0, 
                                noteOnTrigger:int  = 0, 
-                               noteOffTrigger:int = 0) : SiMMLTrack
+                               noteOffTrigger:int = 0,
+                               isDisposable:Boolean = true) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
             var mmlTrack:SiMMLTrack = null, 
@@ -863,7 +872,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 }
             }
             
-            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
+            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
             if (mmlTrack) {
                 if (voice) voice.setTrackVoice(mmlTrack);
                 mmlTrack.setEventTrigger(eventTriggerID, noteOnTrigger, noteOffTrigger);
@@ -904,7 +913,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
-         *  @return list of SiMMLTracks to play sequence.
+         *  @return list of SiMMLTracks to play sequence. These tracks are disposable.
          */
         public function sequenceOn(data:SiONData, 
                                    voice:SiONVoice  = null, 
@@ -952,12 +961,12 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         /** Create new user controlable track.
-         *  @param new tracks id.
+         *  @param new user controlable track. This track is NOT disposable.
          */
         public function newUserControlableTrack(trackID:int=0) : SiMMLTrack
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.USER_CONTROLLED_ID_OFFSET;
-            return sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
+            return sequencer.getFreeControlableTrack(trackID, false) || sequencer.newControlableTrack(trackID, false);
         }
         
         
@@ -969,7 +978,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // callback for event trigger
     //----------------------------------------
         // call back when sound streaming
-        private function _callbackEventTriggerOn(track:SiMMLTrack, pitch:int) : Boolean
+        private function _callbackEventTriggerOn(track:SiMMLTrack) : Boolean
         {
             return _publishEventTrigger(track, track.eventTriggerTypeOn, SiONTrackEvent.NOTE_ON_FRAME, SiONTrackEvent.NOTE_ON_STREAM);
         }
@@ -1160,6 +1169,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         
+        
     // compile
     //----------------------------------------
         // prepare to compile
@@ -1249,6 +1259,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 if (!(data == null || data is SiONData)) throw errorDataIncorrect();
                 _data = data;
             }
+            
+            // THESE FUNCTIONS ORDER IS VERY IMPORTANT !!
             module.initialize(_channelCount, _bufferLength);
             module.reset();                                                 // reset channels
             sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset()).
@@ -1291,7 +1303,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
-            var buffer:ByteArray = e.data, output:Vector.<Number> = module.output, imax:int, i:int;
+            var buffer:ByteArray = e.data, 
+                output:Vector.<Number> = module.output, 
+                imax:int, i:int;
 
             // calculate latency (0.022675736961451247 = 1/44.1)
             if (_soundChannel) {
@@ -1301,7 +1315,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             try {
                 _inStreaming = true;
                 if (_isPaused) {
-                    // paused -> 0 filling
+                    // paused -> zero fill
                     buffer = e.data;
                     imax = _bufferLength;
                     for (i=0; i<imax; i++) {
@@ -1326,10 +1340,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     // write samples
                     imax = output.length;
                     if (_backgroundSound) {
-                        // with background sound
+                        // w/ background sound
                         _backgroundSound.extract(_backgroundBuffer, _bufferLength);
                         for (i=0; i<imax; i++) buffer.writeFloat(output[i]+_backgroundBuffer.readFloat()*_backgroundLevel);
                     } else {
+                        // w/o background sound
                         for (i=0; i<imax; i++) buffer.writeFloat(output[i]);
                     }
                     
@@ -1357,8 +1372,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                         // auto stop
                         if (_autoStop && sequencer.isFinished) stop();
                     }
-                    _inStreaming = false;
                 }
+                _inStreaming = false;
             } catch (e:Error) {
                 // error
                 _removeAllEventListners();

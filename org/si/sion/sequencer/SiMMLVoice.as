@@ -18,7 +18,7 @@ package org.si.sion.sequencer {
     {
     // variables
     //--------------------------------------------------
-        /** set volume and panning of channelParam. @default false */
+        /** flag to set volume and panning when the voice is set. @default false; ignore volume settings */
         public var setVolumes:Boolean;
         
         /** module type, 1st argument of '%'. @default 0 */
@@ -28,18 +28,15 @@ package org.si.sion.sequencer {
         /** tone number, 1st argument of '&#64;'. -1;do nothing. @default -1 */
         public var toneNum:int;
         
+        /** parameters for FM sound channel. */
+        public var channelParam:SiOPMChannelParam;
         /** wave data for PCM sound channel. null;not pcm voice. @default null */
         public var pcmData:SiOPMPCMData;
-        /** parameters for FM sound channel. null;do nothing. @default null */
-        public var channelParam:SiOPMChannelParam;
+        /** PSM guitar tension @default 8 */
+        public var psmTension:int;
         
-        /** Attack rate, This parameter is available only when channelParam==null. @default 63 */
-        public var attackRate:int;
-        /** Release rate, This parameter is available only when channelParam==null. @default 63 */
-        public var releaseRate:int;
-        /** Detune (same as "k" command), This parameter is available only when channelParam==null. @default 0 */
-        public var detune:int;
-        
+        /** track pitch shift (same as "k" command). @default 0 */
+        public var pitchShift:int;
         /** portament. @default 0 */
         public var portament:int;
         /** release sweep. 2nd argument of '&#64;rr' and 's'. @default 0 */
@@ -114,7 +111,7 @@ package org.si.sion.sequencer {
     //--------------------------------------------------
         /** FM voice flag */
         public function get isFMVoice() : Boolean {
-            return (channelParam != null && pcmData == null);
+            return (moduleType == 6);
         }
         
         /** PCM voice flag */
@@ -122,9 +119,24 @@ package org.si.sion.sequencer {
             return (pcmData != null);
         }
                 
-        /** @private [internal use] suitability to register on %6 voie */
+        /** @private [internal use] suitability to register on %6 voice */
         public function get _isSuitableForFMVoice() : Boolean {
-            return (pcmData == null && (channelParam != null || (moduleType != 6 && moduleType != 7 && moduleType >= 10)));
+            return (pcmData == null && moduleType != 6 && moduleType != 7 && moduleType >= 10);
+        }
+        
+        
+        /** set moduleType, channelNum, toneNum and 0th operator's pgType simultaneously.
+         *  @param moduleType Channel module type
+         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '_&#64;'.
+         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG and %1;APU.
+         */
+        public function setModuleType(moduleType:int, channelNum:int=0, toneNum:int=-1) : void
+        {
+            this.moduleType = moduleType;
+            this.channelNum = channelNum;
+            this.toneNum    = toneNum;
+            var pgType:int = SiMMLTable.getPGType(moduleType, channelNum, toneNum);
+            if (pgType != -1) channelParam.operatorParam[0].setPGType(pgType);
         }
         
         
@@ -137,17 +149,17 @@ package org.si.sion.sequencer {
         {
             setVolumes = false;
             
-            this.moduleType = 0;
-            this.channelNum = 0;
-            attackRate = 63;
-            releaseRate = 63;
-            detune = 0;
+            moduleType = 5;
+            channelNum = 0;
             toneNum = -1;
             
-            channelParam = null;
+            channelParam = new SiOPMChannelParam();
             pcmData = null;
+            psmTension = 8;
             
+            pitchShift = 0;
             portament = 0;
+            releaseSweep = 0;
             
             amDepth = 0;
             amDepthEnd = 0;
@@ -189,33 +201,26 @@ package org.si.sion.sequencer {
         /** set sequencer track */
         public function setTrackVoice(track:SiMMLTrack) : SiMMLTrack
         {
-            if (moduleType == 11) {
-                // PMS Guitar
-                if (channelParam) { // FM sound module
-                    track.setChannelModuleType(11, 1);
-                    track.channel.setSiOPMChannelParam(channelParam, setVolumes);
-                } else {
-                    track.setChannelModuleType(11, channelNum, toneNum);
-                    track.channel.setAllAttackRate(attackRate);
-                    track.pitchShift = detune;
-                }
-                track.channel.setAllReleaseRate(releaseRate);
-            } else {
-                // others
-                if (channelParam) { // FM sound module
-                    track.setChannelModuleType(6, -1);  // -1 sets no changing.
-                    track.channel.setSiOPMChannelParam(channelParam, setVolumes);
-                } else { // set module type and channel number
-                    track.setChannelModuleType(moduleType, channelNum, toneNum);
-                    track.channel.setAllAttackRate(attackRate);
-                    track.channel.setAllReleaseRate(releaseRate);
-                    track.pitchShift = detune;
-                }
+            switch (moduleType) {
+            case 6:  // Registered FM voice (%6)
+                track.setChannelModuleType(6, channelNum);
+                break;
+            case 11: // PMS Guitar (%11)
+                track.setChannelModuleType(11, 1);
+                track.channel.setSiOPMChannelParam(channelParam, false);
+                track.channel.setAllReleaseRate(psmTension);
+                break;
+            default: // other sound modules
+                track.setChannelModuleType(moduleType, channelNum, toneNum);
+                track.channel.setSiOPMChannelParam(channelParam, setVolumes);
+                break;
             }
             
             // PCM sound module
             if (pcmData) track.channel.setPCMData(pcmData);
             
+            // track settings
+            track.pitchShift = pitchShift;
             track.setPortament(portament);
             track.setReleaseSweep(releaseSweep);
             track.setModulationEnvelop(false, amDepth, amDepthEnd, amDelay, amTerm);
@@ -230,6 +235,7 @@ package org.si.sion.sequencer {
             if (noteOffFilterEnvelop != null) track.setFilterEnvelop(0, noteOffFilterEnvelop, noteOffFilterEnvelopStep);
             if (noteOffPitchEnvelop != null) track.setPitchEnvelop(0, noteOffPitchEnvelop, noteOffPitchEnvelopStep);
             if (noteOffNoteEnvelop != null) track.setNoteEnvelop(0, noteOffNoteEnvelop, noteOffNoteEnvelopStep);
+            
             return track;
         }
 
@@ -244,13 +250,9 @@ package org.si.sion.sequencer {
             moduleType = src.moduleType;
             channelNum = src.channelNum;
             toneNum = src.toneNum;
-            if (src.channelParam) {
-                channelParam = new SiOPMChannelParam();
-                channelParam.copyFrom(src.channelParam);
-            } else {
-                channelParam = null;
-            }
+            channelParam.copyFrom(src.channelParam);
             
+            pitchShift = src.pitchShift;
             portament = src.portament;
             releaseSweep = src.releaseSweep;
             

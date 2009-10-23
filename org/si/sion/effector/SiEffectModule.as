@@ -129,7 +129,7 @@ package org.si.sion.effector {
         
         
         /** Get effector instance by name 
-         *  @param name Effector name.
+         *  @param name Effector name in mml.
          */
         static public function getInstance(name:String) : SiEffectBase
         {
@@ -184,6 +184,17 @@ package org.si.sion.effector {
         public function parseMML(slot:int, mml:String, postfix:String) : void
         {
             _effectConnectors[slot].parseMML(mml, postfix);
+        }
+        
+
+        /** Get connected effector
+         *  @param slot Effector slot number.
+         *  @param index The index of connected effector.
+         *  @return Effector instance.
+         */
+        public function getEffector(slot:int, index:int) : SiEffectBase 
+        {
+            return _effectConnectors[slot].getEffector(index);
         }
     }
 }

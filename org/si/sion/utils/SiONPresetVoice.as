@@ -2,13 +2,18 @@
 // SiON Preset voice data
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
+//
+// *** REMARKS ***
+//  Preset voices set [valsound] is created by Takeshi Abo, and free licensed.
+//  Copyright (c) 2009 VAL-SOUND Takeshi Abo ("阿保剛") All rights reserved.
+//  url ; VAL-SOUND (http://www.valsound.com/)
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.utils {
     import org.si.sion.SiONVoice;
     
     
-    /** Preset voice data.
+    /** Preset voice data. 457 voices are available now (default:11, valsound:258, GM:128, GMdrum:60).
 @example Create new instance and access voices by key.
 <listing version="3.0">
 var voices:SiONPresetVoice = new SiONPresetVoice(); // create new instance.
@@ -33,7 +38,7 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
     //--------------------------------------------------
         /** Flag to include default voices. */
         public const INCLUDE_DEFAULT:int = 1;
-        /** Flag to include voices of valsound (http://www.valsound.com/). */
+        /** Flag to include voices set [valsound] (http://www.valsound.com/). */
         public const INCLUDE_VALSOUND:int = 2;
         /** Flag to include General MIDI voices. */
         public const INCLUDE_MIDI:int = 4;
@@ -74,6 +79,8 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _new("ma1",       "MA3 wave sample",    new SiONVoice(5,33));
                 _new("beep",      "Pulse wave sample",  new SiONVoice(5,81));
                 _new("ramp",      "Ramp wave sample",   new SiONVoice(5,160));
+                
+                // 11 default voices
             }
 
             if (includeFlag & INCLUDE_VALSOUND) {
@@ -358,6 +365,8 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _OPN("valsound.world5", "Shamisen 2",             3,7, 31,16,06,07,02,33,0,01,3,0, 31,16,06,07,04,18,2,06,0,0, 31,06,06,07,01,40,0,01,7,0, 31,15,06,07,05,00,0,02,0,0);
                 _OPN("valsound.world6", "Shamisen 1",             2,7, 31,16,06,07,02,33,0,01,3,0, 31,16,06,07,04,18,2,08,0,0, 31,06,06,07,01,40,0,01,7,0, 31,15,06,07,05,00,0,02,0,0);
                 _OPN("valsound.world7", "Synth Shamisen",         2,7, 31,16,06,07,01,33,0,01,3,0, 31,16,06,07,04,18,2,07,0,0, 31,06,06,07,00,40,0,01,7,0, 31,15,06,07,02,00,0,02,0,0);
+                
+                // 258 voices from valsound
             }
 
             if (includeFlag & INCLUDE_MIDI) {
@@ -505,6 +514,8 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _MA3("midi.se6",  "Helicptr",  5,5, 14,15,06,00,00,00,01,0,0,15,0,2, 00,02,00,00,05,00,04,0,0,00,0,2, 14,15,00,00,00,00,24,0,0,00,0,2, 00,02,00,00,05,00,11,0,0,00,0,2);
                 _MA3("midi.se7",  "Applause",  5,7, 24,15,12,00,01,00,00,0,0,00,0,0, 00,04,02,00,05,00,08,0,0,00,0,0, 24,06,00,00,01,15,00,0,0,09,0,1, 00,03,00,07,07,15,07,0,0,03,0,0);
                 _MA3("midi.se8",  "Gunshot",   5,7, 00,15,03,00,00,15,11,0,0,05,0,0, 06,15,06,08,08,11,04,0,0,15,0,0, 01,15,02,00,00,15,02,0,0,05,0,0, 06,15,06,08,08,11,26,0,0,05,0,0);
+
+                // 128 voices from GM
             }
             
             if (includeFlag & INCLUDE_MIDIDRUM) {
@@ -570,6 +581,8 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _MA3("midi.drum82",  "Shaker",           4,7, 00,09,00,03,05,06,00,0,0,07,0,2, 00,09,06,04,04,06,04,1,0,03,0,2, 00,14,04,02,06,04,01,0,0,12,0,2, 06,09,10,09,04,08,02,0,0,15,0,2);
                 _MA3("midi.drum83",  "Jingle Bells",     5,0, 02,07,06,00,00,00,20,0,0,06,0,2, 03,06,11,05,05,04,00,0,0,02,0,2, 02,03,00,00,02,00,07,1,0,06,0,2, 02,07,05,02,06,15,00,0,0,09,0,2);
                 _MA3("midi.drum84",  "Bell Tree",        5,7, 19,12,04,02,00,00,24,0,0,03,0,2, 02,04,03,05,05,04,00,0,0,02,0,3, 02,03,00,00,02,00,07,1,0,07,0,3, 13,05,04,02,06,06,02,0,0,03,0,3);
+
+                // 60 voices from GM drum
             }
         }
         

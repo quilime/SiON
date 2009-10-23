@@ -9,6 +9,7 @@ package org.si.sion.sequencer.base {
     import org.si.sion.module.SiOPMChannelBase;
     
     
+    /** @private MML executor connector. this class is used for #FM connection. */
     public class MMLExecutorConnector
     {
     // valiables

@@ -32,11 +32,9 @@ package org.si.sion.sequencer {
         /** track id filter */
         static public const TRACK_ID_FILTER:int = 0xffff;
         /** track type filter */
-        static public const TRACK_TYPE_FILTER:int = 0x1ff0000;
-        /** flag to activate always */
-        static public const FLAG_ACTIVE:int = 0x1000000;
+        static public const TRACK_TYPE_FILTER:int = 0xff0000;
         /** MML track id offset */
-        static public const MML_TRACK_ID_OFFSET:int = 0x1010000;
+        static public const MML_TRACK_ID_OFFSET:int = 0x10000;
         /** MIDI track id offset */
         static public const MIDI_TRACK_ID_OFFSET:int = 0x20000;
         /** driver track id offset for noteOn() */
@@ -44,7 +42,7 @@ package org.si.sion.sequencer {
         /** driver track id offset for sequenceOn() */
         static public const DRIVER_SEQUENCE_ID_OFFSET:int = 0x40000;
         /** user controlled id offset */
-        static public const USER_CONTROLLED_ID_OFFSET:int = 0x1050000;
+        static public const USER_CONTROLLED_ID_OFFSET:int = 0x50000;
         
         
         // _processMode
@@ -91,7 +89,8 @@ package org.si.sion.sequencer {
         private var _eventTriggerTypeOn:int;
         private var _eventTriggerTypeOff:int;
         
-        private var _trackID:int;               // track ID number
+        // track ID number
+        private var _trackID:int;
 
         // internal use
         private var _mmlData:SiMMLData;     // mml data
@@ -99,10 +98,11 @@ package org.si.sion.sequencer {
         private var _keyOnCounter:int;      // key on counter
         private var _keyOnLength:int;       // key on length
         private var _flagNoKeyOn:Boolean;   // key on flag
+//        private var _flagNoSlur:Boolean;    // key on flag
         private var _processMode:int;       // processing mode
-        private var _newPitch:int;          // new pitch after key on
         private var _trackStartDelay:int;   // track delay to start
         private var _trackStopDelay:int;    // track delay to stop
+        private var _isDisposable:Boolean;  // flag disposable track
 
         // settings
         private var _velocity:int;      // velocity
@@ -181,14 +181,14 @@ package org.si.sion.sequencer {
         
         /** Start delay in sample count. Ussualy this returns 0 except after SiONDriver.noteOn. */
         public function get trackStartDelay() : int { return _trackStartDelay; }
-        
         /** Stop delay in sample count. Ussualy this returns 0 except after SiONDriver.noteOff. */
         public function get trackStopDelay() : int { return _trackStopDelay; }
         
-        /** Is activate ? This function always returns true from the MML sequence track. */
-        public function get isActive() : Boolean { return ((Boolean(_trackID & FLAG_ACTIVE)) || !channel.isIdling || _keyOnCounter>0 || _trackStartDelay>0); }
-        
-        /** Is finish to buffering ? */
+        /** Is activate ? This function always returns true from not-disposable track. (isActive = !isDisposable || !isFinished) */
+        public function get isActive() : Boolean { return !_isDisposable || !isFinished; }
+        /** Is this track disposable ? Disposable track will free automatically when finished rendering. */
+        public function get isDisposable() : Boolean { return _isDisposable; }
+        /** Is finish to rendering ? */
         public function get isFinished() : Boolean { return (executor.pointer==null && channel.isIdling && _keyOnCounter==0 && _trackStartDelay==0); }
         
         /** velocity(0-256). linked to operator's total level. */
@@ -214,11 +214,12 @@ package org.si.sion.sequencer {
         
         /** pannning */
         public function get pan() : int { return channel.pan; }
+        public function set pan(p:int) : void { channel.pan = p; }
         
         /** program number. this value has no meaning. */
         public function get programNumber() : int { return _tone; }
         
-        /** mml data to play */
+        /** mml data to play. this value only is available in the track playing mml sequence */
         public function get mmlData() : SiMMLData { return _mmlData; }
         
         
@@ -263,9 +264,10 @@ package org.si.sion.sequencer {
     // operations
     //--------------------------------------------------
         /** @private [internal use] initialize track. [NOTE] Have to call reset() after this. */
-        internal function _initialize(seq:MMLSequence, fps:int, trackID:int, eventTriggerOn:Function, eventTriggerOff:Function) : SiMMLTrack
+        internal function _initialize(seq:MMLSequence, fps:int, trackID:int, eventTriggerOn:Function, eventTriggerOff:Function, isDisposable:Boolean) : SiMMLTrack
         {
             _trackID = trackID;
+            _isDisposable = isDisposable;
             _defaultFPS = fps;
             _eventTriggerOn = eventTriggerOn;
             _eventTriggerOff = eventTriggerOff;
@@ -302,7 +304,6 @@ package org.si.sion.sequencer {
             _keyOnLength = 0;
             _flagNoKeyOn = false;
             _processMode = NORMAL;
-            _newPitch = 0;
             _trackStartDelay = 0;
             _trackStopDelay = 0;
             keyOnDelay = 0;
@@ -348,8 +349,8 @@ package org.si.sion.sequencer {
     // interfaces for intaractive operations
     //--------------------------------------------------
         /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
-         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8192) as an arguments. When the function returns false, noteOn will be canceled.</br>
-         *  function callbackNoteOn(track:SiMMLTrack, newPitch:int) : Boolean { return true; }
+         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8191) as an arguments. When the function returns false, noteOn will be canceled.</br>
+         *  function callbackNoteOn(track:SiMMLTrack) : Boolean { return true; }
          *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
          *  function callbackNoteOff(track:SiMMLTrack) : Boolean { return true; }
          */
@@ -363,16 +364,22 @@ package org.si.sion.sequencer {
         
         /** Key on. 
          *  @param note Note number.
-         *  @param length Length in sample count. The argument of 0 sets no key off.
-         *  @param delay Delaying time (in sample count).
+         *  @param length Length in sample count. 0 sets no key off. 1 sets key off immediately.
+         *  @param delay Delay time (in sample count).
          */
         public function keyOn(note:int, length:int=0, delay:int=0) : SiMMLTrack
         {
             _note = note;
-            _newPitch = ((note + noteShift)<<6) + pitchShift;
             _keyOnLength = length;
             _trackStartDelay = delay;
             
+            if (keyOnDelay) {
+                _keyOff();
+                _keyOnCounter = keyOnDelay;
+            } else {
+                _keyOn();   // if _keyOnLength=0 -> _keyOnCounter=0 -> No key off
+            }
+/*
             if (length > 0) {
                 if (keyOnDelay) {
                     _keyOff();
@@ -385,6 +392,7 @@ package org.si.sion.sequencer {
                 _keyOn();           // key on
                 _keyOnCounter = 0;  // keep key on in process
             }
+*/
             return this;
         }
         
@@ -475,13 +483,20 @@ package org.si.sion.sequencer {
         }
         
         
+        /** Set this track disposable. */
+        public function setDisposable() : void 
+        {
+            _isDisposable = true;
+        }
+        
+        
         
         
     // interfaces for mml command
     //--------------------------------------------------
-        /** Channel module type (%) and select tone (1st argument of '@').
+        /** Channel module type (%) and select tone (1st argument of '_&#64;').
          *  @param type Channel module type
-         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '@'.
+         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '_&#64;'.
          *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG and %1;APU.
          */
         public function setChannelModuleType(type:int, channelNum:int, toneNum:int=-1) : void
@@ -493,7 +508,10 @@ package org.si.sion.sequencer {
             _tone = channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
             
             // select tone
-            if (toneNum != -1) channelModuleSetting.selectTone(this, toneNum);
+            if (toneNum != -1) {
+                _tone = toneNum;
+                channelModuleSetting.selectTone(this, toneNum);
+            }
         }
         
         
@@ -702,7 +720,7 @@ package org.si.sion.sequencer {
     //====================================================================================================
     // processing
     //--------------------------------------------------
-        /** @private [internal use] prepare buffer */
+        /** @private [internal use] prepare buffer. this is called from SiMMLSequencer.process()/dummyProcess(). */
         internal function prepareBuffer(bufferingTick:int) : int
         {
             if (_mmlData) {
@@ -762,7 +780,7 @@ package org.si.sion.sequencer {
                 if (length>0) $(length);
             }
             
-            // track stop
+            // track stopped
             if (trackStop) {
                 if (executor.pointer) {
                     executor.stop();
@@ -900,12 +918,13 @@ package org.si.sion.sequencer {
         {
             // callback
             if (_callbackBeforeNoteOn != null) {
-                if (!_callbackBeforeNoteOn(this, _newPitch)) return;
+                if (!_callbackBeforeNoteOn(this)) return;
             }
             
             // change pitch
+            var newPitch:int = ((_note + noteShift)<<6) + pitchShift;
             var oldPitch:int = channel.pitch;
-            channel.pitch = _newPitch;
+            channel.pitch = newPitch;
 
             // note on
             if (!_flagNoKeyOn) {
@@ -929,8 +948,8 @@ package org.si.sion.sequencer {
                 // portament
                 if (_set_sweep_step[1]>0) {
                     channel.pitch = oldPitch;
-                    _sweep_step = ((_newPitch - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
-                    _sweep_end  = _newPitch << FIXED_BITS;
+                    _sweep_step = ((newPitch - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
+                    _sweep_end  = newPitch << FIXED_BITS;
                     _env_pitch_offset = oldPitch << FIXED_BITS;
                 }
                 // try to set envelop off
@@ -941,7 +960,7 @@ package org.si.sion.sequencer {
             
             // set key on counter
             _keyOnCounter = _keyOnLength;
-            if (_keyOnCounter <= 0) _keyOff();
+            //if (_keyOnCounter <= 0) _keyOff();
         }
         
         
@@ -999,9 +1018,11 @@ package org.si.sion.sequencer {
         /** @private [internal use] handler for MMLEvent.NOTE. */
         internal function _setNote(note:int, length:int) : void
         {
-            length = int(length * quantRatio) - quantCount - keyOnDelay;
-            if (length < 1) length = 1;
-            keyOn(note, length);
+            var quantLength:int = int(length * quantRatio) - quantCount - keyOnDelay;
+            if (quantLength < 1) quantLength = 1;
+            keyOn(note, quantLength);
+            // length=0 means no processing -> key off immediately.
+            //if (length == 0) keyOff();
         }
         
         
@@ -1020,7 +1041,7 @@ package org.si.sion.sequencer {
         
         
         
-    // private subs
+    // internal functions
     //--------------------------------------------------
         // envelop off
         private function _envelopOff(noteOn:int) : void

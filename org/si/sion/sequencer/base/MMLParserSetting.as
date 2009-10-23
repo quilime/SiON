@@ -5,6 +5,9 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer.base {
+    /** Informations for MMLParser
+     *  @see org.si.sion.sequencer.base.MMLParser
+     */
     public class MMLParserSetting
     {
     // valiables

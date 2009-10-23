@@ -13,7 +13,7 @@ package org.si.sion.module {
     {
     // valiables
     //--------------------------------------------------
-        /** [extension] Pulse generator type [0,1023] */
+        /** [extension] Pulse generator type [0,511] */
         public var pgType:int;
         /** [extension] Pitch table type [0,7] */
         public var ptType:int;
@@ -62,6 +62,7 @@ package org.si.sion.module {
         
         /** multiple [0,15] */
         public function set mul(m:int) : void { fmul = (m) ? (m<<7) : 64; }
+        public function get mul() : int { return (fmul == 64) ? 0 : ((fmul>>7)&15); }
         
         /** set pgType and ptType */
         public function setPGType(type:int) : void

@@ -29,10 +29,10 @@ package org.si.sound.base {
         
         /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
         protected var _length:Number;
-        /** Synchronizing quantizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
-        protected var _quantize:Number;
         /** Sound delay uint in 16th beat. @default 0. */
         protected var _delay:Number;
+        /** Synchronizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        protected var _quantize:Number;
         
         /** total volume of all ancestors */
         protected var _totalVolume:Number;
@@ -111,6 +111,8 @@ package org.si.sound.base {
         /** track id */
         public function get trackID() : int { return _trackID; }
         
+        /** is playing ? */
+        public function get isPlaying() : Boolean { return false; }
         
         // counter to asign unique track id
         static private var _uniqueTrackID:int = 0;

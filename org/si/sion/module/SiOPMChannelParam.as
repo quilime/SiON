@@ -17,7 +17,7 @@ package org.si.sion.module {
     // valiables 11 parameters
     //--------------------------------------------------
         /** operator params x4 */
-        public var opeParam:Vector.<SiOPMOperatorParam>;
+        public var operatorParam:Vector.<SiOPMOperatorParam>;
         
         /** operator count [0,4] */
         public var opeCount:int;
@@ -84,12 +84,13 @@ package org.si.sion.module {
         {
             initSequence = new MMLSequence();
             volumes = new Vector.<Number>(SiOPMModule.STREAM_SIZE_MAX, true);
-            initialize();
 
-            opeParam = new Vector.<SiOPMOperatorParam>(4, true);
+            operatorParam = new Vector.<SiOPMOperatorParam>(4);
             for (var i:int; i<4; i++) {
-                opeParam[i] = new SiOPMOperatorParam();
+                operatorParam[i] = new SiOPMOperatorParam();
             }
+            
+            initialize();
         }
         
         
@@ -108,7 +109,7 @@ package org.si.sion.module {
             amd = 0;
             pmd = 0;
             fratio = 100;
-            for (i=1; i<SiOPMModule.STREAM_SIZE_MAX; i++) volumes[i]=0;
+            for (i=1; i<SiOPMModule.STREAM_SIZE_MAX; i++) { volumes[i] = 0; }
             volumes[0] = 0.5;
             pan = 64;
             
@@ -123,9 +124,7 @@ package org.si.sion.module {
             fsc = 32;
             frc = 128;
             
-            if (opeParam) {
-                for (i=0; i<4; i++) { opeParam[i].initialize(); }
-            }
+            for (i=0; i<4; i++) { operatorParam[i].initialize(); }
             
             initSequence.free();
             
@@ -148,7 +147,7 @@ package org.si.sion.module {
             amd = org.amd;
             pmd = org.pmd;
             fratio = org.fratio;
-            for (i=0; i<SiOPMModule.STREAM_SIZE_MAX; i++) volumes[i]=org.volumes[i];
+            for (i=0; i<SiOPMModule.STREAM_SIZE_MAX; i++) { volumes[i] = org.volumes[i]; }
             pan = org.pan;
             
             cutoff = org.cutoff;
@@ -162,9 +161,7 @@ package org.si.sion.module {
             fsc = org.fsc;
             frc = org.frc;
             
-            if (opeParam) {
-                for (i=0; i<4; i++) { opeParam[i].copyFrom(org.opeParam[i]); }
-            }
+            for (i=0; i<4; i++) { operatorParam[i].copyFrom(org.operatorParam[i]); }
             
             initSequence.free();
             
@@ -187,7 +184,7 @@ package org.si.sion.module {
             str += "fenv=" + String(far) + "/" + String(fdr1) + "/"+ String(fdr2) + "/"+ String(frr) + "\n";
             str += "feco=" + String(fdc1) + "/"+ String(fdc2) + "/"+ String(fsc) + "/"+ String(frc) + "\n";
             for (var i:int=0; i<opeCount; i++) {
-                str += opeParam[i].toString() + "\n";
+                str += operatorParam[i].toString() + "\n";
             }
             return str;
             function $ (p:String, i:int) : void { str += "  " + p + "=" + String(i) + "\n"; }

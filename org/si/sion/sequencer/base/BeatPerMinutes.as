@@ -5,6 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer.base {
+    /** Beat per minutes class, Calculates BPM-releated numbers automatically. */
     public class BeatPerMinutes
     {
         /** 16th beat par sample */

@@ -218,7 +218,7 @@ package org.si.sion.module {
             setFilterResonance(param.resonanse);
             activateFilter(param.cutoff<128 || param.resonanse>0 || param.far>0 || param.frr>0);
             for (i=0; i<_operatorCount; i++) {
-                operator[i].setSiOPMOperatorParam(param.opeParam[i]);
+                operator[i].setSiOPMOperatorParam(param.operatorParam[i]);
             }
         }
         
@@ -248,7 +248,7 @@ package org.si.sion.module {
             param.amd = _am_depth;
             param.pmd = _pm_depth;
             for (i=0; i<_operatorCount; i++) {
-                operator[i].getSiOPMOperatorParam(param.opeParam[i]);
+                operator[i].getSiOPMOperatorParam(param.operatorParam[i]);
             }
         }
         
