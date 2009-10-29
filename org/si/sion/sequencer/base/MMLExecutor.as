@@ -12,6 +12,13 @@ package org.si.sion.sequencer.base {
     /** MMLExecutor has MMLSequence and executing pointer. One track has one executor, and sequencer also has one for global sequence. */
     public class MMLExecutor
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
         /** Current MMLEvent to process */
@@ -30,11 +37,11 @@ package org.si.sion.sequencer.base {
         // note event
         private  var _noteEvent:MMLEvent;
         
-        /** @private [internal use] the stac of counters to operate repeatings. refer from MMLSequencer. */
+        /** @private [internal] the stac of counters to operate repeatings. refer from MMLSequencer. */
         internal var _repeatCounter:SLLint;
-        /** @private [internal use] the leftover of processing sample count. refer from MMLSequencer. */
+        /** @private [internal] the leftover of processing sample count. refer from MMLSequencer. */
         internal var _residueSampleCount:int;
-        /** @private [internal use] the decimal fraction part of processing sample count. */
+        /** @private [internal] the decimal fraction part of processing sample count. */
         internal var _decimalFractionSampleCount:int;
         
         
@@ -44,6 +51,9 @@ package org.si.sion.sequencer.base {
     //--------------------------------------------------
         /** Repeating count by segno */
         public function get endRepeatCount() : int { return _endRepeatCounter; }
+        
+        /** Executing MMLSequence */
+        public function get sequence() : MMLSequence { return _sequence; }
         
         
         
@@ -86,8 +96,8 @@ package org.si.sion.sequencer.base {
         /** Clear contents. */
         public function clear() : void
         {
-            _sequence = null;
             pointer = null;
+            _sequence = null;
             _endRepeatCounter = 0;
             _repeatPoint = null;
             SLLint.freeList(_repeatCounter);
@@ -114,10 +124,10 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Publish processing event. You should return this function's return in the event handler of NOTE and REST.
+        /** @private [sion sequencer internal] Publish processing event. You should return this function's return in the event handler of NOTE and REST.
          *  @param e Current event
          */
-        public function publishProessingEvent(e:MMLEvent) : MMLEvent
+        _sion_sequencer_internal function _publishProessingEvent(e:MMLEvent) : MMLEvent
         {
             if (e.length > 0) {
                 //_processEvent.data   = 0;
@@ -130,28 +140,44 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Publish delayed event. This returns PROCESS MMLEvent when delay>0.
+        /** Interrupt current sequence by delayed event. This returns PROCESS MMLEvent when delay>0.
          *  @param e MMLEvent after delay.
          *  @param delay Delay time (in sample count).
          */
-        public function publishDelayedEvent(e:MMLEvent, delay:int=0) : MMLEvent
+        public function interruptBySequence(seq:MMLSequence, delay:int=0) : void
         {
-            _restEvent.next = e;
-            _restEvent.length = delay;
-            return publishProessingEvent(_restEvent);
+            if (seq) {
+                _restEvent.next = seq.headEvent.next;
+                _restEvent.length = delay;
+                pointer = _publishProessingEvent(_restEvent);
+
+                _sequence = seq;
+                _endRepeatCounter = 0;
+                _repeatPoint = null;
+                SLLint.freeList(_repeatCounter);
+                _repeatCounter = null;
+            }
         }
         
         
-        /** Publish note event with delay. This returns PROCESS MMLEvent when delay>0.
+        /** Interrupt current sequence by note event. This returns PROCESS MMLEvent when delay>0.
          *  @param note Note number.
          *  @param length Length in sample count. The argument of 0 sets no key off.
          *  @param delay Delay time (in sample count).
          */
-        public function publishNoteEvent(note:int, length:int, delay:int=0) : MMLEvent
+        public function interruptByNote(note:int, length:int, delay:int=0) : void
         {
             _noteEvent.data = note;
             _noteEvent.length = length;
-            return publishDelayedEvent(_noteEvent, delay);
+            _restEvent.next = _noteEvent;
+            _restEvent.length = delay;
+            pointer = _publishProessingEvent(_restEvent);
+            
+            _sequence = null;
+            _endRepeatCounter = 0;
+            _repeatPoint = null;
+            SLLint.freeList(_repeatCounter);
+            _repeatCounter = null;
         }
         
         
@@ -159,15 +185,15 @@ package org.si.sion.sequencer.base {
         
     // callback
     //--------------------------------------------------
-        /** @private [internal use] callback onTempoChanged. */
-        public function _onTempoChanged(changingRatio:Number) : void
+        /** @private [sion sequencer internal] callback onTempoChanged. */
+        _sion_sequencer_internal function _onTempoChanged(changingRatio:Number) : void
         {
             _residueSampleCount         *= changingRatio;
             _decimalFractionSampleCount *= changingRatio;
         }
         
         
-        /** @private [internal use] callback onRepeatAll. */
+        /** @private [internal] callback onRepeatAll. */
         internal function _onRepeatAll(e:MMLEvent) : MMLEvent
         {
             _repeatPoint = e.next;
@@ -175,7 +201,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] callback onRepeatBegin. */
+        /** @private [internal] callback onRepeatBegin. */
         internal function _onRepeatBegin(e:MMLEvent) : MMLEvent
         {
             var counter:SLLint = SLLint.alloc(e.data);
@@ -185,7 +211,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] callback onRepeatBreak. */
+        /** @private [internal] callback onRepeatBreak. */
         internal function _onRepeatBreak(e:MMLEvent) : MMLEvent
         {
             if (_repeatCounter.i == 1) {
@@ -199,7 +225,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] callback onRepeatEnd. */
+        /** @private [internal] callback onRepeatEnd. */
         internal function _onRepeatEnd(e:MMLEvent) : MMLEvent
         {
            if (--_repeatCounter.i == 0) {
@@ -213,7 +239,7 @@ package org.si.sion.sequencer.base {
          }
         
         
-        /** @private [internal use] callback onSequenceTail. */
+        /** @private [internal] callback onSequenceTail. */
         internal function _onSequenceTail(e:MMLEvent) : MMLEvent
         {
             _endRepeatCounter++;

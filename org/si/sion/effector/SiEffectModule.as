@@ -7,6 +7,7 @@
 package org.si.sion.effector {
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.module.SiOPMStream;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** Effect Module. */
@@ -64,7 +65,9 @@ package org.si.sion.effector {
         
     // operations
     //--------------------------------------------------------------------------------
-        /** @private [internal use] initialize all effectors. */
+        /** Initialize all effectors. This function is called from SiONDriver.play() with the 2nd argment true. 
+         *  When you want to connect effectors by code, you have to call this first, then call connect() and SiONDriver.play() with the 2nd argment false.
+         */
         public function initialize() : void
         {
             for (var slot:int=0; slot<SiOPMModule.STREAM_SIZE_MAX; slot++) {
@@ -73,8 +76,8 @@ package org.si.sion.effector {
         }
         
         
-        /** @private [internal use] prepare for processing. */
-        public function prepareProcess() : void
+        /** @private [sion internal] prepare for processing. */
+        _sion_internal function _prepareProcess() : void
         {
             var i:int, slot:int;
             
@@ -92,8 +95,8 @@ package org.si.sion.effector {
         }
         
         
-        /** @private [internal use] processing. */
-        public function process() : void
+        /** @private [sion internal] processing. */
+        _sion_internal function _process() : void
         {
             var i:int, slot:int, buffer:Vector.<Number>, ec:SiEffectConnector,
                 bufferLength:int = _module.bufferLength,

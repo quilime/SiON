@@ -21,9 +21,6 @@ package org.si.sound.base {
         /** @private [internal uses] parent container */
         internal var _parent:SoundObjectContainer;
         
-        /** driver instance to access directly */
-        protected var _driver:SiONDriver;
-        
         /** Base note of this sound */
         protected var _note:int;
         
@@ -56,7 +53,11 @@ package org.si.sound.base {
     // properties
     //----------------------------------------
         /** SiONDriver instrance to operate. */
-        public function get driver() : SiONDriver { return _driver; }
+        public function get driver() : SiONDriver { 
+            var drv:SiONDriver = SiONDriver.mutex || new SiONDriver();
+            if (!drv.isPlaying) drv.play();
+            return drv;
+        }
         
         /** Base note of this sound */
         public function get note() : int { return _note; }
@@ -126,7 +127,6 @@ package org.si.sound.base {
         function SoundObject(name:String = null)
         {
             this.name = name || "";
-            _driver = SiONDriver.mutex || new SiONDriver();
             _parent = null;
             _note = 60;
             _length = 0;

@@ -95,7 +95,7 @@ package org.si.sion.module {
             _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _procpcm_loff], 
                                 [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _procpcm_lon]];
             operator = new Vector.<SiOPMOperator>(4, true);
-            operator[0] = _chip.allocOperator();
+            operator[0] = _chip._allocFMOperator();
             operator[1] = null;
             operator[2] = null;
             operator[3] = null;
@@ -175,7 +175,7 @@ package org.si.sion.module {
         }
         
         
-        /** @private [internal use] lfo on/off */
+        /** @private [protected] lfo on/off */
         protected function _lfoSwitch(sw:Boolean) : void
         {
             var new_lfo_on:int = int(sw);
@@ -1261,14 +1261,14 @@ package org.si.sion.module {
             if (_operatorCount < cnt) {
                 // allocate and initialize new operators
                 for (i=_operatorCount; i<cnt; i++) {
-                    operator[i] = _chip.allocOperator();
+                    operator[i] = _chip._allocFMOperator();
                     operator[i].initialize();
                 }
             } else 
             if (_operatorCount > cnt) {
                 // free old operators
                 for (i=cnt; i<_operatorCount; i++) {
-                    _chip.freeOperator(operator[i]);
+                    _chip._freeFMOperator(operator[i]);
                     operator[i] = null;
                 }
             } 

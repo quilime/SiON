@@ -79,14 +79,14 @@ package org.si.sion.sequencer {
         /** initial connection */
         public var alg_init:Array = [0,1,5,7];
 
-        /** @private [internal use] Master data */
+        // Master envelop tables list
         private var _masterEnvelops:Vector.<SiMMLEnvelopTable> = null;
-        /** @private [internal use] Master data */
+        // Master voices list
         private var _masterVoices:Vector.<SiMMLVoice> = null;
-        /** @private [internal use] Stencil data */
-        internal var stencilEnvelops:Vector.<SiMMLEnvelopTable> = null;
-        /** @private [internal use] Stencil data */
-        internal var stencilVoices:Vector.<SiMMLVoice> = null;
+        /** @private [internal] Stencil envelop tables list */
+        internal var _stencilEnvelops:Vector.<SiMMLEnvelopTable> = null;
+        /** @private [internal] Stencil voices list */
+        internal var _stencilVoices:Vector.<SiMMLVoice> = null;
         
         
         
@@ -229,7 +229,7 @@ package org.si.sion.sequencer {
         public function getEnvelopTable(index:int) : SiMMLEnvelopTable
         {
             if (index<0 || index>=ENV_TABLE_MAX) return null;
-            if (stencilEnvelops && stencilEnvelops[index]) return stencilEnvelops[index];
+            if (_stencilEnvelops && _stencilEnvelops[index]) return _stencilEnvelops[index];
             return _masterEnvelops[index];
         }
         
@@ -240,7 +240,7 @@ package org.si.sion.sequencer {
         public function getSiMMLVoice(index:int) : SiMMLVoice
         {
             if (index<0 || index>=VOICE_MAX) return null;
-            if (stencilVoices && stencilVoices[index]) return stencilVoices[index];
+            if (_stencilVoices && _stencilVoices[index]) return _stencilVoices[index];
             return _masterVoices[index];
         }
         

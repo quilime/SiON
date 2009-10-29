@@ -14,6 +14,13 @@ package org.si.sion.sequencer.base {
     /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLData
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
         /** Sequence group */
@@ -27,24 +34,18 @@ package org.si.sion.sequencer.base {
         public var title:String;
         /** Author */
         public var author:String;
-        /** @private [internal use] default BPM */
-        public var _initialBPM:BeatPerMinutes;
+        /** @private [sion sequencer internal] default BPM of this data */
+        _sion_sequencer_internal var _initialBPM:BeatPerMinutes;
         
         /** wave tables */
-        public var waveTables:Vector.<SiOPMWaveTable>;
+        protected var waveTables:Vector.<SiOPMWaveTable>;
         /** pcm data (log-transformed) */
-        public var pcmData:Vector.<SiOPMPCMData>;
+        protected var pcmData:Vector.<SiOPMPCMData>;
         /** wave data */
-        public var samplerData:Vector.<SiOPMSamplerData>;
+        protected var samplerData:Vector.<SiOPMSamplerData>;
         
-        /** system commands can not be parsed. Examples are for mml string "#ABC5{def}ghi;".<br/>
-         *  the array elements are Object. and it has properties of ...<br/>
-         *  command: command name. this always starts with "#". ex) command = "#ABC"
-         *  number:  number after command. ex) number = 5
-         *  content: content inside {...}. ex) content = "def"
-         *  postfix: number after command. ex) postfix = "ghi"
-         */
-        public var systemCommands:Array;
+        /** @private [sion sequencer internal] system commands that can not be parsed */
+        _sion_sequencer_internal var _systemCommands:Array;
         
         
         
@@ -55,6 +56,19 @@ package org.si.sion.sequencer.base {
         public function get bpm() : Number {
             return (_initialBPM) ? _initialBPM.bpm : 0;
         }
+        
+        
+        /** system commands that can not be parsed. Examples are for mml string "#ABC5{def}ghi;".<br/>
+         *  the array elements are Object. and it has properties of ...<br/>
+         *  <ul>
+         *  <li>command: command name. this always starts with "#". ex) command = "#ABC"</li>
+         *  <li>number:  number after command. ex) number = 5</li>
+         *  <li>content: content inside {...}. ex) content = "def"</li>
+         *  <li>postfix: number after command. ex) postfix = "ghi"</li>
+         *  </ul>
+         */
+        public function get systemCommands() : Array { return _systemCommands; }
+        
         
         
         
@@ -73,7 +87,7 @@ package org.si.sion.sequencer.base {
             waveTables  = new Vector.<SiOPMWaveTable>(SiOPMTable.WAVE_TABLE_MAX);
             pcmData     = new Vector.<SiOPMPCMData>(SiOPMTable.PCM_DATA_MAX);
             samplerData = new Vector.<SiOPMSamplerData>(SiOPMTable.SAMPLER_DATA_MAX);
-            systemCommands = [];
+            _systemCommands = [];
         }
         
         
@@ -97,7 +111,7 @@ package org.si.sion.sequencer.base {
             for (i=0; i<SiOPMTable.WAVE_TABLE_MAX; i++)   { if (waveTables[i])  { waveTables[i].free();  waveTables[i] = null; } }
             for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++)     { if (pcmData[i])     { pcmData[i].free();     pcmData[i] = null; } }
             for (i=0; i<SiOPMTable.SAMPLER_DATA_MAX; i++) { if (samplerData[i]) { samplerData[i].free(); samplerData[i] = null; } }
-            systemCommands.length = 0;
+            _systemCommands.length = 0;
         }
         
         

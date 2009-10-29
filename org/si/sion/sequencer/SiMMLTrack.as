@@ -13,13 +13,23 @@ package org.si.sion.sequencer {
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.base.MMLExecutor;
     import org.si.sion.sequencer.base.BeatPerMinutes;
-
+    import org.si.sion.sequencer.base._sion_sequencer_internal;
+    import org.si.sion.namespaces._sion_internal;
+    
+    
     /** Track for SiMMLSequencer. <br/>
      *  There are 2 types of SiMMLTrack. One is "sequence track", and another is "controlable track". 
      *  The "sequence track" plays a sequence in the mml data, and the "controlable track" plays interavtive sound.
      */
     public class SiMMLTrack
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // constants
     //--------------------------------------------------
         /** sweep step finess */
@@ -29,6 +39,7 @@ package org.si.sion.sequencer {
         /** Maximum value of _sweep */
         static private const SWEEP_MAX:int = 8192<<FIXED_BITS;
         
+        // track id type
         /** track id filter */
         static public const TRACK_ID_FILTER:int = 0xffff;
         /** track type filter */
@@ -44,6 +55,24 @@ package org.si.sion.sequencer {
         /** user controlled id offset */
         static public const USER_CONTROLLED_ID_OFFSET:int = 0x50000;
         
+        // mask bits for eventMask and @mask command
+        /** no mask */
+        static public const NO_MASK:int = 0;
+        /** mask all volume commands (v,x,&#64;v,"(",")") */
+        static public const MASK_VOLUME:int = 1;
+        /** mask all panning commands (p,&#64;p) */
+        static public const MASK_PAN:int = 2;
+        /** mask all quantize commands (q,&#64;q) */
+        static public const MASK_QUANTIZE:int = 4;
+        /** mask all operator setting commands (s,&#64;al,&#64;fb,i,&#64;,&#64;rr,&#64;tl,&#64;ml,&#64;st,&#64;ph,&#64;fx,&#64;se,&#64;er) */
+        static public const MASK_OPERATOR:int = 8;
+        /** mask all table envelop commands (&#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt,_nf) */
+        static public const MASK_ENVELOP:int = 16;
+        /** mask all modulation commands (ma,mp) */
+        static public const MASK_MODULATE:int = 32;
+        /** mask all slur and pitch-bending commands (&,&&,*) */
+        static public const MASK_SLUR:int = 64;
+        
         
         // _processMode
         static private const NORMAL  :int = 0;
@@ -54,29 +83,24 @@ package org.si.sion.sequencer {
         
     // valiables
     //--------------------------------------------------
-        /** Sound channel */
+        /** Sound module's channel controlled by this track. */
         public var channel:SiOPMChannelBase;
-        
-        /** Channel module setting */
-        public var channelModuleSetting:SiMMLChannelSetting;
 
         /** MML sequence executor */
         public var executor:MMLExecutor;
         
-        /** note shift */
+        /** note shift, set by kt command.  */
         public var noteShift:int = 0;
-        /** detune */
+        /** detune, set by k command.  */
         public var pitchShift:int = 0;
-        /** key on delay */
+        /** key on delay, set by 2nd argument of #&64;q command.  */
         public var keyOnDelay:int = 0;
-        /** quantize ratio */
+        /** quantize ratio, set by q command, the value is between 0-1.  */
         public var quantRatio:Number = 0;
-        /** quantize count */
+        /** quantize count, set by #&64;q command. */
         public var quantCount:int = 0;
-        /** Event mask */
+        /** Event mask, set by #&64;mask command. */
         public var eventMask:int = 0;
-        /** Channel number */
-        public var channelNumber:int = 0;
         
         // call back function before noteOn/noteOff
         private var _callbackBeforeNoteOn:Function = null;
@@ -98,18 +122,20 @@ package org.si.sion.sequencer {
         private var _keyOnCounter:int;      // key on counter
         private var _keyOnLength:int;       // key on length
         private var _flagNoKeyOn:Boolean;   // key on flag
-//        private var _flagNoSlur:Boolean;    // key on flag
         private var _processMode:int;       // processing mode
         private var _trackStartDelay:int;   // track delay to start
         private var _trackStopDelay:int;    // track delay to stop
         private var _isDisposable:Boolean;  // flag disposable track
 
         // settings
+        private var _channelModuleSetting:SiMMLChannelSetting;  // selected module's setting
         private var _velocity:int;      // velocity
         private var _expression:int;    // expression
         private var _tone:int;          // tone number
         private var _note:int;          // note number
         private var _defaultFPS:int;    // default fps
+        /** @private [internal] channel number. */
+        internal var _channelNumber:int; 
         
         // setting
         private var _set_processMode:Vector.<int>;
@@ -216,14 +242,16 @@ package org.si.sion.sequencer {
         public function get pan() : int { return channel.pan; }
         public function set pan(p:int) : void { channel.pan = p; }
         
-        /** program number. this value has no meaning. */
+        /** Channel number, set by 2nd argument of % command. Usually same as programNumber. @see programNumber */
+        public function get channelNumber() : int { return _channelNumber; }
+        /** Program number, set by 2nd argument of % command and 1st arg. of #&64; command. Usually same as channelNumber. @see channelNumber */
         public function get programNumber() : int { return _tone; }
         
         /** mml data to play. this value only is available in the track playing mml sequence */
         public function get mmlData() : SiMMLData { return _mmlData; }
         
         
-        /** @private [internal use] bpm setting */
+        /** @private [internal] bpm setting. refer from SiMMLSequencer */
         internal function get _bpmSetting() : BeatPerMinutes { 
             return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET && _mmlData) ? _mmlData._initialBPM : null;
         }
@@ -263,7 +291,7 @@ package org.si.sion.sequencer {
         
     // operations
     //--------------------------------------------------
-        /** @private [internal use] initialize track. [NOTE] Have to call reset() after this. */
+        /** @private [internal] initialize track. [NOTE] Have to call reset() after this. */
         internal function _initialize(seq:MMLSequence, fps:int, trackID:int, eventTriggerOn:Function, eventTriggerOff:Function, isDisposable:Boolean) : SiMMLTrack
         {
             _trackID = trackID;
@@ -287,15 +315,15 @@ package org.si.sion.sequencer {
             var i:int;
             
             // channel module setting
-            channelModuleSetting = _table.channelModuleSetting[SiMMLTable.MT_PSG];
-            channelNumber = 0;
+            _channelModuleSetting = _table.channelModuleSetting[SiMMLTable.MT_PSG];
+            _channelNumber = 0;
             
-            // initialize channel by channelModuleSetting
+            // initialize channel by _channelModuleSetting
             _velocity = 128;
             _expression = 128;
             _note = -1;
             channel = null;
-            _tone = channelModuleSetting.initializeTone(this, 0, bufferIndex);
+            _tone = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
             
             // initialize parameters
             noteShift = 0;
@@ -379,20 +407,18 @@ package org.si.sion.sequencer {
             } else {
                 _keyOn();   // if _keyOnLength=0 -> _keyOnCounter=0 -> No key off
             }
-/*
-            if (length > 0) {
-                if (keyOnDelay) {
-                    _keyOff();
-                    _keyOnCounter = keyOnDelay;
-                } else {
-                    _keyOn();
-                }
+            return this;
+        }
+        
+        
+        /** (still in conceptual stage) */
+        public function keyOnInterrupt(note:int, length:int=0, delay:int=0) : SiMMLTrack
+        {
+            if (!channel.isIdling && delay > 0) {
+                executor.interruptByNote(note, length, delay);
             } else {
-                _keyOnLength = 1;   // not to switch key off in _keyOn().
-                _keyOn();           // key on
-                _keyOnCounter = 0;  // keep key on in process
+                keyOn(note, length, delay);
             }
-*/
             return this;
         }
         
@@ -412,14 +438,29 @@ package org.si.sion.sequencer {
         
         /** Play sequence.
          *  @param seq Sequence to play.
+         *  @param length sequence playing time.
          *  @param delay Delaying time (in sample count).
          */
-        public function sequenceOn(seq:MMLSequence, delay:int=0, length:int=0) : SiMMLTrack
+        public function sequenceOn(seq:MMLSequence, length:int=0, delay:int=0) : SiMMLTrack
         {
             _trackStartDelay = delay;
             _trackStopDelay = length;
             _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
             executor.initialize(seq);
+            return this;
+        }
+        
+        
+        /** (still in conceptual stage) */
+        public function sequenceOnInterrupt(seq:MMLSequence, length:int=0, delay:int=0) : SiMMLTrack
+        {
+            if (!channel.isIdling && delay > 0) {
+                if (length > 0) _trackStopDelay = delay + length;
+                else _trackStopDelay = 0;
+                executor.interruptBySequence(seq, delay);
+            } else {
+                sequenceOn(seq, length, 0);
+            }
             return this;
         }
         
@@ -502,15 +543,15 @@ package org.si.sion.sequencer {
         public function setChannelModuleType(type:int, channelNum:int, toneNum:int=-1) : void
         {
             // change module type
-            channelModuleSetting = _table.channelModuleSetting[type];
+            _channelModuleSetting = _table.channelModuleSetting[type];
             
             // reset operator pgType
-            _tone = channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
+            _tone = _channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
             
             // select tone
             if (toneNum != -1) {
                 _tone = toneNum;
-                channelModuleSetting.selectTone(this, toneNum);
+                _channelModuleSetting.selectTone(this, toneNum);
             }
         }
         
@@ -720,17 +761,11 @@ package org.si.sion.sequencer {
     //====================================================================================================
     // processing
     //--------------------------------------------------
-        /** @private [internal use] prepare buffer. this is called from SiMMLSequencer.process()/dummyProcess(). */
-        internal function prepareBuffer(bufferingTick:int) : int
+        /** @private [internal] prepare buffer. this is called from SiMMLSequencer.process()/dummyProcess(). */
+        internal function _prepareBuffer(bufferingTick:int) : int
         {
-            if (_mmlData) {
-                // register tables
-                SiOPMTable.instance.stencilCustomWaveTables = _mmlData.waveTables;
-                SiOPMTable.instance.stencilPCMData          = _mmlData.pcmData;
-                SiOPMTable.instance.stencilSamplerData      = _mmlData.samplerData;
-                SiMMLTable.instance.stencilEnvelops         = _mmlData.envelops;
-                SiMMLTable.instance.stencilVoices           = _mmlData.voices;
-            }
+            // register all tables
+            if (_mmlData) _mmlData._registerAllTables()
             
             // almost executing this
             if (_trackStartDelay == 0) return bufferingTick;
@@ -747,8 +782,8 @@ package org.si.sion.sequencer {
         }
         
         
-        /** @private [internal use] buffering */
-        internal function buffer(length:int) : void
+        /** @private [internal] buffering */
+        internal function _buffer(length:int) : void
         {
             // check track stopping
             var trackStop:Boolean = false, trackStopResume:int = 0;
@@ -856,7 +891,7 @@ package org.si.sion.sequencer {
                 
                 // change tone
                 if (_env_tone && --_cnt_tone == 0) {
-                    channelModuleSetting.selectTone(this, _env_tone.i);
+                    _channelModuleSetting.selectTone(this, _env_tone.i);
                     _env_tone = _env_tone.next;
                     _cnt_tone = _max_cnt_tone;
                 }
@@ -931,7 +966,7 @@ package org.si.sion.sequencer {
                 // reset previous envelop
                 if (_processMode == ENVELOP) {
                     channel.offsetVolume(_expression, _velocity);
-                    channelModuleSetting.selectTone(this, _tone);
+                    _channelModuleSetting.selectTone(this, _tone);
                     channel.setFilterOffset(128);
                 }
                 // previous note off
@@ -960,7 +995,6 @@ package org.si.sion.sequencer {
             
             // set key on counter
             _keyOnCounter = _keyOnLength;
-            //if (_keyOnCounter <= 0) _keyOff();
         }
         
         
@@ -1009,20 +1043,26 @@ package org.si.sion.sequencer {
         
     // event handlers
     //--------------------------------------------------
-        /** @private [internal use] handler for MMLEvent.REST. */
+        /** @private [internal] handler for MMLEvent.REST. */
         internal function _setRest() : void
         {
         }
         
 
-        /** @private [internal use] handler for MMLEvent.NOTE. */
+        /** @private [internal] handler for MMLEvent.NOTE. */
         internal function _setNote(note:int, length:int) : void
         {
             var quantLength:int = int(length * quantRatio) - quantCount - keyOnDelay;
             if (quantLength < 1) quantLength = 1;
             keyOn(note, quantLength);
-            // length=0 means no processing -> key off immediately.
-            //if (length == 0) keyOff();
+        }
+        
+        
+        /** @private [internal] change note length. call from SiMMLSequence._onSlur()/_onSlurWeek() when its masked. */
+        internal function _changeNoteLength(length:int) : void
+        {
+            _keyOnCounter = int(length * quantRatio) - quantCount - keyOnDelay;
+            if (_keyOnCounter < 1) _keyOnCounter = 1;
         }
         
         
@@ -1031,7 +1071,7 @@ package org.si.sion.sequencer {
         {
             var ret:MMLSequence = null;
             if (param[0] != int.MIN_VALUE) {
-                ret = channelModuleSetting.selectTone(this, param[0]);
+                ret = _channelModuleSetting.selectTone(this, param[0]);
                 _tone = param[0];
             }
             channel.setParameters(param);

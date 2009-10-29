@@ -12,6 +12,13 @@ package org.si.sion.sequencer.base {
     /** @private MML executor connector. this class is used for #FM connection. */
     public class MMLExecutorConnector
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
         private var _sequenceCount:int;    // sequence count
@@ -122,7 +129,7 @@ package org.si.sion.sequencer.base {
             for (var i:int=0; i<_sequenceCount; i++) {
                 if (prev.nextSequence == null) throw _errorSequenceNotEnough();
                 seqList[i] = prev.nextSequence;
-                prev.nextSequence.removeFromChain();
+                prev.nextSequence._removeFromChain();
             }
             
             // set executors connections

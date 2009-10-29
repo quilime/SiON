@@ -6,6 +6,7 @@
 
 package org.si.sion.sequencer {
     import org.si.utils.SLLint;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** Tabel evnelope data. */
@@ -56,8 +57,8 @@ package org.si.sion.sequencer {
             return this;
         }
         
-        /** @private [internal use] initializer. */
-        public function _initialize(head_:SLLint, tail_:SLLint) : void
+        /** @private [sion internal] initializer. */
+        _sion_internal function _initialize(head_:SLLint, tail_:SLLint) : void
         {
             head = head_;
             tail = tail_;

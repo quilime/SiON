@@ -86,7 +86,7 @@ package org.si.sion.sequencer {
             // channelTone = chNum except for PSG and APU
             var channelTone:int = _initIndex; 
             if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
-            track.channelNumber = (chNum<0) ? 0 : chNum;
+            track._channelNumber = (chNum<0) ? 0 : chNum;
             track.channel.setAlgorism(1, 0);
             selectTone(track, channelTone);
             return (chNum == -1) ? -1 : channelTone;

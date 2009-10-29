@@ -10,7 +10,7 @@ package org.si.sion.effector {
     {
     // variables
     //------------------------------------------------------------
-        /** @private [internal use] used by manager */
+        /** @private [internal] used by manager */
         internal var _isFree:Boolean = true;
         
         

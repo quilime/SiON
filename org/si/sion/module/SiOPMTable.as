@@ -6,11 +6,19 @@
 
 package org.si.sion.module {
     import org.si.utils.SLLint;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** SiOPM table */
     public class SiOPMTable
     {
+    // namespace
+    //----------------------------------------
+        use namespace _sion_internal;
+        
+        
+        
+        
     // constants
     //--------------------------------------------------
         static public const ENV_BITS            :int = 10;   // Envelop output bit size
@@ -195,20 +203,22 @@ package org.si.sion.module {
         /** PG:Wave tables without any waves. */
         public var noWaveTable:SiOPMWaveTable;
         public var noWaveTableOPM:SiOPMWaveTable;
+        
         /** PG:Wave tables */
         public var waveTables:Vector.<SiOPMWaveTable> = null;
+        
         /** PG:Custom wave tables */
-        public var customWaveTables:Vector.<SiOPMWaveTable> = null;
+        private var _customWaveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:Overriding custom wave tables */
-        public var stencilCustomWaveTables:Vector.<SiOPMWaveTable> = null;
+        _sion_internal var _stencilCustomWaveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:PCM data */
-        public var pcmData:Vector.<SiOPMPCMData> = null;
+        private var _pcmData:Vector.<SiOPMPCMData> = null;
         /** PG:PCM data */
-        public var stencilPCMData:Vector.<SiOPMPCMData> = null;
+        _sion_internal var _stencilPCMData:Vector.<SiOPMPCMData> = null;
         /** PG:Wave data for sampler */
-        public var samplerData:Vector.<SiOPMSamplerData> = null;
+        private var _samplerData:Vector.<SiOPMSamplerData> = null;
         /** PG:Overriding wave data for sampler */
-        public var stencilSamplerData:Vector.<SiOPMSamplerData> = null;
+        _sion_internal var _stencilSamplerData:Vector.<SiOPMSamplerData> = null;
         
         /** Table for dt1 (from fmgen.cpp). */
         public var dt1Table:Array = null;
@@ -576,19 +586,19 @@ package org.si.sion.module {
             noWaveTable = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_PCM);
             noWaveTableOPM = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_OPM);
             waveTables = new Vector.<SiOPMWaveTable>(DEFAULT_PG_MAX);
-            customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
-            pcmData = new Vector.<SiOPMPCMData>(PCM_DATA_MAX);
-            samplerData = new Vector.<SiOPMSamplerData>(SAMPLER_DATA_MAX);
+            _customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
+            _pcmData = new Vector.<SiOPMPCMData>(PCM_DATA_MAX);
+            _samplerData = new Vector.<SiOPMSamplerData>(SAMPLER_DATA_MAX);
             
         // clear all tables
         //------------------------------
             for (i=0; i<DEFAULT_PG_MAX;   i++) waveTables[i] = noWaveTable;
-            for (i=0; i<WAVE_TABLE_MAX;   i++) customWaveTables[i] = null;
-            for (i=0; i<PCM_DATA_MAX;     i++) pcmData[i]          = null;
-            for (i=0; i<SAMPLER_DATA_MAX; i++) samplerData[i]      = null;
-            stencilCustomWaveTables = null;
-            stencilPCMData = null;
-            stencilSamplerData = null;
+            for (i=0; i<WAVE_TABLE_MAX;   i++) _customWaveTables[i] = null;
+            for (i=0; i<PCM_DATA_MAX;     i++) _pcmData[i]          = null;
+            for (i=0; i<SAMPLER_DATA_MAX; i++) _samplerData[i]      = null;
+            _stencilCustomWaveTables = null;
+            _stencilPCMData = null;
+            _stencilSamplerData = null;
             
         // sine wave table
         //------------------------------
@@ -1061,26 +1071,26 @@ package org.si.sion.module {
             
             // Reset wave tables
             for (i=0; i<WAVE_TABLE_MAX; i++) { 
-                if (instance.customWaveTables[i]) { 
-                    instance.customWaveTables[i].free(); 
-                    instance.customWaveTables[i] = null;
+                if (instance._customWaveTables[i]) { 
+                    instance._customWaveTables[i].free(); 
+                    instance._customWaveTables[i] = null;
                 }
             }
             for (i=0; i<PCM_DATA_MAX; i++) { 
-                if (instance.pcmData[i]) { 
-                    instance.pcmData[i].free();
-                    instance.pcmData[i] = null;
+                if (instance._pcmData[i]) { 
+                    instance._pcmData[i].free();
+                    instance._pcmData[i] = null;
                 }
             }
             for (i=0; i<SAMPLER_DATA_MAX; i++) {
-                if (instance.samplerData[i]) {
-                    instance.samplerData[i].free();
-                    instance.samplerData[i] = null;
+                if (instance._samplerData[i]) {
+                    instance._samplerData[i].free();
+                    instance._samplerData[i] = null;
                 }
             }
-            instance.stencilCustomWaveTables = null;
-            instance.stencilPCMData = null;
-            instance.stencilSamplerData = null;
+            instance._stencilCustomWaveTables = null;
+            instance._stencilPCMData = null;
+            instance._stencilSamplerData = null;
         }
         
         
@@ -1090,7 +1100,7 @@ package org.si.sion.module {
             // register wave table
             var newWaveTable:SiOPMWaveTable = SiOPMWaveTable.alloc(table);
             index &= WAVE_TABLE_MAX-1;
-            instance.customWaveTables[index] = newWaveTable;
+            instance._customWaveTables[index] = newWaveTable;
             
             // update PG_MA3_WAVE waveform 15,23,31.
             if (index < 3) {
@@ -1107,8 +1117,8 @@ package org.si.sion.module {
         {
             // register PCM data
             index &= PCM_DATA_MAX-1;
-            instance.pcmData[index] = SiOPMPCMData.alloc(table, samplingOctave);
-            return instance.pcmData[index];
+            instance._pcmData[index] = SiOPMPCMData.alloc(table, samplingOctave);
+            return instance._pcmData[index];
         }
         
         
@@ -1117,8 +1127,8 @@ package org.si.sion.module {
         {
             // register sample
             index &= SAMPLER_DATA_MAX-1;
-            instance.samplerData[index] = SiOPMSamplerData.alloc(table, isOneShot, channelCount);
-            return instance.samplerData[index];
+            instance._samplerData[index] = SiOPMSamplerData.alloc(table, isOneShot, channelCount);
+            return instance._samplerData[index];
         }
         
         
@@ -1128,8 +1138,8 @@ package org.si.sion.module {
             if (index < PG_CUSTOM) return waveTables[index];
             if (index < PG_PCM) {
                 index -= PG_CUSTOM;
-                if (stencilCustomWaveTables && stencilCustomWaveTables[index]) return stencilCustomWaveTables[index];
-                return customWaveTables[index] || noWaveTableOPM;
+                if (_stencilCustomWaveTables && _stencilCustomWaveTables[index]) return _stencilCustomWaveTables[index];
+                return _customWaveTables[index] || noWaveTableOPM;
             }
             return noWaveTable;
         }
@@ -1139,8 +1149,8 @@ package org.si.sion.module {
         public function getPCMData(index:int) : SiOPMPCMData
         {
             index &= PCM_DATA_MAX-1;
-            if (stencilPCMData && stencilPCMData[index]) return stencilPCMData[index];
-            return pcmData[index];
+            if (_stencilPCMData && _stencilPCMData[index]) return _stencilPCMData[index];
+            return _pcmData[index];
         }
         
         
@@ -1148,8 +1158,8 @@ package org.si.sion.module {
         public function getSamplerData(index:int) : SiOPMSamplerData
         {
             index &= SAMPLER_DATA_MAX-1;
-            if (stencilSamplerData && stencilSamplerData[index]) return stencilSamplerData[index];
-            return samplerData[index];
+            if (_stencilSamplerData && _stencilSamplerData[index]) return _stencilSamplerData[index];
+            return _samplerData[index];
         }
     }
 }

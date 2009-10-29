@@ -143,7 +143,7 @@ package org.si.sion.sequencer.base {
         
     // allocator
     //--------------------------------------------------
-        /** @private [internal use] Free all events in the sequence. */
+        /** @private [internal] Free all events in the sequence. */
         static internal function _freeAllEvents(seq:MMLSequence) : void
         {
             if (seq.headEvent == null) return;
@@ -160,7 +160,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] Free event. */
+        /** @private [internal] Free event. */
         static internal function _freeEvent(e:MMLEvent) : MMLEvent
         {
             var next:MMLEvent = e.next;
@@ -170,7 +170,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] allocate event */
+        /** @private [internal] allocate event */
         static internal function _allocEvent(id:int, data:int, length:int=0) : MMLEvent
         {
             if (_freeEventChain) {
@@ -186,7 +186,7 @@ package org.si.sion.sequencer.base {
         
     // settting
     //--------------------------------------------------
-        /** @private [internal use] Set map of user defined ids. */
+        /** @private [internal] Set map of user defined ids. */
         static internal function _setUserDefinedEventID(map:Object) : void
         {
             if (_userDefinedEventID !== map) {
@@ -196,7 +196,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] Set array of global event flags. */
+        /** @private [internal] Set array of global event flags. */
         static internal function _setGlobalEventFlags(flags:Vector.<Boolean>) : void
         {
             _globalEventFlags = flags;
@@ -274,14 +274,14 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] get system event string */
+        /** @private [internal] get system event string */
         static internal function _getSystemEventString(e:MMLEvent) : String
         {
             return _systemEventStrings[e.data];
         }
         
         
-        /** @private [internal use] get sequence mml string */
+        /** @private [internal] get sequence mml string */
         static internal function _getSequenceMML(e:MMLEvent) : String
         {
             return (e.length == -1) ? "" : _sequenceMMLStrings[e.length];

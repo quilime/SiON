@@ -213,7 +213,7 @@ package org.si.sion.module {
         override public function buffer(len:int) : void
         {
             var i:int, imax:int, vol:Number;
-            if (_isIdling || _sample == null) {
+            if (_isIdling || _sample == null || _mute) {
                 //_nop(len);
             } else {
                 var residureLen:int = _sampleLength - _sampleIndex,
@@ -222,11 +222,11 @@ package org.si.sion.module {
                     imax = _chip.streamBuffer.length;
                     for (i=0; i<imax; i++) {
                         vol = _volume[i] * _expression;
-                        if (vol > 0) _chip.streamBuffer[i].writeVectorInt(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
+                        if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
                     }
                 } else {
                     vol = _volume[0] * _expression;
-                    _chip.streamBuffer[0].writeVectorInt(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
+                    _chip.streamBuffer[0].writeVectorNumber(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
                 }
                 if (procLen < len) {
                     _isIdling = true;

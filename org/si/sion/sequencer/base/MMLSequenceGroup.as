@@ -11,6 +11,13 @@ package org.si.sion.sequencer.base {
     /** Group of MMLSequences. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLSequenceGroup
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
         // terminator
@@ -110,7 +117,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] Allocate new sequence and push sequence chain. */
+        /** @private [internal] Allocate new sequence and push sequence chain. */
         internal function _newSequence() : MMLSequence
         {
             var seq:MMLSequence = _freeList.pop() || new MMLSequence();

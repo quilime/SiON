@@ -19,6 +19,13 @@ package org.si.sion.sequencer.base {
      */
     public class MMLSequencer
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // constant
     //--------------------------------------------------
         /** bits for fixed decimal */
@@ -53,6 +60,9 @@ package org.si.sion.sequencer.base {
         protected var globalBeat16:Number;
         /** filter for onBeat() callback. 0=16th beat, 1=8th beat, 3=4th beat, 7=2dn beat, 15=whole tone ...*/
         protected var _onBeatCallbackFilter:int;
+        
+        /** @private [sion sequencer internal] abstruct global sequence. */
+        static _sion_sequencer_internal var _tempExecutor:MMLExecutor = new MMLExecutor();
 
         
         private var _newUserDefinedEventID:int = MMLEvent.USER_DEFINE;  // id value of new user-defined event.
@@ -234,12 +244,9 @@ package org.si.sion.sequencer.base {
             if (mmlData && mmlData._initialBPM) {
                 _changableBPM.update(mmlData._initialBPM.bpm, sampleRate);
                 globalExecutor.initialize(mmlData.globalSequence);
-<<<<<<< .mine
             } else {
                 _changableBPM.update(setting.defaultBPM, sampleRate);
                 globalExecutor.initialize(null);
-=======
->>>>>>> .r3164
             }
             _bpm = _changableBPM;
             globalBufferIndex = 0;
@@ -341,14 +348,14 @@ package org.si.sion.sequencer.base {
         
     // process
     //--------------------------------------------------
-        /** @private [internal use] Calculate sample count from length of MMLEvent. */
+        /** @private [protected] Calculate sample count from length of MMLEvent. */
         protected function calcSampleCount(len:int) : int
         {
             return (len * _bpm._samplePerTick) >> FIXED_BITS;
         }
         
         
-        /** @private [internal use] Call onTableParse. This function */
+        /** @private [protected] Call onTableParse. */
         protected function callOnTableParse(prev:MMLEvent) : void
         {
             var tableEvent:MMLEvent = prev.next;
@@ -419,8 +426,6 @@ package org.si.sion.sequencer.base {
         
     // private functions
     //--------------------------------------------------
-        // abstruct global sequence.
-        static private var _tempExecutor:MMLExecutor = new MMLExecutor();
         private function _abstructGlobalSequence() : void
         {
             var seqGroup:MMLSequenceGroup = mmlData.sequenceGroup;
@@ -482,7 +487,7 @@ package org.si.sion.sequencer.base {
                 // if no event (except rest) in the sequence, skip this sequence
                 if (hasNoEvent) {
 //trace("skip sequence");
-                    seq = seq.removeFromChain();
+                    seq = seq._removeFromChain();
                 }
             }
             

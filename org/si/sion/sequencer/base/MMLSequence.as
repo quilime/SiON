@@ -11,14 +11,26 @@ package org.si.sion.sequencer.base {
     /** Sequence of 1 sound channel. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
     public class MMLSequence
     {
+    // namespace
+    //--------------------------------------------------
+        use namespace _sion_sequencer_internal;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
         /** First MMLEvent. The ID is always MMLEvent.SEQUENCE_HEAD. */
         public var headEvent:MMLEvent;
         /** Last MMLEvent. The ID is always MMLEvent.SEQUENCE_TAIL and lastEvent.next is always null. */
         public var tailEvent:MMLEvent;
-        /** MML String */
-        public var mmlString:String;
+        
+        // mml string
+        private var _mmlString:String;
+        // mml length in resolution unit
+        private var _mmlLength:int;
+        // flag for apearance of repeat all command (segno) 
+        private var _hasRepeatAll:Boolean;
         
         // Previous sequence in the chain.
         private var _prevSequence:MMLSequence;
@@ -27,8 +39,8 @@ package org.si.sion.sequencer.base {
         // Is terminal sequence.
         private var _isTerminal:Boolean;
         
-        /** @private [internal use] owner data */
-        public var _owner:MMLData;
+        /** @private [sion seqiencer internal] owner data */
+        _sion_sequencer_internal var _owner:MMLData;
         
         
         
@@ -40,7 +52,20 @@ package org.si.sion.sequencer.base {
             return (!_nextSequence._isTerminal) ? _nextSequence : null;
         }
         
+        /** MML String, if its cached when its compiling. */
+        public function get mmlString() : String { return _mmlString; }
         
+        /** MML length, in resolution unit (1920 = whole-tone in default). */
+        public function get mmlLength() : int {
+            if (_mmlLength == -1) _updateMMLLength();
+            return _mmlLength;
+        }
+        
+        /** flag for apearance of repeat all command (segno) */
+        public function get hasRepeatAll() : Boolean {
+            if (_mmlLength == -1) _updateMMLLength();
+            return _hasRepeatAll;
+        }
         
         
     // constructor
@@ -51,7 +76,9 @@ package org.si.sion.sequencer.base {
             _owner = null;
             headEvent = null;
             tailEvent = null;
-            mmlString = "";
+            _mmlString = "";
+            _mmlLength = -1;
+            _hasRepeatAll = false;
             _prevSequence = (term) ? this : null;
             _nextSequence = (term) ? this : null;
             _isTerminal = term;
@@ -138,7 +165,7 @@ package org.si.sion.sequencer.base {
                 _prevSequence = this;
                 _nextSequence = this;
             }
-            mmlString = "";
+            _mmlString = "";
         }
         
         
@@ -217,8 +244,8 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] cutout MMLSequence */
-        public function _cutout(head:MMLEvent) : MMLEvent
+        /** @private [sion sequencer internal] cutout MMLSequence */
+        _sion_sequencer_internal function _cutout(head:MMLEvent) : MMLEvent
         {
             var last:MMLEvent = head.jump; // last event of this sequence
             var next:MMLEvent = last.next; // head of next sequence
@@ -232,17 +259,17 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] update mml string */
+        /** @private [internal] update mml string */
         internal function _updateMMLString() : void
         {
             if (headEvent.next.id == MMLEvent.DEBUG_INFO) {
-                mmlString = MMLParser._getSequenceMML(headEvent.next);
+                _mmlString = MMLParser._getSequenceMML(headEvent.next);
                 headEvent.length = 0;
             }
         }
         
         
-        /** @private [internal use] insert before */
+        /** @private [internal] insert before */
         internal function _insertBefore(next:MMLSequence) : void
         {
             _prevSequence = next._prevSequence;
@@ -252,7 +279,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** @private [internal use] insert after */
+        /** @private [internal] insert after */
         internal function _insertAfter(prev:MMLSequence) : void
         {
             _prevSequence = prev;
@@ -262,8 +289,8 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** remove from chain. @return previous sequence. */
-        public function removeFromChain() : MMLSequence
+        /** @private [sion sequencer internal] remove from chain. @return previous sequence. */
+        _sion_sequencer_internal function _removeFromChain() : MMLSequence
         {
             var ret:MMLSequence = _prevSequence;
             _prevSequence._nextSequence = _nextSequence;
@@ -271,6 +298,37 @@ package org.si.sion.sequencer.base {
             _prevSequence = null;
             _nextSequence = null;
             return (ret === this) ? null : ret;
+        }
+        
+        
+        // calculate mml length
+        private function _updateMMLLength() : void 
+        {
+            var exec:MMLExecutor = MMLSequencer._tempExecutor,
+                e:MMLEvent = headEvent.next,
+                length:int = 0;
+            
+            _hasRepeatAll = false;
+            exec.initialize(this);
+            while (e != null) {
+                if (e.length) {
+                    // note or rest
+                    length += e.length;
+                    e = e.next;
+                } else {
+                    // others
+                    switch (e.id) {
+                    case MMLEvent.REPEAT_BEGIN:  e = exec._onRepeatBegin(e);    break;
+                    case MMLEvent.REPEAT_BREAK:  e = exec._onRepeatBreak(e);    break;
+                    case MMLEvent.REPEAT_END:    e = exec._onRepeatEnd(e);      break;
+                    case MMLEvent.REPEAT_ALL:    e = null; _hasRepeatAll=true;  break;
+                    case MMLEvent.SEQUENCE_TAIL: e = null;                      break;
+                    default:                     e = e.next;                    break;
+                    }
+                }
+            }
+            
+            _mmlLength = length;
         }
     }
 }

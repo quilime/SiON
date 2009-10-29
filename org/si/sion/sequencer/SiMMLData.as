@@ -6,8 +6,10 @@
 
 package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMChannelParam;
+    import org.si.sion.module.SiOPMTable;
     import org.si.sion.sequencer.base.MMLData;
     import org.si.utils.SLLint;
+    import org.si.sion.namespaces._sion_internal;
     
     
     
@@ -67,7 +69,7 @@ package org.si.sion.sequencer {
         public function setVoice(index:int, voice:SiMMLVoice) : void
         {
             if (index >= 0 && index < SiMMLTable.VOICE_MAX) {
-                if (!voice._isSuitableForFMVoice) throw errorNotGoodFMVoice();
+                if (!voice._sion_internal::_isSuitableForFMVoice) throw errorNotGoodFMVoice();
                  voices[index] = voice;
             }
         }
@@ -77,22 +79,33 @@ package org.si.sion.sequencer {
         
     // internal function
     //--------------------------------------------------
-        /** @private [internal use] Set envelop table data */
+        /** @private [internal] Set envelop table data */
         internal function _setEnvelopTable(index:int, head:SLLint, tail:SLLint) : void
         {
             var t:SiMMLEnvelopTable = new SiMMLEnvelopTable();
-            t._initialize(head, tail);
+            t._sion_internal::_initialize(head, tail);
             envelops[index] = t;
         }
         
         
-        /** @private [internal use] Get channel parameter */
+        /** @private [internal] Get channel parameter */
         internal function _getSiOPMChannelParam(index:int) : SiOPMChannelParam
         {
             var v:SiMMLVoice = new SiMMLVoice();
             v.channelParam = new SiOPMChannelParam();
             voices[index] = v;
             return v.channelParam;
+        }
+        
+        
+        /** @private [internal] register all tables. called from SiMMLTrack._prepareBuffer(). */
+        internal function _registerAllTables() : void
+        {
+            SiOPMTable.instance._sion_internal::_stencilCustomWaveTables = waveTables;
+            SiOPMTable.instance._sion_internal::_stencilPCMData          = pcmData;
+            SiOPMTable.instance._sion_internal::_stencilSamplerData      = samplerData;
+            SiMMLTable.instance._stencilEnvelops = envelops;
+            SiMMLTable.instance._stencilVoices   = voices;
         }
         
         

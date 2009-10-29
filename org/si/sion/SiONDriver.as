@@ -30,6 +30,7 @@ package org.si.sion {
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** SiON driver class.<br/>
@@ -50,6 +51,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
      */
     public class SiONDriver extends Sprite
     {
+    // namespace
+    //----------------------------------------
+        use namespace _sion_internal;
+        
+        
+        
+        
     // constants
     //----------------------------------------
         /** version number */
@@ -930,7 +938,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 lengthSamples:int = sequencer.calcSampleLength(length);
             while (seq) {
                 mmlTrack = sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
-                mmlTrack.sequenceOn(seq, delaySamples, lengthSamples);
+                mmlTrack.sequenceOn(seq, lengthSamples, delaySamples);
                 if (voice) voice.setTrackVoice(mmlTrack);
                 tracks.push(mmlTrack);
                 seq = seq.nextSequence;
@@ -1038,8 +1046,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         {
             if (_listenEvent != NO_LISTEN) throw errorDriverBusy(LISTEN_PROCESS);
             addEventListener(Event.ENTER_FRAME, _process_onEnterFrame, false, _eventListenerPrior);
-            if (hasEventListener(SiONTrackEvent.BEAT)) sequencer._callbackBeat = _callbackBeat;
-            else sequencer._callbackBeat = null;
+            if (hasEventListener(SiONTrackEvent.BEAT)) sequencer._setBeatCallback(_callbackBeat);
+            else sequencer._setBeatCallback(null);
             _dispatchStreamEvent = (hasEventListener(SiONEvent.STREAM));
             _prevFrameTime = getTimer();
             _listenEvent = LISTEN_PROCESS;
@@ -1055,7 +1063,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 break;
             case LISTEN_PROCESS:
                 removeEventListener(Event.ENTER_FRAME, _process_onEnterFrame);
-                sequencer._callbackBeat = null;
+                sequencer._setBeatCallback(null);
                 _dispatchStreamEvent = false;
                 break;
             }
@@ -1211,7 +1219,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             
             // processing
             sequencer.process();
-            effector.process();
+            effector._process();
             module.limitLevel();
             
             // limit rendering length
@@ -1265,13 +1273,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             module.reset();                                                 // reset channels
             sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
-            effector.prepareProcess();                                      // set stream number inside
+            effector._prepareProcess();                                     // set stream number inside
             _trackEventQueue.length = 0;                                    // clear event que
             
             
             if (_timerCallback != null) {
                 sequencer.setGlobalSequence(_timerSequence); // set timer interruption
-                sequencer._callbackTimer = _timerCallback;
+                sequencer._setTimerCallback(_timerCallback);
             }
        }
         
@@ -1326,7 +1334,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     var t:int = getTimer();
                     // processing
                     sequencer.process();
-                    effector.process();
+                    effector._process();
                     module.limitLevel();
                     
                     // calculate the average of processing time

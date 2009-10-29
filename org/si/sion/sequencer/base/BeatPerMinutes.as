@@ -12,7 +12,7 @@ package org.si.sion.sequencer.base {
         public var beat16ParSample:Number;
         /** sample par 16th beat */
         public var sampleParBeat16:Number;
-        /** @private [internal use] sample per tick in FIXED unit. */
+        /** @private [internal] sample per tick in FIXED unit. */
         internal var _samplePerTick:Number;
         // beat per minutes
         private var _bpm:Number = 0;

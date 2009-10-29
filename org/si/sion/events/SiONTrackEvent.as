@@ -11,6 +11,7 @@ package org.si.sion.events {
     import org.si.sion.SiONDriver;
     import org.si.sion.SiONData;
     import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** SiON Track Event class. */
@@ -210,8 +211,8 @@ package org.si.sion.events {
         }
         
         
-        /** @private [internal use] */
-        public function _decrementTimer(frameRate:int) : Boolean
+        /** @private [sion internal] */
+        _sion_internal function _decrementTimer(frameRate:int) : Boolean
         {
             _frameTriggerTimer -= frameRate;
             return (_frameTriggerTimer <= 0);

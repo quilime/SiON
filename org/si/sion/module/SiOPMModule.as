@@ -177,15 +177,15 @@ package org.si.sion.module {
         }
         
         
-        /** @private [internal use] Alloc operator instance WITHOUT initializing. Call from SiOPMChannelFM. */
-        internal function allocOperator() : SiOPMOperator
+        /** @private [internal] Alloc operator instance WITHOUT initializing. Call from SiOPMChannelFM. */
+        internal function _allocFMOperator() : SiOPMOperator
         {
             return _freeOperators.pop() || new SiOPMOperator(this);
         }
 
         
-        /** @private [internal use] Free operator instance. Call from SiOPMChannelFM. */
-        internal function freeOperator(osc:SiOPMOperator) : void
+        /** @private [internal] Free operator instance. Call from SiOPMChannelFM. */
+        internal function _freeFMOperator(osc:SiOPMOperator) : void
         {
             _freeOperators.push(osc);
         }

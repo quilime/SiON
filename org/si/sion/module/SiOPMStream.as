@@ -8,6 +8,7 @@ package org.si.sion.module {
     import org.si.utils.SLLint;
     
     
+    /** Stream buffer class */
     public class SiOPMStream {
         // valiables
         //--------------------------------------------------
@@ -25,6 +26,7 @@ package org.si.sion.module {
         
         // constructor
         //--------------------------------------------------
+        /** constructor */
         function SiOPMStream()
         {
             _panTable = SiOPMTable.instance.panTable;
@@ -36,6 +38,7 @@ package org.si.sion.module {
         
         // operation
         //--------------------------------------------------
+        /** write buffer by org.si.utils.SLLint */
         public function write(pointer:SLLint, start:int, len:int, vol:Number, pan:int) : void 
         {
             var i:int, n:Number, imax:int = (start + len)<<1;
@@ -63,7 +66,8 @@ package org.si.sion.module {
         }
         
         
-        public function writeVectorInt(pointer:Vector.<Number>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
+        /** write buffer by Vector.<Number> */
+        public function writeVectorNumber(pointer:Vector.<Number>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
         {
             var i:int, j:int, n:Number, jmax:int, volL:Number, volR:Number;
             

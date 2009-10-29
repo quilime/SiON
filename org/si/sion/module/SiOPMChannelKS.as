@@ -80,7 +80,7 @@ package org.si.sion.module {
         
     // LFO settings
     //--------------------------------------------------
-        /** @private [internal use] operator lfo is always off */
+        /** @private */
         override protected function _lfoSwitch(sw:Boolean) : void
         {
             _lfo_on = 0;
@@ -307,7 +307,7 @@ package org.si.sion.module {
                 if (_filterOn) _applyLPFilter(monoOut, len);
                 
                 // standard output
-                if (_outputMode == OUTPUT_STANDARD) {
+                if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
                         var i:int, imax:int = _chip.streamBuffer.length;
                         for (i=0; i<imax; i++) {

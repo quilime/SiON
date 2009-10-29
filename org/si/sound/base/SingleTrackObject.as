@@ -47,6 +47,7 @@ package org.si.sound.base {
             if (t) t.quantRatio = _noteQuantize * 0.125;
         }
         
+        
         /** sequence data */
         public function get data() : SiONData { return _data; }
         

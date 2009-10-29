@@ -57,6 +57,7 @@ package org.si.sion.module {
         /** volume */           protected var _volume:Vector.<Number>;
         /** pan */              protected var _pan:int;
         /** effect send flag */ protected var _hasEffectSend:Boolean;
+        /** mute */             protected var _mute:Boolean;
         
         // LPFilter
         /** filter switch */    protected var _filterOn:Boolean;
@@ -131,7 +132,6 @@ package org.si.sion.module {
             _volume[0] = v * 0.0078125;     // 0.0078125 = 1/128
         }
         
-        
         /** Pan (-64-64 left=-64, center=0, right=64).<br/>
          *  [left volume]  = cos((pan+64)/128*PI*0.5) * volume;<br/>
          *  [right volume] = sin((pan+64)/128*PI*0.5) * volume;
@@ -140,6 +140,13 @@ package org.si.sion.module {
         public function set pan(p:int) : void {
             _pan = (p<-64) ? 0 : (p>64) ? 128 : (p+64);
         }
+        
+        /** Mute */
+        public function get mute() : Boolean { return _mute; }
+        public function set mute(m:Boolean) : void {
+            _mute = m;
+        }
+        
         
         /** active operator index (i). */
         public function set activeOperatorIndex(i:int) : void { }
@@ -402,11 +409,13 @@ package org.si.sion.module {
                 for (i=0; i<imax; i++) _volume[i] = prev._volume[i];
                 _pan = prev._pan;
                 _hasEffectSend = prev._hasEffectSend;
+                _mute = prev._mute;
             } else {
                 _volume[0] = 0.5;
                 for (i=1; i<imax; i++) _volume[i] = 0;
                 _pan = 64;
                 _hasEffectSend = false;
+                _mute = false;
             }
             
             // buffer index
@@ -498,7 +507,7 @@ package org.si.sion.module {
                 if (_filterOn) _applyLPFilter(monoOut, len);
                 
                 // standard output
-                if (_outputMode == OUTPUT_STANDARD) {
+                if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
                         var i:int, imax:int = _chip.streamBuffer.length;
                         for (i=0; i<imax; i++) {
@@ -680,13 +689,13 @@ package org.si.sion.module {
         
     // for channel manager operation [internal use]
     //--------------------------------------------------
-        /** @private [internal use] DLL of channels */
+        /** @private [internal] DLL of channels */
         internal var _isFree:Boolean = true;
-        /** @private [internal use] DLL of channels */
+        /** @private [internal] DLL of channels */
         internal var _channelType:int = -1;
-        /** @private [internal use] DLL of channels */
+        /** @private [internal] DLL of channels */
         internal var _next:SiOPMChannelBase = null;
-        /** @private [internal use] DLL of channels */
+        /** @private [internal] DLL of channels */
         internal var _prev:SiOPMChannelBase = null;
         
         /** channel type */

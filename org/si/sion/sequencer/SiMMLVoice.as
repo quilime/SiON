@@ -8,6 +8,7 @@ package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMWaveTable;
     import org.si.sion.module.SiOPMPCMData;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** Voice data. This includes SiOPMChannelParam.
@@ -119,9 +120,9 @@ package org.si.sion.sequencer {
             return (pcmData != null);
         }
                 
-        /** @private [internal use] suitability to register on %6 voice */
-        public function get _isSuitableForFMVoice() : Boolean {
-            return (pcmData == null && moduleType != 6 && moduleType != 7 && moduleType >= 10);
+        /** @private [sion internal] suitability to register on %6 voice */
+        _sion_internal function get _isSuitableForFMVoice() : Boolean {
+            return (pcmData == null && moduleType != 6 && moduleType != 7 && moduleType < 10);
         }
         
         

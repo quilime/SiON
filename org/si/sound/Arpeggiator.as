@@ -22,18 +22,12 @@ package org.si.sound {
         protected var _portament:int;
         /** arepggio pattern */
         protected var _arpeggio:Vector.<int>;
-        /** Note events in the sequence */
-        protected var _noteEventsNormal:Vector.<MMLEvent>;
         /** Note events in the sequence with portament */
-        protected var _noteEventsPort:Vector.<MMLEvent>;
+        protected var _noteEvents:Vector.<MMLEvent>;
         /** Slur events in the sequence with portament */
-        protected var _slurEventsPort:Vector.<MMLEvent>;
+        protected var _slurEvents:Vector.<MMLEvent>;
         /** Note length */
         protected var _step:int;
-        /** Data for normal arpeggio */
-        protected var _dataNormal:SiONData;
-        /** Data for arpeggio with portament */
-        protected var _dataPort:SiONData;
         
         
         
@@ -46,30 +40,31 @@ package org.si.sound {
             _portament = p;
             if (_portament < 0) _portament = 0;
             var t:SiMMLTrack = track;
-            if (t) t.setPortament(_portament);
-            _data = (_portament == 0) ? _dataNormal : _dataPort;
+            if (t) {
+                t.setPortament(_portament);
+                t.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
+            }
         }
         
         /** @private */
         override public function set note(n:int) : void {
             super.note = n;
-            var i:int, imax:int = _noteEventsNormal.length;
-            for (i=0; i<imax; i++) {
-                var note:int = scale.getNote(_arpeggio[i] + _scaleIndex);
-                _noteEventsNormal[i].data = note;
-                _noteEventsPort[i].data   = note;
-            }
+            _scaleIndexUpdated();
         }
         
         
         /** @private */
         override public function set scaleIndex(index:int) : void {
             super.scaleIndex = index;
-            var i:int, imax:int = _noteEventsNormal.length;
+            _scaleIndexUpdated();
+        }
+        
+
+        /** call this after the update of note or scale index */
+        protected function _scaleIndexUpdated() : void {
+            var i:int, imax:int = _noteEvents.length;
             for (i=0; i<imax; i++) {
-                var note:int = scale.getNote(_arpeggio[i] + _scaleIndex);
-                _noteEventsNormal[i].data = note;
-                _noteEventsPort[i].data   = note;
+                _noteEvents[i].data = scale.getNote(_arpeggio[i] + _scaleIndex);
             }
         }
         
@@ -80,11 +75,8 @@ package org.si.sound {
         }
         public function set noteLength(l:Number) : void {
             _step = l * 120;
-            var i:int, imax:int = _noteEventsNormal.length;
-            for (i=0; i<imax; i++) {
-                _noteEventsNormal[i].length = _step;
-                _slurEventsPort[i].length   = _step;
-            }
+            var i:int, imax:int = _noteEvents.length;
+            for (i=0; i<imax; i++) _slurEvents[i].length = _step;
         }
         
         
@@ -92,32 +84,20 @@ package org.si.sound {
         public function set pattern(pat:Array) : void
         {
             if (!track) {
-                _dataNormal.clear();
-                _dataPort.clear();
+                _data.clear();
                 if (pat) {
                     _arpeggio = Vector.<int>(pat);
                     var i:int, imax:int = pat.length, note:int = 60, 
-                        seqNormal:MMLSequence = _dataNormal.appendNewSequence(),
-                        seqPort:MMLSequence   = _dataPort.appendNewSequence();
-                    _noteEventsNormal.length = imax;
-                    _noteEventsPort.length = imax;
-                    _slurEventsPort.length = imax;
-                    seqNormal.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
-                    seqPort.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
+                        seq:MMLSequence = _data.appendNewSequence();
+                    _noteEvents.length = imax;
+                    _slurEvents.length = imax;
+                    seq.alloc().appendNewEvent(MMLEvent.REPEAT_ALL, 0);
                     for (i=0; i<imax; i++) {
                         var newNote:int = scale.getNote(pat[i]);
-                        if (newNote>=0 && newNote<128) {
-                            note = newNote;
-                            _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.NOTE, note, _step);
-                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, note, 0);
-                            _slurEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
-                        } else {
-                            _noteEventsNormal[i] = seqNormal.appendNewEvent(MMLEvent.REST, 0, _step);
-                            _noteEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.NOTE, note, 0);
-                            _slurEventsPort[i]   = seqPort.appendNewEvent(MMLEvent.SLUR, 0, _step);
-                        }
+                        if (newNote>=0 && newNote<128) note = newNote;
+                        _noteEvents[i] = seq.appendNewEvent(MMLEvent.NOTE, note, 0);
+                        _slurEvents[i] = seq.appendNewEvent(MMLEvent.SLUR, 0, _step);
                     }
-                    _data = (_portament == 0) ? _dataNormal : _dataPort;
                 }
             }
         }
@@ -135,11 +115,9 @@ package org.si.sound {
          */
         function Arpeggiator(scale:Scale, noteLength:Number=2, pattern:Array=null) {
             super(scale);
-            _dataNormal = new SiONData();
-            _dataPort = new SiONData();
-            _noteEventsNormal = new Vector.<MMLEvent>();
-            _noteEventsPort = new Vector.<MMLEvent>();
-            _slurEventsPort = new Vector.<MMLEvent>();
+            _data = new SiONData();
+            _noteEvents = new Vector.<MMLEvent>();
+            _slurEvents = new Vector.<MMLEvent>();
             this.noteLength = noteLength;
             this.pattern = pattern;
             _portament = 0;
@@ -152,10 +130,12 @@ package org.si.sound {
     //----------------------------------------
         /** Play sound. */
         override public function play() : void { 
-            _data = (_portament == 0) ? _dataNormal : _dataPort;
             sequenceOn();
             var t:SiMMLTrack = track;
-            if (t) t.setPortament(_portament);
+            if (t) {
+                t.setPortament(_portament);
+                t.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
+            }
         }
         
         

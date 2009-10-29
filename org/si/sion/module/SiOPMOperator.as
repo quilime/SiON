@@ -387,7 +387,7 @@ package org.si.sion.module {
         public function get modLevel()   : int { return (_fmShift>10) ? (_fmShift-10) : 0; }
         
         
-        /** @private [internal use] tl offset [832,-192] */
+        /** @private [internal] tl offset [832,-192]. controlled as expression and velocity. */
         internal function _tlOffset(i:int) : void {
             _eg_tl_offset = i;
             _updateTotalLevel();
@@ -609,7 +609,7 @@ package org.si.sion.module {
         }
         
                 
-        /** @private [internal use] Set pipes. */
+        /** @private [internal] Set pipes. */
         internal function _setPipes(outPipe:SLLint, modPipe:SLLint=null, finalOsc:Boolean=false) : void
         {
             _final    = finalOsc;
