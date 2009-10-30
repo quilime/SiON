@@ -39,10 +39,9 @@ package org.si.sound {
         public function set portament(p:int) : void {
             _portament = p;
             if (_portament < 0) _portament = 0;
-            var t:SiMMLTrack = track;
-            if (t) {
-                t.setPortament(_portament);
-                t.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
+            if (isPlaying) {
+                track.setPortament(_portament);
+                track.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
             }
         }
         
@@ -75,7 +74,7 @@ package org.si.sound {
         }
         public function set noteLength(l:Number) : void {
             _step = l * 120;
-            var i:int, imax:int = _noteEvents.length;
+            var i:int, imax:int = _slurEvents.length;
             for (i=0; i<imax; i++) _slurEvents[i].length = _step;
         }
         
@@ -83,7 +82,7 @@ package org.si.sound {
         /** Note index array of the arpeggio pattern. If the index is out of range, insert rest instead.*/
         public function set pattern(pat:Array) : void
         {
-            if (!track) {
+            if (!isPlaying) {
                 _data.clear();
                 if (pat) {
                     _arpeggio = Vector.<int>(pat);
@@ -130,8 +129,7 @@ package org.si.sound {
     //----------------------------------------
         /** Play sound. */
         override public function play() : void { 
-            sequenceOn();
-            var t:SiMMLTrack = track;
+            var t:SiMMLTrack = sequenceOn();
             if (t) {
                 t.setPortament(_portament);
                 t.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
@@ -141,9 +139,8 @@ package org.si.sound {
         
         /** Stop sound. */
         override public function stop() : void {
-            var t:SiMMLTrack = track;
+            var t:SiMMLTrack = sequenceOff();
             if (t && _portament>0) t.keyOff();
-            sequenceOff();
         }
     }
 }

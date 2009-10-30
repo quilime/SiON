@@ -52,11 +52,9 @@ package org.si.sound.base {
         
     // properties
     //----------------------------------------
-        /** SiONDriver instrance to operate. */
+        /** SiONDriver instrance to operate. this returns null when driver is not created. */
         public function get driver() : SiONDriver { 
-            var drv:SiONDriver = SiONDriver.mutex || new SiONDriver();
-            if (!drv.isPlaying) drv.play();
-            return drv;
+            return SiONDriver.mutex;
         }
         
         /** Base note of this sound */

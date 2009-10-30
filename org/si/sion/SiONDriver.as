@@ -847,8 +847,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param noteOffTrigger note off trigger type.
          *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
          *         This means you should not keep a dieposable track in your code perpetually. 
-         *         If you want to keep track, set this argument false. And after using, SiMMLTrack::setDisposal() to disposed by system.<br/>
-         *         [REMARKS] Not disposable track is kept perpetually in the system while streaming, this may causes critical performance loss.
+         *         If you want to keep track, set this argument false. And after using, call SiMMLTrack::setDisposal() to disposed by system.<br/>
+         *         [REMARKS] Not disposable track is kept in the system perpetually while streaming, this may causes critical performance loss.
          *  @return SiMMLTrack to play the note.
          */
         public function noteOn(note:int, 
@@ -921,14 +921,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
          *  @param trackID new tracks id.
-         *  @return list of SiMMLTracks to play sequence. These tracks are disposable.
+         *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
+         *         This means you should not keep a dieposable track in your code perpetually. 
+         *         If you want to keep track, set this argument false. And after using, call SiMMLTrack::setDisposal() to disposed by system.<br/>
+         *         [REMARKS] Not disposable track is kept in the system perpetually while streaming, this may causes critical performance loss.
+         *  @return list of SiMMLTracks to play sequence.
          */
         public function sequenceOn(data:SiONData, 
                                    voice:SiONVoice  = null, 
                                    length:Number    = 0, 
                                    delay:Number     = 0, 
                                    quant:Number     = 1, 
-                                   trackID:int      = 0) : Vector.<SiMMLTrack>
+                                   trackID:int      = 0,
+                                   isDisposable:Boolean = true) : Vector.<SiMMLTrack>
         {
             trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
             // create new sequence tracks
@@ -937,7 +942,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 delaySamples:int = sequencer.calcSampleDelay(0, delay, quant),
                 lengthSamples:int = sequencer.calcSampleLength(length);
             while (seq) {
-                mmlTrack = sequencer.getFreeControlableTrack(trackID) || sequencer.newControlableTrack(trackID);
+                mmlTrack = sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
                 mmlTrack.sequenceOn(seq, lengthSamples, delaySamples);
                 if (voice) voice.setTrackVoice(mmlTrack);
                 tracks.push(mmlTrack);

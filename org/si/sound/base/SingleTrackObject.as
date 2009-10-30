@@ -8,6 +8,8 @@
 package org.si.sound.base {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sion.sequencer.SiMMLSequencer;
+    import org.si.sion.sequencer.base.MMLSequence;
     
     
     /** Sound object with single track */
@@ -43,44 +45,47 @@ package org.si.sound.base {
             _noteQuantize = q;
             if (_noteQuantize < 0) _noteQuantize = 0;
             else if (_noteQuantize > 8) _noteQuantize = 8;
-            var t:SiMMLTrack = track;
-            if (t) t.quantRatio = _noteQuantize * 0.125;
+            if (_track) _track.quantRatio = _noteQuantize * 0.125;
         }
         
         
         /** sequence data */
         public function get data() : SiONData { return _data; }
         
-        /** track. Available only after play(). Returns null when the track is stopped. */
+        /** track to render */
         public function get track() : SiMMLTrack { 
-            if (_track && !_track.isActive) _track = null;
+            if (!driver) return null;
+            if (_track == null) {
+                _track = driver.newUserControlableTrack(_trackID);
+            } else
+            if (_track.isFinished) {
+                _track.setDisposable();
+                _track = driver.newUserControlableTrack(_trackID);
+            }
             return _track;
         }
         
         /** @private */
         override public function set mute(m:Boolean) : void { 
             super.mute = m;
-            var t:SiMMLTrack = track;
-            if (t) t.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
+            if (_track) _track.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
         }
         
         /** @private */
         override public function set volume(v:Number) : void {
             super.volume = v;
-            var t:SiMMLTrack = track;
-            if (t) t.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
+            if (_track) _track.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
         }
         
         /** @private */
         override public function set pan(p:Number) : void {
             super.pan = p;
-            var t:SiMMLTrack = track;
-            if (t) t.channel.pan = _totalPan;
+            if (_track) _track.channel.pan = _totalPan;
         }
         
         /** @private */
         override public function get isPlaying() : Boolean {
-            return (_track && _track.isActive);
+            return (_track && !_track.isFinished);
         }
         
         
@@ -120,49 +125,62 @@ package org.si.sound.base {
         
         
         /** call driver.noteOn() */
-        protected function noteOn() : void
+        protected function noteOn() : SiMMLTrack
         {
-            var oldTrack:SiMMLTrack = track;
-            _track = driver.noteOn(_note, voice, _length, _delay, _quantize, _trackID, _eventTriggerID, _noteOnTrigger, _noteOffTrigger);
-            if (_track) {
-                if (oldTrack) oldTrack.keyOff(_track.trackStartDelay);
-                _track.channel.pan = _totalPan;
-                _track.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
-                _track.quantRatio = _noteQuantize * 0.125;
-            }
+            if (!driver) return null;
+            var trk:SiMMLTrack = track, sequencer:SiMMLSequencer = driver.sequencer;
+            var delay:int  = sequencer.calcSampleDelay(0, _delay, _quantize),
+                length:int = sequencer.calcSampleLength(_length);
+            voice.setTrackVoice(trk);
+            trk.keyOnInterrupt(_note, length, delay);
+            trk.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+            trk.channel.pan = _totalPan;
+            trk.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
+            trk.quantRatio = _noteQuantize * 0.125;
+            return trk;
         }
         
         
         /** call driver.noteOff() */
-        protected function noteOff() : void
+        protected function noteOff() : SiMMLTrack
         {
+            if (!driver) return null;
+            if (_track) _track.setDisposable();
             driver.noteOff(_note, _trackID, 0, 1);
+            return _track;
         }
         
         
         /** call driver.sequenceOn(_data) */
-        protected function sequenceOn() : void
+        protected function sequenceOn() : SiMMLTrack
         {
-            var oldTrack:SiMMLTrack = track;
-            var tracks:Vector.<SiMMLTrack> = driver.sequenceOn(_data, voice, _length, _delay, _quantize, _trackID);
-            if (tracks.length > 0) {
-                _track = tracks[0];
-                if (oldTrack) oldTrack.sequenceOff(_track.trackStartDelay-1);
-                _track.channel.pan = _totalPan;
-                _track.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
-                _track.quantRatio = _noteQuantize * 0.125;
-                _track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
-            } else {
-                _track = null;
-                if (oldTrack) oldTrack.sequenceOff(0);
-            }
+            if (!_data || !driver) return null;
+            
+            var seq:MMLSequence = _data.getSequence(0);
+            if (!seq) return null;
+            
+            var trk:SiMMLTrack = track, sequencer:SiMMLSequencer = driver.sequencer;
+            var delay:int  = sequencer.calcSampleDelay(0, _delay, _quantize),
+                length:int = sequencer.calcSampleLength(_length);
+            voice.setTrackVoice(trk);
+            trk.sequenceOn(seq, length, delay);
+            trk.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+            trk.channel.pan = _totalPan;
+            trk.channel.masterVolume = (_totalMute) ? 0 : _totalVolume*128;
+            trk.quantRatio = _noteQuantize * 0.125;
+            return trk;
         }
         
         
         /** call driver.sequenceOff() */
-        protected function sequenceOff() : void
+        protected function sequenceOff() : SiMMLTrack
         {
-            driver.sequenceOff(_trackID, 0, 1);
+            if (!driver) return null;
+            if (_track) {
+                _track.setDisposable();
+                _track.sequenceOff(driver.sequencer.calcSampleDelay(0, 0, 1));
+            }
+            return _track;
         }
         
         
