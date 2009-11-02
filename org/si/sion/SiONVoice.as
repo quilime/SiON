@@ -113,12 +113,12 @@ package org.si.sion {
         public function getMML(index:int, type:String = null) : String {
             if (type == null) type = chipType;
             switch (type) {
-            case "OPL": return "#OPL@" + String(index) + Translator.mmlOPLParam(channelParam, " ", "\r\n", name);
-            case "OPM": return "#OPM@" + String(index) + Translator.mmlOPMParam(channelParam, " ", "\r\n", name);
-            case "OPN": return "#OPN@" + String(index) + Translator.mmlOPNParam(channelParam, " ", "\r\n", name);
-            case "OPX": return "#OPX@" + String(index) + Translator.mmlOPXParam(channelParam, " ", "\r\n", name);
-            case "MA3": return "#MA@"  + String(index) + Translator.mmlMA3Param(channelParam, " ", "\r\n", name);
-            default:    return "#@"    + String(index) + Translator.mmlParam   (channelParam, " ", "\r\n", name);
+            case "OPL": return "#OPL@" + String(index) + Translator.mmlOPLParam(channelParam, " ", "\n", name);
+            case "OPM": return "#OPM@" + String(index) + Translator.mmlOPMParam(channelParam, " ", "\n", name);
+            case "OPN": return "#OPN@" + String(index) + Translator.mmlOPNParam(channelParam, " ", "\n", name);
+            case "OPX": return "#OPX@" + String(index) + Translator.mmlOPXParam(channelParam, " ", "\n", name);
+            case "MA3": return "#MA@"  + String(index) + Translator.mmlMA3Param(channelParam, " ", "\n", name);
+            default:    return "#@"    + String(index) + Translator.mmlParam   (channelParam, " ", "\n", name);
             }
             return "";
         }
