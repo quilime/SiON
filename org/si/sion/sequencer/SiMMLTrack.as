@@ -6,7 +6,7 @@
 
 package org.si.sion.sequencer {
     import org.si.utils.SLLint;
-    import org.si.sion.module.SiOPMChannelBase;
+    import org.si.sion.module.channels.SiOPMChannelBase;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.sequencer.base.MMLData;
     import org.si.sion.sequencer.base.MMLEvent;
@@ -33,27 +33,28 @@ package org.si.sion.sequencer {
     // constants
     //--------------------------------------------------
         /** sweep step finess */
-        static public const SWEEP_FINESS:int = 128;
+        static private const SWEEP_FINESS:int = 128;
         /** Fixed decimal bits. */
-        static public const FIXED_BITS:int = 16;
+        static private const FIXED_BITS:int = 16;
         /** Maximum value of _sweep */
         static private const SWEEP_MAX:int = 8192<<FIXED_BITS;
         
         // track id type
-        /** track id filter */
-        static public const TRACK_ID_FILTER:int = 0xffff;
-        /** track type filter */
-        static public const TRACK_TYPE_FILTER:int = 0xff0000;
-        /** MML track id offset */
-        static public const MML_TRACK_ID_OFFSET:int = 0x10000;
-        /** MIDI track id offset */
-        static public const MIDI_TRACK_ID_OFFSET:int = 0x20000;
-        /** driver track id offset for noteOn() */
-        static public const DRIVER_NOTE_ID_OFFSET:int = 0x30000;
-        /** driver track id offset for sequenceOn() */
-        static public const DRIVER_SEQUENCE_ID_OFFSET:int = 0x40000;
-        /** user controlled id offset */
-        static public const USER_CONTROLLED_ID_OFFSET:int = 0x50000;
+        /** @private [internal use] track id filter */
+        static _sion_internal const TRACK_ID_FILTER:int = 0xffff;
+        /** @private [internal use] track type filter */
+        static _sion_internal const TRACK_TYPE_FILTER:int = 0xff0000;
+        
+        /** Track Type ID for main MML tracks */
+        static public const MML_TRACK:int = 0x10000;
+        /** Track Type ID for MIDI tracks */
+        static public const MIDI_TRACK:int = 0x20000;
+        /** Track Type ID for tracks created by SiONDriver.noteOn() or SiONDriver.playSound() */
+        static public const DRIVER_NOTE:int = 0x30000;
+        /** Track Type ID for tracks created by SiONDriver.sequenceOn() */
+        static public const DRIVER_SEQUENCE:int = 0x40000;
+        /** Track Type ID for user controlled tracks */
+        static public const USER_CONTROLLED:int = 0x50000;
         
         // mask bits for eventMask and @mask command
         /** no mask */
@@ -105,6 +106,7 @@ package org.si.sion.sequencer {
         // call back function before noteOn/noteOff
         private var _callbackBeforeNoteOn:Function = null;
         private var _callbackBeforeNoteOff:Function = null;
+        internal var _callbackUpdateRegister:Function = _defaultUpdateRegister;
         
         // event trriger
         private var _eventTriggerOn:Function = null;
@@ -114,10 +116,10 @@ package org.si.sion.sequencer {
         private var _eventTriggerTypeOff:int;
         
         // track ID number
-        private var _trackID:int;
+        _sion_sequencer_internal var _internalTrackID:int;
 
         // internal use
-        private var _mmlData:SiMMLData;     // mml data
+        private var _mmlData:SiMMLData;     // mml data. To get bpm from sequenceOn()s track, or only for reference in other cases.
         private var _table:SiMMLTable;      // table
         private var _keyOnCounter:int;      // key on counter
         private var _keyOnLength:int;       // key on length
@@ -125,12 +127,15 @@ package org.si.sion.sequencer {
         private var _processMode:int;       // processing mode
         private var _trackStartDelay:int;   // track delay to start
         private var _trackStopDelay:int;    // track delay to stop
+        private var _stopWithReset:Boolean; // stop with reset
         private var _isDisposable:Boolean;  // flag disposable track
+        private var _priority:int;          // track priority
 
         // settings
         private var _channelModuleSetting:SiMMLChannelSetting;  // selected module's setting
         private var _velocity:int;      // velocity
         private var _expression:int;    // expression
+        private var _pitchBend:int;     // pitch bend
         private var _tone:int;          // tone number
         private var _note:int;          // note number
         private var _defaultFPS:int;    // default fps
@@ -193,7 +198,9 @@ package org.si.sion.sequencer {
     // properties
     //--------------------------------------------------
         /** track ID number. */
-        public function get trackID() : int { return _trackID; }
+        public function get trackID() : int { return _internalTrackID & _sion_internal::TRACK_ID_FILTER; }
+        /** track type. */
+        public function get trackTypeID() : int { return _internalTrackID & _sion_internal::TRACK_TYPE_FILTER; }
 
         /** event trigger ID. eventTriggerID=-1 means tigger not set. */
         public function get eventTriggerID() : int { return _eventTriggerID; }
@@ -211,11 +218,13 @@ package org.si.sion.sequencer {
         public function get trackStopDelay() : int { return _trackStopDelay; }
         
         /** Is activate ? This function always returns true from not-disposable track. (isActive = !isDisposable || !isFinished) */
-        public function get isActive() : Boolean { return !_isDisposable || !isFinished; }
+        public function get isActive() : Boolean { return !_isDisposable || executor.pointer != null || !channel.isIdling; }
         /** Is this track disposable ? Disposable track will free automatically when finished rendering. */
         public function get isDisposable() : Boolean { return _isDisposable; }
+        /** Is playing sequence ? */
+        public function get isPlaySequence() : Boolean { return ((_internalTrackID & _sion_internal::TRACK_TYPE_FILTER) != DRIVER_NOTE && executor.pointer != null); }
         /** Is finish to rendering ? */
-        public function get isFinished() : Boolean { return (executor.pointer==null && channel.isIdling && _keyOnCounter==0 && _trackStartDelay==0); }
+        public function get isFinished() : Boolean { return (executor.pointer == null && channel.isIdling); }
         
         /** velocity(0-256). linked to operator's total level. */
         public function get velocity()        : int  { return _velocity; }
@@ -231,31 +240,83 @@ package org.si.sion.sequencer {
             channel.offsetVolume(_expression, _velocity);
         }
         
-        /** output level = @v * v * x. */
-        public function get outputLevel() : Number {
-            var vol:int = channel.masterVolume;
-            if (vol == 0) return _velocity * _expression * 0.000030517578125; // 0.5/(128^2);
-            return channel.masterVolume * _velocity * _expression * 4.76837158203125e-7; // 1/(128^3)
+        /** master volume(0-128). simple wrapper of channel.masterVolume. */
+        public function get masterVolume() : int { return channel.masterVolume; }
+        public function set masterVolume(v:int) : void { 
+            channel.masterVolume = v;
         }
         
-        /** pannning */
+        /** effect send level for slot1 (0-128). simple wrapper of channel.setStreamSend. */
+        public function get effectSend1() : int { return channel.getStreamSend(1); }
+        public function set effectSend1(s:int) : void {
+            channel.setStreamSend(1, (s<0) ? 0 : (s>128) ? 1 : s*0.0078125);
+        }
+        
+        /** effect send level for slot2 (0-128). simple wrapper of channel.setStreamSend. */
+        public function get effectSend2() : int { return channel.getStreamSend(2); }
+        public function set effectSend2(s:int) : void {
+            channel.setStreamSend(2, (s<0) ? 0 : (s>128) ? 1 : s*0.0078125);
+        }
+        
+        /** effect send level for slot3 (0-128). simple wrapper of channel.setStreamSend. */
+        public function get effectSend3() : int { return channel.getStreamSend(3); }
+        public function set effectSend3(s:int) : void {
+            channel.setStreamSend(3, (s<0) ? 0 : (s>128) ? 1 : s*0.0078125);
+        }
+        
+        /** effect send level for slot4 (0-128). simple wrapper of channel.setStreamSend. */
+        public function get effectSend4() : int { return channel.getStreamSend(4); }
+        public function set effectSend4(s:int) : void {
+            channel.setStreamSend(4, (s<0) ? 0 : (s>128) ? 1 : s*0.0078125);
+        }
+        
+        /** mute */
+        public function get mute() : Boolean { return channel.mute; }
+        public function set mute(b:Boolean) : void {
+            channel.mute = b;
+        }
+        
+        /** pannning [-64 - +64]*/
         public function get pan() : int { return channel.pan; }
         public function set pan(p:int) : void { channel.pan = p; }
+        
+        /** pitch bend */
+        public function get pitchBend() : int { return _pitchBend; }
+        public function set pitchBend(p:int) : void {
+            _pitchBend = p;
+            channel.pitchBend = p;
+        }
+        
+        /** callback function when update register event appears. */
+        public function get onUpdateRegister() : Function { return _callbackUpdateRegister; }
+        public function set onUpdateRegister(func:Function) : void { _callbackUpdateRegister = func || _defaultUpdateRegister; }
         
         /** Channel number, set by 2nd argument of % command. Usually same as programNumber. @see programNumber */
         public function get channelNumber() : int { return _channelNumber; }
         /** Program number, set by 2nd argument of % command and 1st arg. of #&64; command. Usually same as channelNumber. @see channelNumber */
         public function get programNumber() : int { return _tone; }
         
+        /** output level = @v * v * x. */
+        public function get outputLevel() : Number {
+            var vol:int = channel.masterVolume;
+            if (vol == 0) return _velocity * _expression * 0.000030517578125; // 0.5/(128^2);
+            return vol * _velocity * _expression * 4.76837158203125e-7;       // 1/(128^3)
+        }
+        
         /** mml data to play. this value only is available in the track playing mml sequence */
         public function get mmlData() : SiMMLData { return _mmlData; }
         
-        
         /** @private [internal] bpm setting. refer from SiMMLSequencer */
         internal function get _bpmSetting() : BeatPerMinutes { 
-            return ((_trackID & TRACK_TYPE_FILTER) != MML_TRACK_ID_OFFSET && _mmlData) ? _mmlData._initialBPM : null;
+            return ((_internalTrackID & _sion_internal::TRACK_TYPE_FILTER) != MML_TRACK && _mmlData) ? _mmlData._initialBPM : null;
         }
         
+        /** @private [internal] priority number to overwrite when tracks are overflow. */
+        internal function get priority() : int {
+            // not-disposable track or sequence playing track always returns highest priority
+            if (!_isDisposable || isPlaySequence) return 0;
+            return _priority;
+        }
         
         
     // constructor
@@ -289,91 +350,6 @@ package org.si.sion.sequencer {
         
         
         
-    // operations
-    //--------------------------------------------------
-        /** @private [internal] initialize track. [NOTE] Have to call reset() after this. */
-        internal function _initialize(seq:MMLSequence, fps:int, trackID:int, eventTriggerOn:Function, eventTriggerOff:Function, isDisposable:Boolean) : SiMMLTrack
-        {
-            _trackID = trackID;
-            _isDisposable = isDisposable;
-            _defaultFPS = fps;
-            _eventTriggerOn = eventTriggerOn;
-            _eventTriggerOff = eventTriggerOff;
-            _eventTriggerID = -1;
-            _eventTriggerTypeOn = 0;
-            _eventTriggerTypeOff = 0;
-            _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
-            executor.initialize(seq);
-            
-            return this;
-        }
-        
-        
-        /** reset */
-        public function reset(bufferIndex:int) : void
-        {
-            var i:int;
-            
-            // channel module setting
-            _channelModuleSetting = _table.channelModuleSetting[SiMMLTable.MT_PSG];
-            _channelNumber = 0;
-            
-            // initialize channel by _channelModuleSetting
-            _velocity = 128;
-            _expression = 128;
-            _note = -1;
-            channel = null;
-            _tone = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
-            
-            // initialize parameters
-            noteShift = 0;
-            pitchShift = 0;
-            _keyOnCounter = 0;
-            _keyOnLength = 0;
-            _flagNoKeyOn = false;
-            _processMode = NORMAL;
-            _trackStartDelay = 0;
-            _trackStopDelay = 0;
-            keyOnDelay = 0;
-            quantRatio = 0;
-            quantCount = 0;
-            eventMask = 0;
-            _env_pitch_active = false;
-            _env_pitch_offset = 0;
-            _env_exp_offset = 0;
-            setEnvelopFPS(_defaultFPS);
-            _callbackBeforeNoteOn = null;
-            _callbackBeforeNoteOff = null;
-            _residue = 0;
-            
-            // reset envelop tables
-            for (i=0; i<2; i++) {
-                _set_processMode[i] = NORMAL;
-                _set_env_exp[i]    = null;
-                _set_env_tone[i]   = null;
-                _set_env_note[i]   = _env_zero_table;
-                _set_env_pitch[i]  = _env_zero_table;
-                _set_env_filter[i] = null;
-                _pns_or[i]         = false;
-                _set_exp_offset[i] = false;
-                _set_cnt_exp[i]    = 1;
-                _set_cnt_tone[i]   = 1;
-                _set_cnt_note[i]   = 1;
-                _set_cnt_pitch[i]  = 1;
-                _set_cnt_filter[i] = 1;
-                _set_sweep_step[i] = 0;
-                _set_sweep_end[i]  = 0;
-                _table_env_ma[i]   = null;
-                _table_env_mp[i]   = null;
-            }
-            
-            // reset pointer
-            executor.resetPointer();
-        }
-        
-        
-        
-        
     // interfaces for intaractive operations
     //--------------------------------------------------
         /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
@@ -388,49 +364,34 @@ package org.si.sion.sequencer {
             _callbackBeforeNoteOff = noteOff;
             return this;
         }
-
         
-        /** Key on. 
-         *  @param note Note number.
-         *  @param length Length in sample count. 0 sets no key off. 1 sets key off immediately.
-         *  @param delay Delay time (in sample count).
+        
+        /** key on 
+         *  @param note Note number
+         *  @param tickLength note length in tick count.
+         *  @param sampleDelay note delay in sample count.
          */
-        public function keyOn(note:int, length:int=0, delay:int=0) : SiMMLTrack
+        public function keyOn(note:int, tickLength:int=0, sampleDelay:int=0) : SiMMLTrack
         {
-            _note = note;
-            _keyOnLength = length;
-            _trackStartDelay = delay;
-            
-            if (keyOnDelay) {
-                _keyOff();
-                _keyOnCounter = keyOnDelay;
-            } else {
-                _keyOn();   // if _keyOnLength=0 -> _keyOnCounter=0 -> No key off
-            }
+            _trackStartDelay = sampleDelay;
+            executor.singleNote(note, tickLength);
             return this;
         }
         
         
-        /** (still in conceptual stage) */
-        public function keyOnInterrupt(note:int, length:int=0, delay:int=0) : SiMMLTrack
+        /** Force key off
+         *  @param sampleDelay Delay time (in sample count).
+         *  @param stopWithReset Stop with channel resetting.
+         */
+        public function keyOff(sampleDelay:int=0, stopWithReset:Boolean=false) : SiMMLTrack
         {
-            if (!channel.isIdling && delay > 0) {
-                executor.interruptByNote(note, length, delay);
-            } else {
-                keyOn(note, length, delay);
-            }
-            return this;
-        }
-        
-        
-        /** Force key off */
-        public function keyOff(delay:int=0) : SiMMLTrack
-        {
-            if (delay) {
-                _trackStopDelay = delay;
+            _stopWithReset = stopWithReset;
+            if (sampleDelay) {
+                _trackStopDelay = sampleDelay;
             } else {
                 _keyOff();
                 _note = -1;
+                if (_stopWithReset) channel.reset();
             }
             return this;
         }
@@ -438,54 +399,33 @@ package org.si.sion.sequencer {
         
         /** Play sequence.
          *  @param seq Sequence to play.
-         *  @param length sequence playing time.
-         *  @param delay Delaying time (in sample count).
+         *  @param sampleLength sequence playing time.
+         *  @param sampleDelay Delaying time (in sample count).
          */
-        public function sequenceOn(seq:MMLSequence, length:int=0, delay:int=0) : SiMMLTrack
+        public function sequenceOn(seq:MMLSequence, sampleLength:int=0, sampleDelay:int=0) : SiMMLTrack
         {
-            _trackStartDelay = delay;
-            _trackStopDelay = length;
+            _trackStartDelay = sampleDelay;
+            _trackStopDelay = sampleLength;
             _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
             executor.initialize(seq);
             return this;
         }
         
         
-        /** (still in conceptual stage) */
-        public function sequenceOnInterrupt(seq:MMLSequence, length:int=0, delay:int=0) : SiMMLTrack
+        /** Force stop sequence.
+         *  @param sampleDelay Delay time (in sample count).
+         *  @param stopWithReset Stop with channel resetting.
+         */ 
+        public function sequenceOff(sampleDelay:int=0, stopWithReset:Boolean=false) : SiMMLTrack
         {
-            if (!channel.isIdling && delay > 0) {
-                if (length > 0) _trackStopDelay = delay + length;
-                else _trackStopDelay = 0;
-                executor.interruptBySequence(seq, delay);
+            _stopWithReset = stopWithReset;
+            if (sampleDelay) {
+                _trackStopDelay = sampleDelay;
             } else {
-                sequenceOn(seq, length, 0);
+                executor.clear();
+                if (_stopWithReset) channel.reset();
             }
             return this;
-        }
-        
-        
-        /** Force stop sequence. */
-        public function sequenceOff(delay:int=0) : SiMMLTrack
-        {
-            if (delay) _trackStopDelay = delay;
-            else executor.clear();
-            return this;
-        }
-        
-        
-        /** Slur without next notes key on. This have to be called just after keyOn(). */
-        public function setSlur() : void
-        {
-            _flagNoKeyOn = true;
-            _keyOnCounter = 0;
-        }
-
-        
-        /** Slur with next notes key on. This have to be called just after keyOn(). */
-        public function setSlurWeak() : void
-        {
-            _keyOnCounter = 0;
         }
         
         
@@ -497,7 +437,7 @@ package org.si.sion.sequencer {
         {
             var startPitch:int = channel.pitch,
                 endPitch  :int = (((nextNote + noteShift)<<6) || (startPitch & 63)) + pitchShift;
-            setSlur();
+            _onSlur();
             if (startPitch == endPitch) return;
             
             _sweep_step = ((endPitch - startPitch) << FIXED_BITS) * _env_internval / term;
@@ -535,6 +475,24 @@ package org.si.sion.sequencer {
         
     // interfaces for mml command
     //--------------------------------------------------
+        /** Set note immediately. This function called from keyOn().
+         *  @param note note number.
+         *  @param sampleLength length in sample count. 0 sets no key off (=weak slur).
+         *  @param slur set as slur.
+         */
+        public function setNote(note:int, sampleLength:int, slur:Boolean=false) : void
+        {
+            if (sampleLength > 0 && !slur) {
+                _keyOnLength = int(sampleLength * quantRatio) - quantCount - keyOnDelay;
+                if (_keyOnLength < 1) _keyOnLength = 1;
+            } else {
+                _keyOnLength = 0;
+            }
+            _mmlKeyOn(note);
+            _flagNoKeyOn = slur;
+        }
+        
+        
         /** Channel module type (%) and select tone (1st argument of '_&#64;').
          *  @param type Channel module type
          *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '_&#64;'.
@@ -759,25 +717,124 @@ package org.si.sion.sequencer {
     //====================================================================================================
     // Internal uses
     //====================================================================================================
+    // initialize / reset
+    //--------------------------------------------------
+        /** @private [internal] initialize track. [NOTE] Have to call reset() after this. */
+        internal function _initialize(seq:MMLSequence, fps:int, internalTrackID:int, eventTriggerOn:Function, eventTriggerOff:Function, isDisposable:Boolean) : SiMMLTrack
+        {
+            _internalTrackID = internalTrackID;
+            _isDisposable = isDisposable;
+            _defaultFPS = fps;
+            _eventTriggerOn = eventTriggerOn;
+            _eventTriggerOff = eventTriggerOff;
+            _eventTriggerID = -1;
+            _eventTriggerTypeOn = 0;
+            _eventTriggerTypeOff = 0;
+            _mmlData = (seq) ? (seq._owner as SiMMLData) : null;
+            executor.initialize(seq);
+            
+            return this;
+        }
+        
+        
+        /** @private [internal] reset track. */
+        internal function _reset(bufferIndex:int) : void
+        {
+            var i:int;
+            
+            // channel module setting
+            _channelModuleSetting = _table.channelModuleSetting[SiMMLTable.MT_PSG];
+            _channelNumber = 0;
+            
+            // initialize channel by _channelModuleSetting
+            _velocity = 128;
+            _expression = 128;
+            _pitchBend = 0;
+            _note = -1;
+            channel = null;
+            _tone = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
+            
+            // initialize parameters
+            noteShift = 0;
+            pitchShift = 0;
+            _keyOnCounter = 0;
+            _keyOnLength = 0;
+            _flagNoKeyOn = false;
+            _processMode = NORMAL;
+            _trackStartDelay = 0;
+            _trackStopDelay = 0;
+            _stopWithReset = false;
+            keyOnDelay = 0;
+            quantRatio = 1;
+            quantCount = 0;
+            eventMask = NO_MASK;
+            _env_pitch_active = false;
+            _env_pitch_offset = 0;
+            _env_exp_offset = 0;
+            setEnvelopFPS(_defaultFPS);
+            _callbackBeforeNoteOn = null;
+            _callbackBeforeNoteOff = null;
+            _callbackUpdateRegister = _defaultUpdateRegister;
+            _residue = 0;
+            _priority = 0;
+            
+            // reset envelop tables
+            for (i=0; i<2; i++) {
+                _set_processMode[i] = NORMAL;
+                _set_env_exp[i]    = null;
+                _set_env_tone[i]   = null;
+                _set_env_note[i]   = _env_zero_table;
+                _set_env_pitch[i]  = _env_zero_table;
+                _set_env_filter[i] = null;
+                _pns_or[i]         = false;
+                _set_exp_offset[i] = false;
+                _set_cnt_exp[i]    = 1;
+                _set_cnt_tone[i]   = 1;
+                _set_cnt_note[i]   = 1;
+                _set_cnt_pitch[i]  = 1;
+                _set_cnt_filter[i] = 1;
+                _set_sweep_step[i] = 0;
+                _set_sweep_end[i]  = 0;
+                _table_env_ma[i]   = null;
+                _table_env_mp[i]   = null;
+            }
+            
+            // reset pointer
+            executor.resetPointer();
+        }
+        
+        
+        
+        
     // processing
     //--------------------------------------------------
         /** @private [internal] prepare buffer. this is called from SiMMLSequencer.process()/dummyProcess(). */
-        internal function _prepareBuffer(bufferingTick:int) : int
+        internal function _prepareBuffer(bufferingLength:int) : int
         {
             // register all tables
-            if (_mmlData) _mmlData._registerAllTables()
+            if (_mmlData) _mmlData._registerAllTables();
+            else { // clear all stencil tables
+                SiOPMTable.instance.sampleTable.stencil = null;
+                SiOPMTable.instance._sion_internal::_stencilCustomWaveTables = null;
+                SiOPMTable.instance._sion_internal::_stencilPCMData          = null;
+                SiMMLTable.instance._stencilEnvelops = null;
+                SiMMLTable.instance._stencilVoices   = null;
+            }
             
             // almost executing this
-            if (_trackStartDelay == 0) return bufferingTick;
+            if (_trackStartDelay == 0) return bufferingLength;
             
-            if (bufferingTick <= _trackStartDelay) {
-                _trackStartDelay -= bufferingTick;
+            if (bufferingLength <= _trackStartDelay) {
+                _trackStartDelay -= bufferingLength;
                 return 0;
             }
             
-            var len:int = bufferingTick - _trackStartDelay;
+            var len:int = bufferingLength - _trackStartDelay;
             channel.nop(_trackStartDelay);
             _trackStartDelay = 0;
+            
+            _priority++;
+            
             return len;
         }
         
@@ -819,9 +876,17 @@ package org.si.sion.sequencer {
             if (trackStop) {
                 if (executor.pointer) {
                     executor.stop();
+                    if (_stopWithReset) {
+                        _keyOff();
+                        _note = -1;
+                        channel.reset();
+                    }
                 } else if (channel.isNoteOn()) {
                     _keyOff();
                     _note = -1;
+                    if (_stopWithReset) {
+                        channel.reset();
+                    }
                 }
                 if (trackStopResume>0) $(trackStopResume);
             }
@@ -884,7 +949,7 @@ package org.si.sion.sequencer {
                 
                 // change filter
                 if (_env_filter && --_cnt_filter == 0) {
-                    channel.setFilterOffset(_env_filter.i);
+                    channel.offsetFilter(_env_filter.i);
                     _env_filter = _env_filter.next;
                     _cnt_filter = _max_cnt_filter;
                 }
@@ -931,23 +996,6 @@ package org.si.sion.sequencer {
         }
         
         
-        // note off
-        private function _keyOff() : void
-        {
-            // callback
-            if (_callbackBeforeNoteOff != null) {
-                if (!_callbackBeforeNoteOff(this)) return;
-            }
-            
-            // note off
-            channel.noteOff();
-            // no key off after this
-            _keyOnCounter = 0;
-             // update process
-            _updateProcess(0);
-        }
-        
-        
         // note on
         private function _keyOn() : void
         {
@@ -960,6 +1008,7 @@ package org.si.sion.sequencer {
             var newPitch:int = ((_note + noteShift)<<6) + pitchShift;
             var oldPitch:int = channel.pitch;
             channel.pitch = newPitch;
+            _pitchBend = 0;
 
             // note on
             if (!_flagNoKeyOn) {
@@ -967,7 +1016,7 @@ package org.si.sion.sequencer {
                 if (_processMode == ENVELOP) {
                     channel.offsetVolume(_expression, _velocity);
                     _channelModuleSetting.selectTone(this, _tone);
-                    channel.setFilterOffset(128);
+                    channel.offsetFilter(128);
                 }
                 // previous note off
                 if (channel.isNoteOn()) {
@@ -995,6 +1044,25 @@ package org.si.sion.sequencer {
             
             // set key on counter
             _keyOnCounter = _keyOnLength;
+        }
+        
+        
+        // note off
+        private function _keyOff() : void
+        {
+            // callback
+            if (_callbackBeforeNoteOff != null) {
+                if (!_callbackBeforeNoteOff(this)) return;
+            }
+            
+            // note off
+            channel.noteOff();
+            // no key off after this
+            _keyOnCounter = 0;
+            // update process
+            _updateProcess(0);
+            // priority down
+            _priority += 32;
         }
         
         
@@ -1044,17 +1112,32 @@ package org.si.sion.sequencer {
     // event handlers
     //--------------------------------------------------
         /** @private [internal] handler for MMLEvent.REST. */
-        internal function _setRest() : void
+        internal function _onRestEvent() : void
         {
         }
         
 
         /** @private [internal] handler for MMLEvent.NOTE. */
-        internal function _setNote(note:int, length:int) : void
+        internal function _onNoteEvent(note:int, length:int) : void
         {
-            var quantLength:int = int(length * quantRatio) - quantCount - keyOnDelay;
-            if (quantLength < 1) quantLength = 1;
-            keyOn(note, quantLength);
+            _keyOnLength = int(length * quantRatio) - quantCount - keyOnDelay;
+            if (_keyOnLength < 1) _keyOnLength = 1;
+            _mmlKeyOn(note);
+        }
+        
+
+        /** @private [internal] Slur without next notes key on. This have to be called just after keyOn(). */
+        internal function _onSlur() : void
+        {
+            _flagNoKeyOn = true;
+            _keyOnCounter = 0;
+        }
+
+        
+        /** @private [internal] Slur with next notes key on. This have to be called just after keyOn(). */
+        internal function _onSlurWeak() : void
+        {
+            _keyOnCounter = 0;
         }
         
         
@@ -1079,6 +1162,25 @@ package org.si.sion.sequencer {
         }
         
         
+        // update register
+        private function _defaultUpdateRegister(addr:int, data:int) : void
+        {
+            channel.setRegister(addr, data);
+        }
+        
+        
+        // mml key on
+        private function _mmlKeyOn(note:int) : void
+        {
+            _note = note;
+            _trackStartDelay = 0;
+            if (keyOnDelay) {
+                _keyOff();
+                _keyOnCounter = keyOnDelay;
+            } else {
+                _keyOn();   // if _keyOnLength=0 -> _keyOnCounter=0 -> No key off
+            }
+        }
         
         
     // internal functions

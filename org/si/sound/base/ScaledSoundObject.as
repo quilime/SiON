@@ -1,23 +1,25 @@
 //----------------------------------------------------------------------------------------------------
-// Note scaler 
+// Module to play one note in specifyed scale
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
+package org.si.sound.base {
     import org.si.sion.*;
     import org.si.sion.utils.Scale;
-    import org.si.sound.base.SingleTrackObject;
     
     
-    /** Note scaler */
-    public class Scaler extends SingleTrackObject
+    /** Module to play one note in specifyed scale */
+    public class ScaledSoundObject extends SoundObject
     {
     // variables
     //----------------------------------------
+        /** default scale */
+        static private var _defaultScale:Scale = new Scale("C");
+        
         /** Table of notes on scale */
-        public var scale:Scale;
+        protected var _scale:Scale;
         
         /** scale index */
         protected var _scaleIndex:int;
@@ -27,18 +29,25 @@ package org.si.sound {
         
     // properties
     //----------------------------------------
-        /** @private */
-        override public function set note(n:int) : void {
-            _note = scale.shift(n);
-            _scaleIndex = scale.getScaleIndex(_note);
+        /** @inheritDoc */
+        override public function get note() : int {
+            return _scale.baseNote;
         }
+        override public function set note(n:int) : void {
+            _scale.baseNote = n;
+        }
+        
+        
+        /** scale instance */
+        public function get scale() : Scale { return _scale; }
+        public function set scale(s:Scale) : void { _scale = s || _defaultScale; }
         
         
         /** index on scale */
         public function get scaleIndex() : int { return _scaleIndex; }
         public function set scaleIndex(i:int) : void {
             _scaleIndex = i;
-            _note = scale.getNote(i);
+            _note = _scale.getNote(i);
         }
         
         
@@ -47,14 +56,20 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** constructor.
-         *  @param scale Scale
+         *  @param scaleInstance Scale setting.
          *  @see org.si.sion.utils.Scale
          */
-        function Scaler(scale:Scale) {
-            super(scale.scaleName);
-            this.scale = scale;
+        function ScaledSoundObject(scaleInstance:Scale=null) {
+            super((scaleInstance) ? scaleInstance.scaleName : "");
+            _scale = scaleInstance || _defaultScale;
             _scaleIndex = 0;
         }
+        
+        
+        
+        
+    // operations
+    //----------------------------------------
     }
 }
 

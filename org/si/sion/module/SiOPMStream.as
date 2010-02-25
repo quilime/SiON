@@ -5,6 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.module {
+    import flash.utils.ByteArray;
     import org.si.utils.SLLint;
     
     
@@ -112,6 +113,31 @@ package org.si.sion.module {
                     }
                 }
             }
+        }
+        
+        
+        /** write buffer by ByteArray (stereo only). */
+        public function writeByteArray(bytes:ByteArray, start:int, len:int, vol:Number) : void
+        {
+            var i:int, n:Number, imax:int = (start + len)<<1;
+            var initPosition:int = bytes.position;
+
+            if (channels == 2) {
+                for (i=start<<1; i<imax; i++) {
+                    buffer[i] += bytes.readFloat() * vol;
+                }
+            } else 
+            if (channels == 1) {
+                // stereo data to monoral buffer
+                vol  *= 0.6;
+                for (i=start<<1; i<imax;) {
+                    n = (bytes.readFloat() + bytes.readFloat()) * vol;
+                    buffer[i] += n; i++;
+                    buffer[i] += n; i++;
+                }
+            }
+            
+            bytes.position = initPosition;
         }
         
         

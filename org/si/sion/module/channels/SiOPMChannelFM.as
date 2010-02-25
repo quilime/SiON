@@ -4,9 +4,11 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
+    import org.si.sion.namespaces._sion_internal;
     import org.si.utils.SLLNumber;
     import org.si.utils.SLLint;
+    import org.si.sion.module.*;
     
     
     /** FM sound channel. <p>
@@ -32,8 +34,24 @@ package org.si.sion.module {
      */
     public class SiOPMChannelFM extends SiOPMChannelBase
     {
+    // constants
+    //--------------------------------------------------
+        static private const PROC_OP1:int = 0;
+        static private const PROC_OP2:int = 1;
+        static private const PROC_OP3:int = 2;
+        static private const PROC_OP4:int = 3;
+        static private const PROC_ANA:int = 4;
+        static private const PROC_RNG:int = 5;
+        static private const PROC_SYN:int = 6;
+        static private const PROC_PCM:int = 7;
+        
+        
+        
+        
     // valiables
     //--------------------------------------------------
+        /** eg_out threshold to check idling */ static _sion_internal var idlingThreshold:int = 4096; // = 256*8*2 = volume<1/256
+        
         // Operators
         /** operators */        public var operator:Vector.<SiOPMOperator>;
         /** active operator */  public var activeOperator:SiOPMOperator;
@@ -44,6 +62,7 @@ package org.si.sion.module {
         
         // Processing
         /** process func */ protected var _funcProcessList:Array;
+        /** process type */ protected var _funcProcessType:int;
         
         // Pipe
         /** internal pipe0 */ protected var _pipe0:SLLint;
@@ -58,8 +77,6 @@ package org.si.sion.module {
         // tone generator setting
         /** ENV_TIMER_INITIAL * freq_ratio */  protected var _eg_timer_initial:int;
         /** LFO_TIMER_INITIAL * freq_ratio */  protected var _lfo_timer_initial:int;
-        
-        /** note on flag */ protected var _isNoteOn:Boolean;
         
         
         
@@ -92,16 +109,17 @@ package org.si.sion.module {
         {
             super(chip);
             
-            _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _procpcm_loff], 
-                                [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _procpcm_lon]];
+            _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _procpcm_loff], 
+                                [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _procpcm_lon]];
             operator = new Vector.<SiOPMOperator>(4, true);
-            operator[0] = _chip._allocFMOperator();
+            operator[0] = _allocFMOperator();
             operator[1] = null;
             operator[2] = null;
             operator[3] = null;
             activeOperator = operator[0];
             
             _operatorCount = 1;
+            _funcProcessType = PROC_OP1;
             _funcProcess = _proc1op_loff;
             
             _pipe0 = SLLint.allocRing(1);
@@ -168,9 +186,9 @@ package org.si.sion.module {
             _lfoSwitch(_pm_depth > 0 || _am_depth > 0);
             if (_pm_depth == 0) {
                 if (operator[0]) operator[0].detune2 = 0;
-                if (operator[1]) operator[0].detune2 = 0;
-                if (operator[2]) operator[0].detune2 = 0;
-                if (operator[3]) operator[0].detune2 = 0;
+                if (operator[1]) operator[1].detune2 = 0;
+                if (operator[2]) operator[2].detune2 = 0;
+                if (operator[3]) operator[3].detune2 = 0;
             }
         }
         
@@ -181,8 +199,7 @@ package org.si.sion.module {
             var new_lfo_on:int = int(sw);
             if (_lfo_on != new_lfo_on) {
                 _lfo_on = new_lfo_on;
-                if (operator[0]._pgType >= SiOPMTable.PG_PCM) _funcProcess = _funcProcessList[_lfo_on][4];
-                else _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
+                _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
             }
         }
         
@@ -214,9 +231,7 @@ package org.si.sion.module {
             _lfo_timer_step = param.lfoFreqStep;
             setAmplitudeModulation(param.amd);
             setPitchModulation(param.pmd);
-            setFilterEnvelop(param.far, param.fdr1, param.fdr2, param.frr, param.cutoff, param.fdc1, param.fdc2, param.fsc, param.frc);
-            setFilterResonance(param.resonanse);
-            activateFilter(param.cutoff<128 || param.resonanse>0 || param.far>0 || param.frr>0);
+            setLPFilter(param.cutoff, param.resonance, param.far, param.fdr1, param.fdr2, param.frr, param.fdc1, param.fdc2, param.fsc, param.frc);
             for (i=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.operatorParam[i]);
             }
@@ -289,14 +304,24 @@ package org.si.sion.module {
         }
         
         
-        /** Set PCM data. 
-         *  @param pcmData PCM data to set.
+        /** Set wave data. 
+         *  @param pcmData SiOPMWavePCMTable to set.
          */
-        override public function setPCMData(pcmData:SiOPMPCMData) : void
+        override public function setWaveData(waveData:SiOPMWaveBase) : void
         {
-            _updateOperatorCount(1);
-            activeOperator.setPCMData(pcmData);
-            _funcProcess = _funcProcessList[_lfo_on][4];
+            var pcmData:SiOPMWavePCMData = waveData as SiOPMWavePCMData;
+            if (waveData is SiOPMWavePCMTable) pcmData = (waveData as SiOPMWavePCMTable).getSample(0);
+            
+            if (pcmData) {
+                _updateOperatorCount(1);
+                _funcProcessType = PROC_PCM;
+                _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
+                activeOperator.setPCMData(pcmData);
+            } else 
+            if (waveData is SiOPMWaveTable) {
+                _updateOperatorCount(1);
+                activeOperator.setWaveTable(waveData as SiOPMWaveTable);
+            }
         }
         
         
@@ -310,15 +335,14 @@ package org.si.sion.module {
          */
         override public function setAlgorism(cnt:int, alg:int) : void
         {
-            _updateOperatorCount(cnt);
-        
-            _algorism = alg;
-            switch (_operatorCount) {
-            case 1: _algorism1();  break;
-            case 2: _algorism2();  break;
-            case 3: _algorism3();  break;
-            case 4: _algorism4();  break;
+            switch (cnt) {
+            case 2:  _algorism2(alg);  break;
+            case 3:  _algorism3(alg);  break;
+            case 4:  _algorism4(alg);  break;
+            case 5:  _analog(alg);     break;
+            default: _algorism1(alg);  break;
             }
+        
         }
         
         
@@ -357,14 +381,14 @@ package org.si.sion.module {
         /** pgType & ptType (&#64;) */
         override public function setType(pgType:int, ptType:int) : void
         {
-            var funcIndex:int = _operatorCount-1;
             if (pgType >= SiOPMTable.PG_PCM) {
-                _updateOperatorCount(1);
-                funcIndex = 4;
+                var pcm:SiOPMWavePCMTable = SiOPMTable.instance.getPCMData(pgType-SiOPMTable.PG_PCM);
+                if (pcm) setWaveData(pcm);
+            } else {
+                activeOperator.pgType = pgType;
+                activeOperator.ptType = ptType;
+                _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
             }
-            activeOperator.pgType = pgType;
-            activeOperator.ptType = ptType;
-            _funcProcess = _funcProcessList[_lfo_on][funcIndex];
         }
         
         
@@ -389,7 +413,12 @@ package org.si.sion.module {
             }
         }
         
-        
+        /** Pitch bend (uses SiOPMOperator.detune) */
+        override public function set pitchBend(pb:int) : void {
+            for (var i:int=0; i<_operatorCount; i++) {
+                operator[i].detune = pb;
+            }
+        }
         
         
     // interfaces
@@ -431,6 +460,7 @@ package org.si.sion.module {
         
         /** envelop reset (&#64;er) */
         override public function set erst(b:Boolean) : void { for (var i:int=0; i<_operatorCount; i++) { operator[i].erst = b; } }
+        
         
         
         
@@ -484,15 +514,9 @@ package org.si.sion.module {
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].noteOn();
             }
-            // reset lfo phase
-            _lfo_phase = 0;
-            // reset filter
-            if (_filterOn) {
-                resetLPFilterState();
-                shiftLPFilterState(EG_ATTACK);
-            }
             _isNoteOn = true;
             _isIdling = false;
+            super.noteOn();
         }
         
         
@@ -503,18 +527,8 @@ package org.si.sion.module {
             for (var i:int=0; i<_operatorCount; i++) {
                 operator[i].noteOff();
             }
-            // shift filters phase
-            if (_filterOn) {
-                shiftLPFilterState(EG_RELEASE);
-            }
             _isNoteOn = false;
-        }
-        
-        
-        /** Check note on */
-        override public function isNoteOn() : Boolean
-        {
-            return _isNoteOn;
+            super.noteOff();
         }
         
         
@@ -528,8 +542,10 @@ package org.si.sion.module {
             _isIdling = true;
             for (i=0; i<_operatorCount; i++) {
                 ope = operator[i];
-                // SiOPMOperator.EG_OFF = 4
-                if (ope._final && ope._eg_state != 4) _isIdling = false;
+                if (ope._final && (ope._eg_out < _sion_internal::idlingThreshold || ope._eg_state == SiOPMOperator.EG_ATTACK)) {
+                    _isIdling = false;
+                    break;
+                }
             }
         }
         
@@ -767,7 +783,8 @@ package org.si.sion.module {
             _basePipe = bp;
             _outPipe  = op;
         }
-                
+        
+        
         
         
     // processing operator x3
@@ -1230,10 +1247,237 @@ package org.si.sion.module {
         
         
         
+    // analog like processing (w/ ring and sync)
+    //--------------------------------------------------
+        private function _proc2ana(len:int) : void
+        {
+            var i:int, t:int, out0:int, out1:int, l:int, n:Number;
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                ope0:SiOPMOperator = operator[0],
+                ope1:SiOPMOperator = operator[1];
+            
+            // buffering
+            var ip:SLLint = _inPipe,
+                bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+            for (i=0; i<len; i++) {
+                // lfo
+                //----------------------------------------
+                _lfo_timer -= _lfo_timer_step;
+                if (_lfo_timer < 0) {
+                    _lfo_phase = (_lfo_phase+1) & 255;
+                    t = _lfo_waveTable[_lfo_phase];
+                    _am_out = (t * _am_depth) >> 7 << 3;
+                    _pm_out = (((t<<1)-255) * _pm_depth) >> 8;
+                    ope0.detune2 = _pm_out;
+                    ope1.detune2 = _pm_out;
+                    _lfo_timer += _lfo_timer_initial;
+                }
+                
+                // envelop
+                //----------------------------------------
+                ope0._eg_timer -= ope0._eg_timer_step;
+                if (ope0._eg_timer < 0) {
+                    if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
+                        t = ope0._eg_incTable[ope0._eg_counter];
+                        if (t > 0) {
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                        }
+                    } else {
+                        ope0._eg_level += ope0._eg_incTable[ope0._eg_counter];
+                        if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                    }
+                    ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope0._eg_counter = (ope0._eg_counter+1)&7;
+                    ope0._eg_timer += _eg_timer_initial;
+                }
+                
+                // operator[0]
+                //----------------------------------------
+                ope0._phase += ope0._phase_step;
+                t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
+                l = ope0._waveTable[t];
+                l += ope0._eg_out + (_am_out>>ope0._ams);
+                out0 = _table.logTable[l];
+
+                // operator[1] with op0s envelop and ams
+                //----------------------------------------
+                ope1._phase += ope1._phase_step;
+                t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
+                l = ope1._waveTable[t];
+                l += ope0._eg_out + (_am_out>>ope0._ams);
+                out1 = _table.logTable[l];
+
+                // output and increment pointers
+                //----------------------------------------
+                ope0._feedPipe.i = out0;
+                op.i = out0 + out1 + bp.i;
+                ip = ip.next;
+                bp = bp.next;
+                op = op.next;
+            }
+
+            // update pointers
+            _inPipe   = ip;
+            _basePipe = bp;
+            _outPipe  = op;
+        }
+        
+        private function _procring(len:int) : void
+        {
+            var i:int, t:int, out0:int, l:int, n:Number;
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                ope0:SiOPMOperator = operator[0],
+                ope1:SiOPMOperator = operator[1];
+            
+            // buffering
+            var ip:SLLint = _inPipe,
+                bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+            for (i=0; i<len; i++) {
+                // lfo
+                //----------------------------------------
+                _lfo_timer -= _lfo_timer_step;
+                if (_lfo_timer < 0) {
+                    _lfo_phase = (_lfo_phase+1) & 255;
+                    t = _lfo_waveTable[_lfo_phase];
+                    _am_out = (t * _am_depth) >> 7 << 3;
+                    _pm_out = (((t<<1)-255) * _pm_depth) >> 8;
+                    ope0.detune2 = _pm_out;
+                    ope1.detune2 = _pm_out;
+                    _lfo_timer += _lfo_timer_initial;
+                }
+                
+                // envelop
+                //----------------------------------------
+                ope0._eg_timer -= ope0._eg_timer_step;
+                if (ope0._eg_timer < 0) {
+                    if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
+                        t = ope0._eg_incTable[ope0._eg_counter];
+                        if (t > 0) {
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                        }
+                    } else {
+                        ope0._eg_level += ope0._eg_incTable[ope0._eg_counter];
+                        if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                    }
+                    ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope0._eg_counter = (ope0._eg_counter+1)&7;
+                    ope0._eg_timer += _eg_timer_initial;
+                }
+                
+                // operator[0]
+                //----------------------------------------
+                ope0._phase += ope0._phase_step;
+                t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
+                l = ope0._waveTable[t];
+
+                // operator[1] with op0s envelop and ams
+                //----------------------------------------
+                ope1._phase += ope1._phase_step;
+                t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
+                l += ope1._waveTable[t];
+                l += ope0._eg_out + (_am_out>>ope0._ams);
+                out0 = _table.logTable[l];
+
+                // output and increment pointers
+                //----------------------------------------
+                ope0._feedPipe.i = out0;
+                op.i = out0 + bp.i;
+                ip = ip.next;
+                bp = bp.next;
+                op = op.next;
+            }
+            
+            // update pointers
+            _inPipe   = ip;
+            _basePipe = bp;
+            _outPipe  = op;
+        }
+        
+        private function _procsync(len:int) : void
+        {
+            var i:int, t:int, out0:int, out1:int, l:int, n:Number;
+            var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                phase_overflow:int = SiOPMTable.PHASE_MAX,
+                ope0:SiOPMOperator = operator[0],
+                ope1:SiOPMOperator = operator[1];
+            
+            // buffering
+            var ip:SLLint = _inPipe,
+                bp:SLLint = _basePipe,
+                op:SLLint = _outPipe;
+            for (i=0; i<len; i++) {
+                // lfo
+                //----------------------------------------
+                _lfo_timer -= _lfo_timer_step;
+                if (_lfo_timer < 0) {
+                    _lfo_phase = (_lfo_phase+1) & 255;
+                    t = _lfo_waveTable[_lfo_phase];
+                    _am_out = (t * _am_depth) >> 7 << 3;
+                    _pm_out = (((t<<1)-255) * _pm_depth) >> 8;
+                    ope0.detune2 = _pm_out;
+                    ope1.detune2 = _pm_out;
+                    _lfo_timer += _lfo_timer_initial;
+                }
+                
+                // envelop
+                //----------------------------------------
+                ope0._eg_timer -= ope0._eg_timer_step;
+                if (ope0._eg_timer < 0) {
+                    if (ope0._eg_state == SiOPMOperator.EG_ATTACK) {
+                        t = ope0._eg_incTable[ope0._eg_counter];
+                        if (t > 0) {
+                            ope0._eg_level -= 1 + (ope0._eg_level >> t);
+                            if (ope0._eg_level <= 0) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                        }
+                    } else {
+                        ope0._eg_level += ope0._eg_incTable[ope0._eg_counter];
+                        if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
+                    }
+                    ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope0._eg_counter = (ope0._eg_counter+1)&7;
+                    ope0._eg_timer += _eg_timer_initial;
+                }
+                
+                // operator[0]
+                //----------------------------------------
+                ope0._phase += ope0._phase_step + (ip.i<<_inputLevel);
+                if (ope0._phase & phase_overflow) ope1._phase = ope1._keyon_phase;
+                ope0._phase = ope0._phase & phase_filter;
+
+                // operator[1] with op0s envelop and ams
+                //----------------------------------------
+                ope1._phase += ope1._phase_step;
+                t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
+                l = ope1._waveTable[t];
+                l += ope0._eg_out + (_am_out>>ope0._ams);
+                out0 = _table.logTable[l];
+
+                // output and increment pointers
+                //----------------------------------------
+                ope0._feedPipe.i = out0;
+                op.i = out0 + bp.i;
+                ip = ip.next;
+                bp = bp.next;
+                op = op.next;
+            }
+            
+            // update pointers
+            _inPipe   = ip;
+            _basePipe = bp;
+            _outPipe  = op;
+        }
+        
+        
+        
+        
     // internal operations
     //--------------------------------------------------
-        /** Update LFO. This code is only for testing. */
-        internal function lfo_update() : void
+        /** @private [internal use] Update LFO. This code is only for testing. */
+        internal function _lfo_update() : void
         {
             _lfo_timer -= _lfo_timer_step;
             if (_lfo_timer < 0) {
@@ -1253,30 +1497,28 @@ package org.si.sion.module {
         private function _updateOperatorCount(cnt:int) : void
         {
             var i:int;
-            
-            // limit operator count
-            cnt = (cnt<4) ? ((cnt>0) ? cnt : 1) : 4;
 
             // change operator instances
             if (_operatorCount < cnt) {
                 // allocate and initialize new operators
                 for (i=_operatorCount; i<cnt; i++) {
-                    operator[i] = _chip._allocFMOperator();
+                    operator[i] = _allocFMOperator();
                     operator[i].initialize();
                 }
             } else 
             if (_operatorCount > cnt) {
                 // free old operators
                 for (i=cnt; i<_operatorCount; i++) {
-                    _chip._freeFMOperator(operator[i]);
+                    _freeFMOperator(operator[i]);
                     operator[i] = null;
                 }
             } 
             
             // update count
             _operatorCount = cnt;
+            _funcProcessType = cnt - 1;
             // select processing function
-            _funcProcess = _funcProcessList[_lfo_on][_operatorCount-1];
+            _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
             
             // default active operator is the last one.
             activeOperator = operator[_operatorCount-1];
@@ -1289,15 +1531,19 @@ package org.si.sion.module {
         
         
         // alg operator=1
-        private function _algorism1() : void
+        private function _algorism1(alg:int) : void
         {
+            _updateOperatorCount(1);
+            _algorism = alg;
             operator[0]._setPipes(_pipe0, null, true);
         }
         
         
         // alg operator=2
-        private function _algorism2() : void
+        private function _algorism2(alg:int) : void
         {
+            _updateOperatorCount(2);
+            _algorism = alg;
             switch(_algorism) {
             case 0: // OPL3/MA3:con=0, OPX:con=0, 1(fbc=1)
                 // o1(o0)
@@ -1325,8 +1571,10 @@ package org.si.sion.module {
         
         
         // alg operator=3
-        private function _algorism3() : void
+        private function _algorism3(alg:int) : void
         {
+            _updateOperatorCount(3);
+            _algorism = alg;
             switch(_algorism) {
             case 0: // OPX:con=0, 1(fbc=1)
                 // o2(o1(o0))
@@ -1382,8 +1630,10 @@ package org.si.sion.module {
         
         
         // alg operator=4
-        private function _algorism4() : void
+        private function _algorism4(alg:int) : void
         {
+            _updateOperatorCount(4);
+            _algorism = alg;
             switch(_algorism) {
             case 0: // OPL3:con=0, MA3:con=4, OPX:con=0, 1(fbc=1)
                 // o3(o2(o1(o0)))
@@ -1485,6 +1735,36 @@ package org.si.sion.module {
                 operator[3]._setPipes(_pipe0, null, true);
                 break;
             }
+        }
+        
+        
+        // analog like operation
+        private function _analog(alg:int) : void
+        {
+            _updateOperatorCount(2);
+            operator[0]._setPipes(_pipe0, null, true);
+            operator[1]._setPipes(_pipe0, null, true);
+            
+            _algorism = (alg>=0 && alg<=2) ? alg : 0;
+            _funcProcessType = PROC_ANA + _algorism;
+            _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
+        }
+        
+    // SiOPMOperator factory
+    //--------------------------------------------------
+        // Free list for SiOPMOperator
+        static private var _freeOperators:Vector.<SiOPMOperator> = new Vector.<SiOPMOperator>();        
+        
+        
+        /** @private [internal] Alloc operator instance WITHOUT initializing. Call from SiOPMChannelFM. */
+        protected function _allocFMOperator() : SiOPMOperator {
+            return _freeOperators.pop() || new SiOPMOperator(_chip);
+        }
+
+        
+        /** @private [internal] Free operator instance. Call from SiOPMChannelFM. */
+        protected function _freeFMOperator(osc:SiOPMOperator) : void {
+            _freeOperators.push(osc);
         }
     }
 }

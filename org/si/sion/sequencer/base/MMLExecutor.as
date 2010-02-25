@@ -37,6 +37,8 @@ package org.si.sion.sequencer.base {
         // note event
         private  var _noteEvent:MMLEvent;
         
+        /** @private [internal] current position in tick count. */
+        internal var _currentTickCount:int;
         /** @private [internal] the stac of counters to operate repeatings. refer from MMLSequencer. */
         internal var _repeatCounter:SLLint;
         /** @private [internal] the leftover of processing sample count. refer from MMLSequencer. */
@@ -55,6 +57,9 @@ package org.si.sion.sequencer.base {
         /** Executing MMLSequence */
         public function get sequence() : MMLSequence { return _sequence; }
         
+        /** Current event */
+        public function get currentEvent() : MMLEvent { return (pointer === _processEvent) ? pointer.jump : pointer; }
+        
         
         
         
@@ -69,8 +74,9 @@ package org.si.sion.sequencer.base {
             _repeatPoint = null;
             _processEvent = MMLParser._allocEvent(MMLEvent.PROCESS, 0);
             _restEvent = MMLParser._allocEvent(MMLEvent.REST, 0);
-            _noteEvent = MMLParser._allocEvent(MMLEvent.NOTE, 0);
+            _noteEvent = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
             _repeatCounter = null;
+            _currentTickCount = 0;
             _residueSampleCount = 0;
             _decimalFractionSampleCount = 0;
         }
@@ -102,6 +108,7 @@ package org.si.sion.sequencer.base {
             _repeatPoint = null;
             SLLint.freeList(_repeatCounter);
             _repeatCounter = null;
+            _currentTickCount = 0;
             _residueSampleCount = 0;
             _decimalFractionSampleCount = 0;
         }
@@ -113,7 +120,7 @@ package org.si.sion.sequencer.base {
             if (_sequence) pointer = _sequence.headEvent.next;
         }
         
-        
+
         /** stop execute sequence */
         public function stop() : void
         {
@@ -121,6 +128,26 @@ package org.si.sion.sequencer.base {
                 if (pointer === _processEvent) _processEvent.jump = MMLEvent.nopEvent;
                 else pointer = null;
             }
+        }
+        
+        
+        /** execute single note.
+         *  @param note Note number.
+         *  @param thickLength length in tick count. The argument of 0 sets no key off.
+         */
+        public function singleNote(note:int, tickLength:int) : void
+        {
+            _noteEvent.next = null;
+            _noteEvent.data = note;
+            _noteEvent.length = tickLength;
+            pointer = _noteEvent;
+            
+            _sequence = null;
+            _endRepeatCounter = 0;
+            _repeatPoint = null;
+            SLLint.freeList(_repeatCounter);
+            _repeatCounter = null;
+            _currentTickCount = 0;
         }
         
         
@@ -132,6 +159,7 @@ package org.si.sion.sequencer.base {
             if (e.length > 0) {
                 //_processEvent.data   = 0;
                 //_processEvent.next   = null;
+                _currentTickCount += e.length;
                 _processEvent.length = e.length;
                 _processEvent.jump   = e;
                 return _processEvent;
@@ -140,44 +168,28 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Interrupt current sequence by delayed event. This returns PROCESS MMLEvent when delay>0.
-         *  @param e MMLEvent after delay.
-         *  @param delay Delay time (in sample count).
+        
+        
+    // queue mode
+    //--------------------------------------------------
+        /** set queue
+         *  @param eventID event ID
+         *  @param data data
+         *  @param length length
          */
-        public function interruptBySequence(seq:MMLSequence, delay:int=0) : void
+        public function setQueue(eventID:int, data:int, length:int) : void
         {
-            if (seq) {
-                _restEvent.next = seq.headEvent.next;
-                _restEvent.length = delay;
-                pointer = _publishProessingEvent(_restEvent);
-
-                _sequence = seq;
-                _endRepeatCounter = 0;
-                _repeatPoint = null;
-                SLLint.freeList(_repeatCounter);
-                _repeatCounter = null;
-            }
+            _sequence.appendNewEvent(eventID, data, length);
         }
         
         
-        /** Interrupt current sequence by note event. This returns PROCESS MMLEvent when delay>0.
-         *  @param note Note number.
-         *  @param length Length in sample count. The argument of 0 sets no key off.
-         *  @param delay Delay time (in sample count).
-         */
-        public function interruptByNote(note:int, length:int, delay:int=0) : void
+        /** Free all ecexuted queue events */
+        public function freeAllExecutedQueue() : void 
         {
-            _noteEvent.data = note;
-            _noteEvent.length = length;
-            _restEvent.next = _noteEvent;
-            _restEvent.length = delay;
-            pointer = _publishProessingEvent(_restEvent);
-            
-            _sequence = null;
-            _endRepeatCounter = 0;
-            _repeatPoint = null;
-            SLLint.freeList(_repeatCounter);
-            _repeatCounter = null;
+            if (pointer == null || _sequence.headEvent.next == _sequence.tailEvent) return;
+            var queueHead:MMLEvent = currentEvent || _sequence.tailEvent, 
+                event:MMLEvent = _sequence.headEvent.next;
+            while (event != queueHead) event = MMLParser._freeEvent(event);
         }
         
         
@@ -188,6 +200,7 @@ package org.si.sion.sequencer.base {
         /** @private [sion sequencer internal] callback onTempoChanged. */
         _sion_sequencer_internal function _onTempoChanged(changingRatio:Number) : void
         {
+            if (_residueSampleCount < 0) changingRatio = 1 / changingRatio;
             _residueSampleCount         *= changingRatio;
             _decimalFractionSampleCount *= changingRatio;
         }

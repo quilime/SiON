@@ -5,6 +5,8 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer.base {
+    import org.si.sion.namespaces._sion_internal;
+
     /**
      *  MMLSequencer is the basic class of a bridges between MMLEvents, sound modules and sound systems. 
      *  You should follow this in your inherited classes. <br/>
@@ -58,7 +60,7 @@ package org.si.sion.sequencer.base {
         protected var globalBufferIndex:int;
         /** beat counter in 16th */
         protected var globalBeat16:Number;
-        /** filter for onBeat() callback. 0=16th beat, 1=8th beat, 3=4th beat, 7=2dn beat, 15=whole tone ...*/
+        /** filter for onBeat() callback. 0=16th beat, 1=8th beat, 3=4th beat, 7=2nd beat, 15=whole tone ...*/
         protected var _onBeatCallbackFilter:int;
         
         /** @private [sion sequencer internal] abstruct global sequence. */
@@ -80,11 +82,12 @@ package org.si.sion.sequencer.base {
         
     // properties
     //--------------------------------------------------
-        /** beat per minute. */
-        public function get bpm() : Number { 
+        /** @private [sion internal] beat per minute. refer from SiONDriver.bpm */
+        _sion_internal function get bpm() : Number { 
             return _changableBPM.bpm;
         }
-        public function set bpm(newValue:Number) : void { 
+        /** @private */
+        _sion_internal function set bpm(newValue:Number) : void { 
             var oldValue:Number = _changableBPM.bpm;
             if (_changableBPM.update(newValue, sampleRate)) {
                 onTempoChanged(oldValue/newValue);
@@ -112,6 +115,7 @@ package org.si.sion.sequencer.base {
             setMMLEventListener(MMLEvent.WAIT,         _default_onWait,         true);
             setMMLEventListener(MMLEvent.TEMPO,        _default_onTempo,        true);
             setMMLEventListener(MMLEvent.TIMER,        _default_onTimer,        true);
+            setMMLEventListener(MMLEvent.INTERNAL_CALL,_default_onInternalCall, false);
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
             
@@ -302,12 +306,12 @@ package org.si.sion.sequencer.base {
             var prevBeat:Number = globalBeat16,
                 floorPrevBeat:int = int(prevBeat);
             globalBufferIndex += _globalExecuteSampleCount;
-            globalBeat16 += _globalExecuteSampleCount * _bpm.beat16ParSample;
+            globalBeat16 += _globalExecuteSampleCount * _bpm.beat16PerSample;
             var floorCurrBeat:int = int(globalBeat16); 
             while (floorPrevBeat < floorCurrBeat) {
                 floorPrevBeat++;
                 if ((floorPrevBeat & _onBeatCallbackFilter) == 0) {
-                    onBeat((floorPrevBeat - prevBeat) * _bpm.sampleParBeat16, floorPrevBeat);
+                    onBeat((floorPrevBeat - prevBeat) * _bpm.samplePerBeat16, floorPrevBeat);
                 }
             }
             if (_globalBufferSampleCount == 0) {
@@ -352,6 +356,13 @@ package org.si.sion.sequencer.base {
         protected function calcSampleCount(len:int) : int
         {
             return (len * _bpm._samplePerTick) >> FIXED_BITS;
+        }
+        
+        
+        /** @private [protected] current position in tick count */
+        protected function currentTickCount() : int
+        {
+            return currentExecutor._currentTickCount - currentExecutor._residueSampleCount * _bpm.tickPerSample;
         }
         
         
@@ -409,7 +420,7 @@ package org.si.sion.sequencer.base {
         {
         }
         
-        
+
         /** Callback when streaming interrupted by timer . */
         protected function onTimerInterruption() : void
         {
@@ -495,7 +506,7 @@ package org.si.sion.sequencer.base {
             // sort and create global sequence
             seq = mmlData.globalSequence;
             
-            seq.alloc();
+            seq.initialize();
             list = list.sortOn(length, Array.NUMERIC);
             pos = 0;
             initialBPM = 0;
@@ -508,7 +519,7 @@ package org.si.sion.sequencer.base {
                     pos = e.length;
                     e.length = 0;
                     if (count > 0) seq.appendNewEvent(MMLEvent.WAIT, 0, count);
-                    seq.connectEvent(e);
+                    seq.push(e);
                 }
             }
 //trace(seq);
@@ -534,6 +545,7 @@ package org.si.sion.sequencer.base {
         protected function _default_onNoOperation(e:MMLEvent) : MMLEvent
         {
             onProcess(_processSampleCount, e);
+            currentExecutor._residueSampleCount -= _processSampleCount;
             return e;
         }
         
@@ -661,7 +673,7 @@ package org.si.sion.sequencer.base {
         /** default operation for MMLEvent.TEMPO. */
         protected function _default_onTempo(e:MMLEvent) : MMLEvent
         {
-            bpm = e.data;
+            _sion_internal::bpm = e.data;
             return e.next;
         }
         
@@ -671,6 +683,15 @@ package org.si.sion.sequencer.base {
         {
             onTimerInterruption();
             return e.next;
+        }
+        
+        /** default operation for MMLEvent.INTERNAL_CALL. */
+        protected function _default_onInternalCall(e:MMLEvent) : MMLEvent
+        {
+            var callbacks:Array = currentExecutor.sequence._callbackInternalCall,
+                next:MMLEvent = null;
+            if (callbacks[e.data]) next = callbacks[e.data](e.length);
+            return next || e.next;
         }
     }
 }

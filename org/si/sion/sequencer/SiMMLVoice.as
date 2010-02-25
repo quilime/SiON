@@ -6,8 +6,10 @@
 
 package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMChannelParam;
+    import org.si.sion.module.SiOPMWaveBase;
+    import org.si.sion.module.SiOPMWavePCMTable;
     import org.si.sion.module.SiOPMWaveTable;
-    import org.si.sion.module.SiOPMPCMData;
+    import org.si.sion.module.SiOPMWaveSamplerTable;
     import org.si.sion.namespaces._sion_internal;
     
     
@@ -31,11 +33,13 @@ package org.si.sion.sequencer {
         
         /** parameters for FM sound channel. */
         public var channelParam:SiOPMChannelParam;
-        /** wave data for PCM sound channel. null;not pcm voice. @default null */
-        public var pcmData:SiOPMPCMData;
+        /** wave data. @default null */
+        public var waveData:SiOPMWaveBase;
         /** PSM guitar tension @default 8 */
         public var psmTension:int;
         
+        /** quantize ratio (same as "q" command), set -1 to ignore. @default -1 */
+        public var quantRatio:int;
         /** track pitch shift (same as "k" command). @default 0 */
         public var pitchShift:int;
         /** portament. @default 0 */
@@ -111,18 +115,20 @@ package org.si.sion.sequencer {
     // properties
     //--------------------------------------------------
         /** FM voice flag */
-        public function get isFMVoice() : Boolean {
-            return (moduleType == 6);
-        }
+        public function get isFMVoice() : Boolean { return (moduleType == 6); }
         
         /** PCM voice flag */
-        public function get isPCMVoice() : Boolean {
-            return (pcmData != null);
-        }
-                
-        /** @private [sion internal] suitability to register on %6 voice */
+        public function get isPCMVoice() : Boolean { return (waveData is SiOPMWavePCMTable); }
+        
+        /** Sampler voice flag */
+        public function get isSamplerVoice() : Boolean { return (waveData is SiOPMWaveSamplerTable); }
+        
+        /** wave table voice flag */
+        public function get isWaveTableVoice() : Boolean { return (waveData is SiOPMWaveTable); }
+        
+        /** @private [sion internal] suitability to register in %6 voices */
         _sion_internal function get _isSuitableForFMVoice() : Boolean {
-            return (pcmData == null && moduleType != 6 && moduleType != 7 && moduleType < 10);
+            return (waveData == null && SiMMLTable.isSuitableForFMVoice(moduleType));
         }
         
         
@@ -148,6 +154,71 @@ package org.si.sion.sequencer {
         /** constructor. */
         function SiMMLVoice()
         {
+            initialize();
+        }
+        
+        
+        
+        
+    // setting
+    //--------------------------------------------------
+        /** set sequencer track */
+        public function setTrackVoice(track:SiMMLTrack) : SiMMLTrack
+        {
+            // voice setting
+            if (waveData) {
+                // voice with wave data
+                track.setChannelModuleType(waveData.moduleType, 0);
+                track.channel.setSiOPMChannelParam(channelParam, setVolumes);
+                track.channel.setWaveData(waveData);
+            } else {
+                // synthesizer modules
+                switch (moduleType) {
+                case 6:  // Registered FM voice (%6)
+                    track.setChannelModuleType(6, channelNum);
+                    break;
+                case 11: // PMS Guitar (%11)
+                    track.setChannelModuleType(11, 1);
+                    track.channel.setSiOPMChannelParam(channelParam, false);
+                    track.channel.setAllReleaseRate(psmTension);
+                    if (isPCMVoice) track.channel.setWaveData(waveData);
+                    break;
+                default: // other sound modules
+                    track.setChannelModuleType(moduleType, channelNum, toneNum);
+                    track.channel.setSiOPMChannelParam(channelParam, setVolumes);
+                    break;
+                }
+            }
+            
+            // track settings
+            if (quantRatio!=-1) track.quantRatio = quantRatio*0.125;
+            track.pitchShift = pitchShift;
+            track.setPortament(portament);
+            track.setReleaseSweep(releaseSweep);
+            track.setModulationEnvelop(false, amDepth, amDepthEnd, amDelay, amTerm);
+            track.setModulationEnvelop(true,  pmDepth, pmDepthEnd, pmDelay, pmTerm);
+            if (noteOnToneEnvelop != null) track.setToneEnvelop(1, noteOnToneEnvelop, noteOnToneEnvelopStep);
+            if (noteOnAmplitudeEnvelop != null) track.setAmplitudeEnvelop(1, noteOnAmplitudeEnvelop, noteOnAmplitudeEnvelopStep);
+            if (noteOnFilterEnvelop != null) track.setFilterEnvelop(1, noteOnFilterEnvelop, noteOnFilterEnvelopStep);
+            if (noteOnPitchEnvelop != null) track.setPitchEnvelop(1, noteOnPitchEnvelop, noteOnPitchEnvelopStep);
+            if (noteOnNoteEnvelop != null) track.setNoteEnvelop(1, noteOnNoteEnvelop, noteOnNoteEnvelopStep);
+            if (noteOffToneEnvelop != null) track.setToneEnvelop(0, noteOffToneEnvelop, noteOffToneEnvelopStep);
+            if (noteOffAmplitudeEnvelop != null) track.setAmplitudeEnvelop(0, noteOffAmplitudeEnvelop, noteOffAmplitudeEnvelopStep);
+            if (noteOffFilterEnvelop != null) track.setFilterEnvelop(0, noteOffFilterEnvelop, noteOffFilterEnvelopStep);
+            if (noteOffPitchEnvelop != null) track.setPitchEnvelop(0, noteOffPitchEnvelop, noteOffPitchEnvelopStep);
+            if (noteOffNoteEnvelop != null) track.setNoteEnvelop(0, noteOffNoteEnvelop, noteOffNoteEnvelopStep);
+            
+            return track;
+        }
+
+        
+        
+        
+    // operation
+    //--------------------------------------------------
+        /** initializer */
+        public function initialize() : void
+        {
             setVolumes = false;
             
             moduleType = 5;
@@ -155,9 +226,10 @@ package org.si.sion.sequencer {
             toneNum = -1;
             
             channelParam = new SiOPMChannelParam();
-            pcmData = null;
+            waveData = null;
             psmTension = 8;
             
+            quantRatio = -1;
             pitchShift = 0;
             portament = 0;
             releaseSweep = 0;
@@ -195,64 +267,18 @@ package org.si.sion.sequencer {
         }
         
         
-        
-        
-    // setting
-    //--------------------------------------------------
-        /** set sequencer track */
-        public function setTrackVoice(track:SiMMLTrack) : SiMMLTrack
-        {
-            switch (moduleType) {
-            case 6:  // Registered FM voice (%6)
-                track.setChannelModuleType(6, channelNum);
-                break;
-            case 11: // PMS Guitar (%11)
-                track.setChannelModuleType(11, 1);
-                track.channel.setSiOPMChannelParam(channelParam, false);
-                track.channel.setAllReleaseRate(psmTension);
-                break;
-            default: // other sound modules
-                track.setChannelModuleType(moduleType, channelNum, toneNum);
-                track.channel.setSiOPMChannelParam(channelParam, setVolumes);
-                break;
-            }
-            
-            // PCM sound module
-            if (pcmData) track.channel.setPCMData(pcmData);
-            
-            // track settings
-            track.pitchShift = pitchShift;
-            track.setPortament(portament);
-            track.setReleaseSweep(releaseSweep);
-            track.setModulationEnvelop(false, amDepth, amDepthEnd, amDelay, amTerm);
-            track.setModulationEnvelop(true,  pmDepth, pmDepthEnd, pmDelay, pmTerm);
-            if (noteOnToneEnvelop != null) track.setToneEnvelop(1, noteOnToneEnvelop, noteOnToneEnvelopStep);
-            if (noteOnAmplitudeEnvelop != null) track.setAmplitudeEnvelop(1, noteOnAmplitudeEnvelop, noteOnAmplitudeEnvelopStep);
-            if (noteOnFilterEnvelop != null) track.setFilterEnvelop(1, noteOnFilterEnvelop, noteOnFilterEnvelopStep);
-            if (noteOnPitchEnvelop != null) track.setPitchEnvelop(1, noteOnPitchEnvelop, noteOnPitchEnvelopStep);
-            if (noteOnNoteEnvelop != null) track.setNoteEnvelop(1, noteOnNoteEnvelop, noteOnNoteEnvelopStep);
-            if (noteOffToneEnvelop != null) track.setToneEnvelop(0, noteOffToneEnvelop, noteOffToneEnvelopStep);
-            if (noteOffAmplitudeEnvelop != null) track.setAmplitudeEnvelop(0, noteOffAmplitudeEnvelop, noteOffAmplitudeEnvelopStep);
-            if (noteOffFilterEnvelop != null) track.setFilterEnvelop(0, noteOffFilterEnvelop, noteOffFilterEnvelopStep);
-            if (noteOffPitchEnvelop != null) track.setPitchEnvelop(0, noteOffPitchEnvelop, noteOffPitchEnvelopStep);
-            if (noteOffNoteEnvelop != null) track.setNoteEnvelop(0, noteOffNoteEnvelop, noteOffNoteEnvelopStep);
-            
-            return track;
-        }
-
-        
-        
-        
-    // operation
-    //--------------------------------------------------
         /** copy all parameters */
-        public function copyFrom(src:SiMMLVoice) : SiMMLVoice
+        public function copyFrom(src:SiMMLVoice) : void
         {
             moduleType = src.moduleType;
             channelNum = src.channelNum;
             toneNum = src.toneNum;
             channelParam.copyFrom(src.channelParam);
             
+            waveData = src.waveData;
+            psmTension = src.psmTension;
+            
+            quantRatio = src.quantRatio;
             pitchShift = src.pitchShift;
             portament = src.portament;
             releaseSweep = src.releaseSweep;
@@ -287,8 +313,6 @@ package org.si.sion.sequencer {
             noteOffFilterEnvelopStep = src.noteOffFilterEnvelopStep;
             noteOffPitchEnvelopStep = src.noteOffPitchEnvelopStep;
             noteOffNoteEnvelopStep = src.noteOffNoteEnvelopStep;
-            
-            return this;
         }
     }
 }

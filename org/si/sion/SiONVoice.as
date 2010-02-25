@@ -5,10 +5,17 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion {
+    import flash.media.Sound;
     import org.si.sion.utils.Translator;
     import org.si.sion.sequencer.SiMMLVoice;
     import org.si.sion.sequencer.SiMMLTable;
+    import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
+    import org.si.sion.module.SiOPMOperatorParam;
+    import org.si.sion.module.SiOPMWavePCMData;
+    import org.si.sion.module.SiOPMWavePCMTable;
+    import org.si.sion.module.SiOPMWaveSamplerData;
+    import org.si.sion.module.SiOPMWaveSamplerTable;
     
     
     /** SiON Voice data. This includes SiOPMChannelParam.
@@ -65,7 +72,22 @@ package org.si.sion {
         
         
         
-    // parameter setter / getter
+    // operation
+    //--------------------------------------------------
+        /** create clone voice. */
+        public function clone() : SiONVoice
+        {
+            var newVoice:SiONVoice = new SiONVoice();
+            newVoice.copyFrom(this);
+            newVoice.chipType = chipType;
+            newVoice.name = name;
+            return newVoice;
+        }
+        
+        
+        
+        
+    // FM parameter setter / getter
     //--------------------------------------------------
         /** Set by #&#64; parameters Array */
         public function set param(args:Array)    : void { Translator.setParam(channelParam, args);    chipType = ""; }
@@ -105,7 +127,7 @@ package org.si.sion {
         public function get paramMA3() : Array { return Translator.getMA3Param(channelParam); }
         
         
-        /** get MML.
+        /** get FM voice setting MML.
          *  @param index voice number.
          *  @param type chip type. choose string from SiONVoice.CHIPTYPE_* or null to detect automatically.
          *  @return mml string of this voice setting.
@@ -124,26 +146,109 @@ package org.si.sion {
         }
         
         
-        /** Set phisical modeling synth guitar parameters.
+        
+        
+    // Voice setter
+    //--------------------------------------------------
+        /** Set as PCM voice (Sound with pitch shift, LPF envlope).
+         *  @param wave Sound instance to play
+         *  @param samplingOctave sampling data's octave (octave 5 as 44.1kHz)
+         *  @return PCM data instance as SiOPMWavePCMData
+         *  @see org.si.sion.module.SiOPMWavePCMData
+         */
+        public function setPCMVoice(wave:Sound, samplingOctave:int=5) : SiOPMWavePCMData {
+            moduleType = 7;
+            return (waveData = new SiOPMWavePCMData(wave, samplingOctave)) as SiOPMWavePCMData;
+        }
+        
+        
+        /** Set as MP3 voice (Sound without pitch shift, LPF envlope).
+         *  @param wave Sound instance to play
+         *  @param ignoreNoteOff flag to ignore note off
+         *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
+         *  @return MP3 data instance as SiOPMWaveSamplerData
+         *  @see org.si.sion.module.SiOPMWaveSamplerData
+         */
+        public function setMP3Voice(wave:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2) : SiOPMWaveSamplerData {
+            moduleType = 10;
+            return (waveData = new SiOPMWaveSamplerData(wave, ignoreNoteOff, channelCount)) as SiOPMWaveSamplerData;
+        }
+        
+        
+        /** Set as phisical modeling synth guitar voice.
          *  @param ar attack rate of plunk energy
          *  @param dr decay rate of plunk energy
          *  @param tl total level of plunk energy
          *  @param fixedPitch plunk noise pitch
          *  @param ws wave shape of plunk
          *  @param tension sustain rate of the tone
+         *  @return this SiONVoice instance
          */
-        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=0, ws:int=20, tension:int=8) : void {
+        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=0, ws:int=20, tension:int=8) : SiONVoice {
             moduleType = 11;
             channelNum = 1;
             param = [1, 0, 0, ws, ar, dr, 0, 63, 15, tl, 0, 0, 1, 0, 0, 0, 0, fixedPitch];
             psmTension = tension;
             chipType = "PMSGuitar";
+            return this;
+        }
+        
+        
+        /** Set as analog like synth voice.
+         *  @param connectionType Connection type, 0=normal, 1=ring, 2=sync.
+         *  @param ws1 Wave shape for osc1.
+         *  @param ws2 Wave shape for osc2.
+         *  @param balance balance between osc1 and 2 (-64 - 64). -64 for only osc1, 0 for same volume, 64 for only osc2.
+         *  @param vco2pitch pitch difference in osc1 and 2. 64 for 1 halftone.
+         *  @return this SiONVoice instance
+         */
+        public function setAnalogLike(connectionType:int, ws1:int=0, ws2:int=0, balance:int=0, vco2pitch:int=0) : SiONVoice {
+            channelParam.opeCount = 5;
+            channelParam.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
+            channelParam.operatorParam[0].pgType = ws1;
+            channelParam.operatorParam[1].pgType = ws2;
+
+            if (balance > 64) balance = 64;
+            else if (balance < -64) balance = -64;
+            channelParam.operatorParam[0].tl = SiOPMTable.instance.eg_tlTable[balance+64] >> SiOPMTable.ENV_LSHIFT;
+            channelParam.operatorParam[1].tl = SiOPMTable.instance.eg_tlTable[64-balance] >> SiOPMTable.ENV_LSHIFT;
+            
+            channelParam.operatorParam[0].detune = 0;
+            channelParam.operatorParam[1].detune = vco2pitch;
+            
+            return this;
+        }
+        
+        
+        
+        
+    // Voice setting
+    //--------------------------------------------------
+        /** Set envelop parameters of all operators.
+         *  @param ar Attack rate (0-63).
+         *  @param dr Decay rate (0-63).
+         *  @param sr Sustain rate (0-63).
+         *  @param rr Release rate (0-63).
+         *  @param sl Sustain level (0-15).
+         *  @param tl Total level (0-127).
+         */
+        public function setEnvelop(ar:int, dr:int, sr:int, rr:int, sl:int, tl:int) : SiONVoice {
+            for (var i:int=0; i<4; i++) {
+                var opp:SiOPMOperatorParam = channelParam.operatorParam[i];
+                opp.ar = ar;
+                opp.dr = dr;
+                opp.sr = sr;
+                opp.rr = rr;
+                opp.sl = sl;
+                opp.tl = tl;
+            }
+            return this;
         }
         
         
         /** Set low pass filter envelop parameters.
          *  @param cutoff LP filter cutoff
-         *  @param resonanse LP filter resonance
+         *  @param resonance LP filter resonance
          *  @param far LP filter attack rate
          *  @param fdr1 LP filter decay rate 1
          *  @param fdr2 LP filter decay rate 2
@@ -152,10 +257,11 @@ package org.si.sion {
          *  @param fdc2 LP filter decay cutoff 2
          *  @param fsc LP filter sustain cutoff
          *  @param frc LP filter release cutoff
+         *  @return this SiONVoice instance
          */
-        public function setLPFEnvelop(cutoff:int=128, resonanse:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : void {
+        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice {
             channelParam.cutoff = cutoff;
-            channelParam.resonanse = resonanse;
+            channelParam.resonance = resonance;
             channelParam.far = far;
             channelParam.fdr1 = fdr1;
             channelParam.fdr2 = fdr2;
@@ -164,6 +270,7 @@ package org.si.sion {
             channelParam.fdc2 = fdc2;
             channelParam.fsc = fsc;
             channelParam.frc = frc;
+            return this;
         }
     }
 }

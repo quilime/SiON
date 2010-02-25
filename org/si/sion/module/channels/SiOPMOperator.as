@@ -4,8 +4,9 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
     import org.si.utils.SLLint;
+    import org.si.sion.module.*;
     
     
     /** SiOPM operator class.
@@ -555,7 +556,7 @@ package org.si.sion.module {
         
         
         /** Set PCM data. */
-        public function setPCMData(pcmData:SiOPMPCMData) : void
+        public function setPCMData(pcmData:SiOPMWavePCMData) : void
         {
             _pgType = SiOPMTable.PG_USER_PCM; // -2
             _waveTable      = pcmData.wavelet;
@@ -592,22 +593,6 @@ package org.si.sion.module {
             _eg_out = (_eg_levelTable[_eg_level] + _eg_total_level)<<3;
         }
         
-        
-        /** Set feedback. */
-        public function setFeedback(fb:int) : void
-        {
-            // cannot feedback in carrior
-            if (_inPipe !== _chip.zeroBuffer || _inPipe !== _feedPipe) return;
-            
-            if (fb > 0) {
-                _inPipe = _feedPipe;
-                _fmShift = fb + 6;
-            } else {
-                _inPipe = _chip.zeroBuffer;
-                _fmShift = 15;
-            }
-        }
-        
                 
         /** @private [internal] Set pipes. */
         internal function _setPipes(outPipe:SLLint, modPipe:SLLint=null, finalOsc:Boolean=false) : void
@@ -631,7 +616,7 @@ package org.si.sion.module {
             if (_eg_timer < 0) {
                 if (_eg_state == EG_ATTACK) {
                     if (_eg_incTable[_eg_counter] > 0) {
-    					_eg_level -= 1 + (_eg_level >> _eg_incTable[_eg_counter]);
+                        _eg_level -= 1 + (_eg_level >> _eg_incTable[_eg_counter]);
                         if (_eg_level <= 0) _eg_shiftState(_eg_nextState[_eg_state]);
                     }
                 } else {

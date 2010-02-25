@@ -19,7 +19,7 @@ package org.si.sion.module {
         /** operator params x4 */
         public var operatorParam:Vector.<SiOPMOperatorParam>;
         
-        /** operator count [0,4] */
+        /** operator count [0,5]. 0 ignores all operators params. 5 sets analog like mode. */
         public var opeCount:int;
         /** algorism [0,15] */
         public var alg:int;
@@ -46,7 +46,7 @@ package org.si.sion.module {
         /** LP filter cutoff */
         public var cutoff:int;
         /** LP filter resonance */
-        public var resonanse:int;
+        public var resonance:int;
         /** LP filter attack rate */
         public var far:int;
         /** LP filter decay rate 1 */
@@ -114,7 +114,7 @@ package org.si.sion.module {
             pan = 64;
             
             cutoff = 128;
-            resonanse = 0;
+            resonance = 0;
             far = 0;
             fdr1 = 0;
             fdr2 = 0;
@@ -151,7 +151,7 @@ package org.si.sion.module {
             pan = org.pan;
             
             cutoff = org.cutoff;
-            resonanse = org.resonanse;
+            resonance = org.resonance;
             far = org.far;
             fdr1 = org.fdr1;
             fdr2 = org.fdr2;
@@ -180,7 +180,7 @@ package org.si.sion.module {
             $2("lws", lfoWaveShape, "lfq", SiOPMTable.LFO_TIMER_INITIAL*0.005782313/lfoFreqStep);
             $2("amd", amd, "pmd", pmd);
             $2("vol", volumes[0],  "pan", pan-64);
-            $2("co", cutoff, "res", resonanse);
+            $2("co", cutoff, "res", resonance);
             str += "fenv=" + String(far) + "/" + String(fdr1) + "/"+ String(fdr2) + "/"+ String(frr) + "\n";
             str += "feco=" + String(fdc1) + "/"+ String(fdc2) + "/"+ String(fsc) + "/"+ String(frc) + "\n";
             for (var i:int=0; i<opeCount; i++) {

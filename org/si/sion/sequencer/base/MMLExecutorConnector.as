@@ -6,7 +6,7 @@
 
 package org.si.sion.sequencer.base {
     import org.si.sion.module.SiOPMModule;
-    import org.si.sion.module.SiOPMChannelBase;
+    import org.si.sion.module.channels.SiOPMChannelBase;
     
     
     /** @private MML executor connector. this class is used for #FM connection. */
@@ -149,7 +149,7 @@ package org.si.sion.sequencer.base {
 
                 // assign sequence to executor
                 var preprocess:MMLSequence = seqGroup._newSequence();
-                preprocess.alloc();
+                preprocess.initialize();
 //trace("#FM "+elem.number+";");
                 
                 // out pipe

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// MML bridge for SiOPMModule.
+// The SiMMLSequencer operates SiOPMModule by MML.
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -14,7 +14,7 @@ package org.si.sion.sequencer {
     import org.si.sion.sequencer.base._sion_sequencer_internal;
     
     
-    /** MML bridge for SiOPMModule.
+    /** The SiMMLSequencer operates SiOPMModule by MML.
      *  SiMMLSequencer -> SiMMLTrack -> SiOPMChannelFM -> SiOPMOperator. (-> means "operates")
      */
     public class SiMMLSequencer extends MMLSequencer
@@ -28,16 +28,19 @@ package org.si.sion.sequencer {
         
     // constants
     //--------------------------------------------------
-        static private const PARAM_MAX:int = 16;    // maximum prameter count
-        static private const MACRO_SIZE:int = 26;   // macro size 
-        
+        static private const PARAM_MAX:int = 16;                // maximum prameter count
+        static private const MACRO_SIZE:int = 26;               // macro size 
+        static private const DEFAULT_MAX_TRACK_COUNT:int = 128; // default maximum limit of track count
         
         
         
     // valiables
     //--------------------------------------------------
-        /** SiMMLTracks list */
+        /** SiMMLTrack list */
         public var tracks:Vector.<SiMMLTrack>;
+        
+        /** @private [sion internal] maximum limit of track count */
+        _sion_internal var _maxTrackCount:int;
         
         private var _callbackEventNoteOn:Function = null;   // callback function for event trigger "note on"
         private var _callbackEventNoteOff:Function = null;  // callback function for event trigger "note off"
@@ -127,6 +130,7 @@ package org.si.sion.sequencer {
             _callbackEventNoteOff = eventTriggerOff;
             _callbackTempoChanged = tempoChanged;
             _currentTrack = null;
+            _sion_internal::_maxTrackCount = DEFAULT_MAX_TRACK_COUNT;
             
             // initialize table once
             SiMMLTable.initialize();
@@ -193,13 +197,13 @@ package org.si.sion.sequencer {
             newMMLEventListener('_nt', _onNoteReleaseEnv);
             newMMLEventListener('_nf', _onFilterReleaseEnv);
             newMMLEventListener('!na', _onAmplitudeEnvTSSCP);
-            /**/
-            newMMLEventListener('po', _onPortament);
+            newMMLEventListener('po',  _onPortament);
             
             // processing events
             _registerProcessEvent();
             
-            //setMMLEventListener(MMLEvent.REGISTER);
+            setMMLEventListener(MMLEvent.DRIVER_NOTE, _onDriverNoteOn);
+            setMMLEventListener(MMLEvent.REGISTER,    _onRegisterUpdate);
 
             // set initial values of operators
             _module.initOperatorParam.ar     = 63;
@@ -236,19 +240,19 @@ package org.si.sion.sequencer {
         
     // operation for all tracks
     //--------------------------------------------------
-        /** Free all tracks. */
-        public function freeAllTracks() : void
+        // Free all tracks.
+        private function _freeAllTracks() : void
         {
             for each (var trk:SiMMLTrack in tracks) _freeTracks.push(trk);
             tracks.length = 0;
         }
         
         
-        /** Reset all tracks. */
-        public function resetAllTracks() : void
+        /** @private [sion internal] Reset all tracks. */
+        _sion_internal function _resetAllTracks() : void
         {
             for each (var trk:SiMMLTrack in tracks) {
-                trk.reset(0);
+                trk._reset(0);
                 trk.velocity   = setting.defaultVolume<<3;
                 trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
                 trk.quantCount = calcSampleCount(setting.defaultQuantCount);
@@ -263,16 +267,16 @@ package org.si.sion.sequencer {
         
     // operation for controlable tracks
     //--------------------------------------------------
-        /** Find active track by trackID.
-         *  @param trackID trackID to find.
+        /** @private [sion internal] Find active track by internal track ID.
+         *  @param internalTrackID internal track ID to find.
          *  @param delay delay value to find the track sounds at same timing. -1 ignores this value.
          *  @return found track instance. Returns null when didnt find.
          */
-        public function findActiveTrack(trackID:int, delay:int=-1) : SiMMLTrack
+        _sion_internal function _findActiveTrack(internalTrackID:int, delay:int=-1) : SiMMLTrack
         {
             var result:Array = [];
             for each (var trk:SiMMLTrack in tracks) {
-                if (trk.trackID == trackID && trk.isActive) {
+                if (trk._sion_sequencer_internal::_internalTrackID == internalTrackID && trk.isActive) {
                     if (delay == -1) return trk;
                     var diff:int = trk.trackStartDelay - delay;
                     if (-8<diff && diff<8) return trk;
@@ -282,47 +286,53 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Get free controlable track.
-         *  @param trackID New Tracks ID.
+        /** @private [sion internal] Get new controlable track.
+         *  @param internalTrackID New internal Tracks ID.
          *  @param isDisposable disposable flag
          *  @return Returns null when there are no free tracks.
          */
-        public function getFreeControlableTrack(trackID:int=0, isDisposable:Boolean=true) : SiMMLTrack
+        _sion_internal function _newControlableTrack(internalTrackID:int=0, isDisposable:Boolean=true) : SiMMLTrack
         {
             var i:int, trk:SiMMLTrack;
             for (i=tracks.length-1; i>=0; i--) {
                 trk = tracks[i];
-                if (!trk.isActive) return _initializeTrack(trk, trackID, isDisposable);
+                if (!trk.isActive) return _initializeTrack(trk, internalTrackID, isDisposable);
             }
-            return null;
-        }
-        
-        
-        /** new controlable track.
-         *  @param trackID New Tracks ID.
-         *  @param isDisposable disposable flag
-         *  @return new track
-         */
-        public function newControlableTrack(trackID:int=0, isDisposable:Boolean=true) : SiMMLTrack
-        {
-            var trk:SiMMLTrack = _initializeTrack(_freeTracks.pop() || (new SiMMLTrack()), trackID, isDisposable);
-            tracks.push(trk);
-            return trk;
+            
+            if (tracks.length < _sion_internal::_maxTrackCount) {
+                trk = _freeTracks.pop() || new SiMMLTrack();
+                tracks.push(trk);
+            } else {
+                trk = _findLowestPriorityTrack();
+                if (trk == null) return null;
+            }
+            
+            return _initializeTrack(trk, internalTrackID, isDisposable);
         }
         
         
         // initialize track
-        private function _initializeTrack(track:SiMMLTrack, trackID:int, isDisposable:Boolean) : SiMMLTrack
+        private function _initializeTrack(track:SiMMLTrack, internalTrackID:int, isDisposable:Boolean) : SiMMLTrack
         {
-            track._initialize(null, 60, (trackID>=0) ? trackID : 0, _callbackEventNoteOn, _callbackEventNoteOff, isDisposable);
-            track.reset(globalBufferIndex);
-            
-            track.velocity   = setting.defaultVolume<<3;
-            track.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
-            track.quantCount = calcSampleCount(setting.defaultQuantCount);
+            track._initialize(null, 60, (internalTrackID>=0) ? internalTrackID : 0, _callbackEventNoteOn, _callbackEventNoteOff, isDisposable);
+            track._reset(globalBufferIndex);
             track.channel.masterVolume = setting.defaultFineVolume;
-            
             return track;
+        }
+        
+        
+        // find lowest priority track
+        private function _findLowestPriorityTrack() : SiMMLTrack
+        {
+            var i:int, p:int, index:int, maxPriority:int=0;
+            for (i=tracks.length-1; i>=0; i--) {
+                p = tracks[i].priority;
+                if (p >= maxPriority) {
+                    index = i;
+                    maxPriority = p;
+                }
+            }
+            return (maxPriority == 0) ? null : tracks[index];
         }
         
         
@@ -337,7 +347,7 @@ package org.si.sion.sequencer {
          */
         override public function prepareCompile(data:MMLData, mml:String) : Boolean
         {
-            freeAllTracks();
+            _freeAllTracks();
             return super.prepareCompile(data, mml);
         }
         
@@ -353,7 +363,7 @@ package org.si.sion.sequencer {
         override public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
             // initialize all channels
-            freeAllTracks();
+            _freeAllTracks();
             _processedSampleCount = 0;
             _enableChangeBPM = true;
             
@@ -364,51 +374,30 @@ package org.si.sion.sequencer {
                 // initialize all sequence tracks
                 var trk:SiMMLTrack,
                     seq:MMLSequence = mmlData.sequenceGroup.headSequence,
-                    idx:int = 0;
+                    idx:int = 0, internalTrackID:int;
 
                 while (seq) {
-                    trk = _freeTracks.pop() || (new SiMMLTrack());
-                    tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, idx|SiMMLTrack.MML_TRACK_ID_OFFSET, _callbackEventNoteOn, _callbackEventNoteOff, true);
+                    if (seq.isActive) {
+                        trk = _freeTracks.pop() || (new SiMMLTrack());
+                        internalTrackID = idx | SiMMLTrack.MML_TRACK;
+                        tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, internalTrackID, _callbackEventNoteOn, _callbackEventNoteOff, true);
+                        idx++;
+                    }
                     seq = seq.nextSequence;
-                    idx++;
                 }
             }
 
             // reset 
-            resetAllTracks();
+            _sion_internal::_resetAllTracks();
         }
         
 
         /** Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess(). */
         override public function process() : void
         {
-            var i:int, bufferingTick:int, len:int, trk:SiMMLTrack, data:SiMMLData;
-            
-            // prepare buffering
-            for each (trk in tracks) trk.channel.resetChannelBufferStatus();
-
             // clear all buffers
             _module.clearAllBuffers();
-
-            // buffering
-            var finished:Boolean = true;
-            startGlobalSequence();
-            do {
-                bufferingTick = executeGlobalSequence();
-                _enableChangeBPM = false;
-                for each (trk in tracks) {
-                    _currentTrack = trk;
-                    len = trk._prepareBuffer(bufferingTick);
-                    _bpm = trk._bpmSetting ||  _changableBPM;
-                    finished = processMMLExecutor(trk.executor, len) && finished;
-                }
-                _enableChangeBPM = true;
-            } while (!isEndGlobalSequence());
-            
-            _isSequenceFinished = finished;
-            _currentTrack = null;
-            
-            _processedSampleCount += _module.bufferLength;
+            _isSequenceFinished = _processAllBuffers();
         }
         
 
@@ -417,34 +406,50 @@ package org.si.sion.sequencer {
          */
         public function dummyProcess(sampleCount:int) : void
         {
-            var i:int, bufferingTick:int, len:int, count:int, trk:SiMMLTrack, data:SiMMLData,
-                bufCount:int = sampleCount / _module.bufferLength;
-            
+            var count:int, bufCount:int = sampleCount / _module.bufferLength;
             if (bufCount == 0) return;
             
             // register dummy processing events
             _registerDummyProcessEvent();
             
+            // buffering
             for (count=0; count<bufCount; count++) {
-                // prepare buffering
-                for each (trk in tracks) trk.channel.resetChannelBufferStatus();
-                
-                // buffering
-                startGlobalSequence();
-                do {
-                    bufferingTick = executeGlobalSequence();
-                    for each (trk in tracks) {
-                        _currentTrack = trk;
-                        len = trk._prepareBuffer(bufferingTick);
-                        _bpm = trk._bpmSetting || _changableBPM;
-                        processMMLExecutor(trk.executor, len);
-                    }
-                } while (!isEndGlobalSequence());
+                _isSequenceFinished = _processAllBuffers();
             }
-            _currentTrack = null;
             
             // register standard processing events
             _registerProcessEvent();
+        }
+        
+        
+        // buffering all
+        private function _processAllBuffers() : Boolean
+        {
+            var bufferingLength:int, len:int, trk:SiMMLTrack, data:SiMMLData, finished:Boolean;
+            
+            // prepare buffering
+            for each (trk in tracks) trk.channel.resetChannelBufferStatus();
+            
+            // buffering
+            finished = true;
+            startGlobalSequence();
+            do {
+                bufferingLength = executeGlobalSequence();
+                _enableChangeBPM = false;
+                for each (trk in tracks) {
+                    _currentTrack = trk;
+                    len = trk._prepareBuffer(bufferingLength);
+                    _bpm = trk._bpmSetting ||  _changableBPM;
+                    finished = processMMLExecutor(trk.executor, len) && finished;
+                }
+                _enableChangeBPM = true;
+            } while (!isEndGlobalSequence());
+            
+            _bpm = _changableBPM;
+            _currentTrack = null;
+            _processedSampleCount += _module.bufferLength;
+            
+            return finished;
         }
         
         
@@ -456,7 +461,7 @@ package org.si.sion.sequencer {
          *  @param beat16 The beat number in 16th calculating from.
          */
         public function calcSampleLength(beat16:Number) : Number {
-            return beat16 * _bpm.sampleParBeat16;
+            return beat16 * _bpm.samplePerBeat16;
         }
         
         
@@ -466,10 +471,10 @@ package org.si.sion.sequencer {
          *  @param quant Quantizing beat in 16th. The 0 sets no quantization, 1 sets quantization by 16th, 4 sets quantization by 4th beat.
          */
         public function calcSampleDelay(sampleOffset:int=0, beat16Offset:Number=0, quant:Number=0) : Number {
-            if (quant == 0) return sampleOffset + beat16Offset * _bpm.sampleParBeat16;
-            var iBeats:int = int(sampleOffset * _bpm.beat16ParSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
+            if (quant == 0) return sampleOffset + beat16Offset * _bpm.samplePerBeat16;
+            var iBeats:int = int(sampleOffset * _bpm.beat16PerSample + globalBeat16 + beat16Offset + 0.9999847412109375); //=65535/65536
             if (quant != 1) iBeats = (int((iBeats+quant-1) / quant)) * quant;
-            return (iBeats - globalBeat16) * _bpm.sampleParBeat16;
+            return (iBeats - globalBeat16) * _bpm.samplePerBeat16;
         }
         
         
@@ -631,6 +636,7 @@ package org.si.sion.sequencer {
         override protected function onBeat(delaySamples:int, beatCounter:int) : void
         {
             if (_callbackBeat != null) _callbackBeat(delaySamples, beatCounter);
+            
         }
         
         
@@ -1025,14 +1031,21 @@ package org.si.sion.sequencer {
         // rest
         private function _onRest(e:MMLEvent) : MMLEvent
         {
-            _currentTrack._setRest();
+            _currentTrack._onRestEvent();
             return currentExecutor._publishProessingEvent(e);
         }
         
         // note
         private function _onNote(e:MMLEvent) : MMLEvent
         {
-            _currentTrack._setNote(e.data, calcSampleCount(e.length));
+            _currentTrack._onNoteEvent(e.data, calcSampleCount(e.length));
+            return currentExecutor._publishProessingEvent(e);
+        }
+        
+        // SiONDriver.noteOn()
+        private function _onDriverNoteOn(e:MMLEvent) : MMLEvent
+        {
+            _currentTrack.setNote(e.data, calcSampleCount(e.length));
             return currentExecutor._publishProessingEvent(e);
         }
         
@@ -1042,7 +1055,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_SLUR) {
                 _currentTrack._changeNoteLength(calcSampleCount(e.length));
             } else {
-                _currentTrack.setSlur();
+                _currentTrack._onSlur();
             }
             return currentExecutor._publishProessingEvent(e);
         }
@@ -1053,7 +1066,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_SLUR) {
                 _currentTrack._changeNoteLength(calcSampleCount(e.length));
             } else {
-                _currentTrack.setSlurWeak();
+                _currentTrack._onSlurWeak();
             }
             return currentExecutor._publishProessingEvent(e);
         }
@@ -1272,14 +1285,7 @@ package org.si.sion.sequencer {
                 dc2:int = (_p[7] == int.MIN_VALUE) ?  64 : _p[7],
                 sc :int = (_p[8] == int.MIN_VALUE) ?  32 : _p[8],
                 rc :int = (_p[9] == int.MIN_VALUE) ? 128 : _p[9];
-            
-            if (cut == 128 && res == 0 && ar == 0 && rr == 0) {
-                _currentTrack.channel.activateFilter(false);
-            } else {
-                _currentTrack.channel.activateFilter(true);
-                _currentTrack.channel.setFilterResonance(res);
-                _currentTrack.channel.setFilterEnvelop(ar, dr1, dr2, rr, cut, dc1, dc2, sc, rc);
-            }
+            _currentTrack.channel.setLPFilter(cut, res, ar, dr1, dr2, rr, dc1, dc2, sc, rc);
             return e.next;
         }
 
@@ -1580,6 +1586,15 @@ package org.si.sion.sequencer {
             if (_p[0] != int.MIN_VALUE) _currentTrack.channel.setAllReleaseRate(_p[0]);
             if (_p[1] == int.MIN_VALUE) _p[1] = 0;
             _currentTrack.setReleaseSweep(_p[1]);
+            return e.next;
+        }
+        
+        
+        // register event
+        private function _onRegisterUpdate(e:MMLEvent) : MMLEvent
+        {
+            var addr:int = e.data>>8, data:int = e.data & 0xff;
+            _currentTrack._callbackUpdateRegister(addr, data);
             return e.next;
         }
         

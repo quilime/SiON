@@ -7,6 +7,7 @@
 package org.si.sion.module {
     import org.si.utils.SLLNumber;
     import org.si.utils.SLLint;
+    import org.si.sion.module.channels.*;
     
     
     /** FM sound module based on OPM emulator and TSS algorism. */
@@ -31,8 +32,8 @@ package org.si.sion.module {
         /** stereo output buffer */
         public var streamBuffer:Vector.<SiOPMStream>;
         
-        private var _freeOperators:Vector.<SiOPMOperator>;   // Free list for SiOPMOperator
-        private var _bufferLength:int;                       // buffer length
+        // buffer length
+        private var _bufferLength:int;
         
         // pipes
         private var _pipeBuffer:Vector.<SLLint>;
@@ -55,6 +56,7 @@ package org.si.sion.module {
             
             // allocate streams
             if (count > STREAM_SIZE_MAX) count = STREAM_SIZE_MAX;
+            else if (count < 1) count = 1;
             if (streamBuffer.length != count) {
                 if (streamBuffer.length < count) {
                     i = streamBuffer.length;
@@ -66,9 +68,7 @@ package org.si.sion.module {
                 }
             }
         }
-        public function get streamCount() : int {
-            return streamBuffer.length;
-        }
+        public function get streamCount() : int { return streamBuffer.length; }
         
         
         
@@ -97,10 +97,9 @@ package org.si.sion.module {
             _bufferLength = 0;
             _pipeBuffer = new Vector.<SLLint>(PIPE_SIZE, true);
             _pipeBufferPager = new Vector.<Vector.<SLLint>>(PIPE_SIZE, true);
-            _freeOperators = new Vector.<SiOPMOperator>();
             
             // call at once
-            SiOPMChannelManager.initialize(this, true);
+            SiOPMChannelManager.initialize(this);
         }
         
         
@@ -116,7 +115,7 @@ package org.si.sion.module {
         {
             var i:int, stream:SiOPMStream, bufferLength2:int = bufferLength<<1;
 
-            // allocate buffer
+            // reallocate buffer
             if (_bufferLength != bufferLength) {
                 _bufferLength = bufferLength;
                 for each (stream in streamBuffer) {
@@ -174,20 +173,6 @@ package org.si.sion.module {
         public function getPipe(pipeNum:int, index:int=0) : SLLint
         {
             return _pipeBufferPager[pipeNum][index];
-        }
-        
-        
-        /** @private [internal] Alloc operator instance WITHOUT initializing. Call from SiOPMChannelFM. */
-        internal function _allocFMOperator() : SiOPMOperator
-        {
-            return _freeOperators.pop() || new SiOPMOperator(this);
-        }
-
-        
-        /** @private [internal] Free operator instance. Call from SiOPMChannelFM. */
-        internal function _freeFMOperator(osc:SiOPMOperator) : void
-        {
-            _freeOperators.push(osc);
         }
     }
 }

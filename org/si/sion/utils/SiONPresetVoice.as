@@ -65,7 +65,6 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
          */
         function SiONPresetVoice(includeFlag:int=0xffff) {
             categolies = [];
-            
             if (includeFlag & INCLUDE_DEFAULT) {
                 _categoly("default");
                 _new("sine",      "Sine wave",          new SiONVoice(5,0));
@@ -79,8 +78,19 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _new("ma1",       "MA3 wave sample",    new SiONVoice(5,33));
                 _new("beep",      "Pulse wave sample",  new SiONVoice(5,81));
                 _new("ramp",      "Ramp wave sample",   new SiONVoice(5,160));
+
+                /*
+                _percuss("bassdrum",  "Simple bass drum",      0, 63, 28, -128);
+                _percuss("snare",     "Simple snare drum",    17, 63, 32, 0, 64, 1);
+                _percuss("closedhh",  "Simple closed hi-hat", 19, 63, 40, 0);
+                _percuss("openedhh",  "Simple opened hi-hat", 19, 63, 28, 0);
+                _percuss("symbal",    "Simple symbal",        16, 48, 24, 0);
+                */
                 
-                // 11 default voices
+                _analog("dualsaw",      "Dual saw",      0, 1, 1, 0, 8);
+                _analog("dualsquare",   "Dual square",   0, 5, 5, 0, 8);
+                
+                // 16 default voices
             }
 
             if (includeFlag & INCLUDE_VALSOUND) {
@@ -598,6 +608,27 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
             this[key] = voice;
         }
         
+        
+        // create new percussive voice
+        private function _percuss(key:String, name:String, ws:int, ar:int, rr:int, sw:int, cut:int=128, res:int=0) : void {
+            var voice:SiONVoice = new SiONVoice(5, ws, ar, rr);
+            voice.quantRatio = 0;
+            voice.releaseSweep = sw;
+            voice.setLPFEnvelop(cut, res);
+            voice.name = name;
+            _categolyList.push(voice);
+            this[key] = voice;
+        }
+        
+        // create analog like voice
+        private function _analog(key:String, name:String, con:int, ws1:int=0, ws2:int=0, bal:int=0, det:int=0) : void {
+            var voice:SiONVoice = new SiONVoice();
+            voice.setAnalogLike(con, ws1, ws2, bal, det);
+            voice.name = name;
+            _categolyList.push(voice);
+            this[key] = voice;
+        }
+
         
         // create new OPN voice
         private function _OPN(key:String, name:String, ...args) : void {

@@ -46,6 +46,8 @@ package org.si.sion.sequencer.base {
         static public const TIMER        :int = 32;
         static public const REGISTER     :int = 33;
         static public const DEBUG_INFO   :int = 34;
+        static public const INTERNAL_CALL:int = 35;
+        static public const DRIVER_NOTE  :int = 36;
         
         
         /** Event id for the first user defined command. */
@@ -79,8 +81,9 @@ package org.si.sion.sequencer.base {
     // functions
     //--------------------------------------------------
         /** Constructor */
-        function MMLEvent()
+        function MMLEvent(id:int=0, data:int=0, length:int=0)
         {
+            if (id > 1) initialize(id, data, length);
         }
         
         
@@ -125,6 +128,13 @@ package org.si.sion.sequencer.base {
                 param[i++] = int.MIN_VALUE;
             }
             return e;
+        }
+
+        
+        /** free this event to reuse. */
+        public function free() : void
+        {
+            if (next == null) MMLParser._freeEvent(this);
         }
         
         

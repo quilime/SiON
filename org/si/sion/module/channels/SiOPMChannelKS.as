@@ -4,9 +4,10 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
     import org.si.utils.SLLNumber;
     import org.si.utils.SLLint;
+    import org.si.sion.module.*;
     import org.si.sion.sequencer.SiMMLTable;
     import org.si.sion.sequencer.SiMMLVoice;
     
@@ -132,8 +133,8 @@ package org.si.sion.module {
                 break;
             case KS_SEED_PCM:
                 if (_ks_seedIndex>=0 && _ks_seedIndex<SiOPMTable.PCM_DATA_MAX) {
-                    var pcm:SiOPMPCMData = SiOPMTable.instance.getPCMData(_ks_seedIndex);
-                    if (pcm) setPCMData(pcm);
+                    var pcm:SiOPMWavePCMTable = SiOPMTable.instance.getPCMData(_ks_seedIndex);
+                    if (pcm) setWaveData(pcm);
                 }
                 break;
             default:
@@ -246,24 +247,12 @@ package org.si.sion.module {
         /** Note on. */
         override public function noteOn() : void
         {
-            // operator note on
-            for (var i:int=0; i<_operatorCount; i++) {
-                operator[i].noteOn();
-            }
-            // reset lfo phase
-            _lfo_phase = 0;
-            // reset filter
-            if (_filterOn) {
-                resetLPFilterState();
-                shiftLPFilterState(EG_ATTACK);
-            }
-            _isNoteOn = true;
-            _isIdling = false;
-            
             _output    = 0;
-            for (i; i<KS_BUFFER_SIZE; i++) _ks_delayBuffer[i] *= 0.3;
+            for (var i:int =0; i<KS_BUFFER_SIZE; i++) _ks_delayBuffer[i] *= 0.3;
             _decay_lpf = _ks_decay_lpf;
             _decay     = _ks_decay;
+            
+            super.noteOn();
         }
         
         
@@ -309,7 +298,7 @@ package org.si.sion.module {
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
-                        var i:int, imax:int = _chip.streamBuffer.length;
+                        var i:int, imax:int = _chip.streamCount;
                         for (i=0; i<imax; i++) {
                             if (_volume[i]>0) _chip.streamBuffer[i].write(monoOut, _bufferIndex, len, _volume[i]*_expression, _pan);
                         }

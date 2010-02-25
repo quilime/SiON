@@ -4,30 +4,34 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
     import org.si.utils.SLLint;
     import org.si.utils.SLLNumber;
+    import org.si.sion.module.*;
     
     
-    /** SiOPM sound channel base class. */
+    /** SiOPM sound channel base class. </br>
+     *  The SiOPM sound channels generate wave data and write it into streaming buffer.
+     */
     public class SiOPMChannelBase
     {
     // constants
     //--------------------------------------------------
-        static public const OUTPUT_STANDARD:int = 0;
-        static public const OUTPUT_OVERWRITE:int = 1;
-        static public const OUTPUT_ADD:int = 2;
+        /** standard output */ static public const OUTPUT_STANDARD:int = 0;
+        /** overwrite pipe  */ static public const OUTPUT_OVERWRITE:int = 1;
+        /** add to pipe     */ static public const OUTPUT_ADD:int = 2;
         
-        static public const INPUT_ZERO:int = 0;
-        static public const INPUT_PIPE:int = 1;
-        static public const INPUT_FEEDBACK:int = 2;
+        /** no input from pipe  */ static public const INPUT_ZERO:int = 0;
+        /** input from pipe     */ static public const INPUT_PIPE:int = 1;
+        /** input from feedback */ static public const INPUT_FEEDBACK:int = 2;
         
-        static public const EG_ATTACK:int = 0;
-        static public const EG_DECAY1:int = 1;
-        static public const EG_DECAY2:int = 2;
-        static public const EG_SUSTAIN:int = 3;
-        static public const EG_RELEASE:int = 4;
-        static public const EG_OFF:int = 5;
+        // LPF envelop status
+        static private const EG_ATTACK:int = 0;
+        static private const EG_DECAY1:int = 1;
+        static private const EG_DECAY2:int = 2;
+        static private const EG_SUSTAIN:int = 3;
+        static private const EG_RELEASE:int = 4;
+        static private const EG_OFF:int = 5;
         
         
         
@@ -40,6 +44,8 @@ package org.si.sion.module {
         protected var _chip:SiOPMModule;
         /** functor to process */
         protected var _funcProcess:Function = _nop;
+        /** note on flag */
+        protected var _isNoteOn:Boolean;
         
         // Pipe buffer
         /** buffering index */  protected var _bufferIndex:int;
@@ -109,8 +115,8 @@ package org.si.sion.module {
         public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void {}
         /** Get SiOPMChannelParam. */
         public function getSiOPMChannelParam(param:SiOPMChannelParam) : void {}
-        /** Set by PCM wave. */
-        public function setPCMData(pcmData:SiOPMPCMData) : void {}
+        /** Set wave data. */
+        public function setWaveData(waveData:SiOPMWaveBase) : void {}
         
         /** algorism (&#64;al) */
         public function setAlgorism(cnt:int, alg:int) : void {}
@@ -124,6 +130,8 @@ package org.si.sion.module {
         public function setAllAttackRate(ar:int) : void {}
         /** Release rate (s) */
         public function setAllReleaseRate(rr:int) : void {}
+        /** Pitch bend */
+        public function set pitchBend(pb:int) : void {}
         
         /** Master volume (0-128) */
         public function get masterVolume() : int { return _volume[0]*128; }
@@ -174,7 +182,7 @@ package org.si.sion.module {
         /** buffer index */
         public function get bufferIndex() : int { return _bufferIndex; }
         
-        /** is idling ? */
+        /** Is idling ? */
         public function get isIdling() : Boolean { return _isIdling; }
         
         /** Is filter active ? */
@@ -185,7 +193,7 @@ package org.si.sion.module {
         
     // volume control
     //--------------------------------------------------
-        /** set all stream send levels */
+        /** set all stream send levels by Vector.<int>. */
         public function setAllStreamSendLevels(param:Vector.<int>) : void
         {
             var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX, v:int;
@@ -215,9 +223,18 @@ package org.si.sion.module {
                 }
             }
         }
+
+        /** get stream send.
+         *  @param streamNum stream number[0-7]. The streamNum of 0 means master volume.
+         *  @return send level[0-1].
+         */ 
+        public function getStreamSend(streamNum:int) : Number
+        {
+            return _volume[streamNum];
+        }        
         
         
-        /** offset volume */
+        /** offset volume, controled by SiMMLTrack. */
         public function offsetVolume(expression:int, velocity:int) : void
         {
         }
@@ -227,14 +244,14 @@ package org.si.sion.module {
         
     // LFO control
     //--------------------------------------------------
-        /** set chip "PSEUDO" frequency ratio by [%]. */
+        /** set chip "PSEUDO" frequency ratio by [%] (&#64;clock). */
         public function setFrequencyRatio(ratio:int) : void
         {
             _freq_ratio = ratio;
         }
         
         
-        /** initialize LFO */
+        /** initialize LFO (&#64;lfo). */
         public function initializeLFO(waveform:int) : void
         {
             waveform = (0<=waveform && waveform<=3) ? waveform : SiOPMTable.LFO_WAVE_TRIANGLE;
@@ -246,7 +263,7 @@ package org.si.sion.module {
         }
         
         
-        /** set LFO cycle time */
+        /** set LFO cycle time (&#64;lfo). */
         public function setLFOCycleTime(ms:Number) : void
         {
             _lfo_timer = 0;
@@ -279,19 +296,20 @@ package org.si.sion.module {
         
         
         /** LP Filter envelop (&#64;f).
-         *  @param ar attack rate.
-         *  @param dr1 decay rate 1.
-         *  @param dr2 decay rate 2.
-         *  @param rr release rate.
-         *  @param ac initial cutoff.
-         *  @param dc1 decay cutoff level 1.
-         *  @param dc2 decay cutoff level 2.
-         *  @param sc sustain cutoff level.
-         *  @param rc release cutoff level.
+         *  @param cutoff initial cutoff (0-128).
+         *  @param resonance resonance (0-9).
+         *  @param ar attack rate (0-63).
+         *  @param dr1 decay rate 1 (0-63).
+         *  @param dr2 decay rate 2 (0-63).
+         *  @param rr release rate (0-63).
+         *  @param dc1 decay cutoff level 1 (0-128).
+         *  @param dc2 decay cutoff level 2 (0-128).
+         *  @param sc sustain cutoff level (0-128).
+         *  @param rc release cutoff level (0-128).
          */
-        public function setFilterEnvelop(ar:int, dr1:int, dr2:int, rr:int, ac:int, dc1:int, dc2:int, sc:int, rc:int) : void
+        public function setLPFilter(cutoff:int=128, resonance:int=0, ar:int=0, dr1:int=0, dr2:int=0, rr:int=0, dc1:int=128, dc2:int=128, sc:int=128, rc:int=128) : void
         {
-            _filter_eg_cutoff[EG_ATTACK]  = (ac<0)  ? 0 : (ac>128)  ? 128 : ac;
+            _filter_eg_cutoff[EG_ATTACK]  = (cutoff<0)  ? 0 : (cutoff>128)  ? 128 : cutoff;
             _filter_eg_cutoff[EG_DECAY1]  = (dc1<0) ? 0 : (dc1>128) ? 128 : dc1;
             _filter_eg_cutoff[EG_DECAY2]  = (dc2<0) ? 0 : (dc2>128) ? 128 : dc2;
             _filter_eg_cutoff[EG_SUSTAIN] = (sc<0)  ? 0 : (sc>128)  ? 128 : sc;
@@ -303,19 +321,16 @@ package org.si.sion.module {
             _filter_eg_time  [EG_SUSTAIN] = int.MAX_VALUE;
             _filter_eg_time  [EG_RELEASE] = _table.filter_eg_rate[rr & 63];
             _filter_eg_time  [EG_OFF]     = int.MAX_VALUE;
+            
+            var res:int = (resonance<0) ? 0 : (resonance>9) ? 9 : resonance;
+            _resonance = (1 << (9 - res)) * 0.001953125;   // 0.001953125=1/512
+            
+            _filterOn = (cutoff<128 || resonance>0 || ar>0 || rr>0);
         }
         
         
-        /** LP Filter resonance (&#64;f) [0,9]. */
-        public function setFilterResonance(i:int) : void
-        {
-            i = 1 << (9 - ((i<0) ? 0 : (i>9) ? 9 : i));
-            _resonance = i * 0.001953125;   // 0.001953125=1/512
-        }
-        
-        
-        /** LP Filter cutoff offset (nf) */
-        public function setFilterOffset(i:int) : void
+        /** LP Filter cutoff offset controled by table envelop (nf) */
+        public function offsetFilter(i:int) : void
         {
             _cutoff_offset = i-128;
         }
@@ -419,7 +434,8 @@ package org.si.sion.module {
             }
             
             // buffer index
-            _isIdling = false;
+            _isNoteOn = false;
+            _isIdling = true;
             _bufferIndex  = bufferIndex;
             
             // LFO
@@ -433,12 +449,10 @@ package org.si.sion.module {
             setOutput(OUTPUT_STANDARD, 0);
             
             // LPFilter
-            _filterOn = false;
             _prevI = 0;
             _prevV = 0;
-            _resonance = 1;
             _cutoff_offset = 0;
-            setFilterEnvelop(0, 0, 0, 0, 128, 128, 128, 128, 128);
+            setLPFilter();
             shiftLPFilterState(EG_OFF);
         }
         
@@ -446,35 +460,44 @@ package org.si.sion.module {
         /** Reset */
         public function reset() : void
         {
+            _isNoteOn = false;
+            _isIdling = true;
         }
         
         
         /** Note on */
         public function noteOn() : void
         {
-            // typical operations below
-            _lfo_phase = 0;
-            if (_filterOn) {
+            _lfo_phase = 0;     // reset lfo phase
+            if (_filterOn) {    // reset envelop
                 resetLPFilterState();
                 shiftLPFilterState(EG_ATTACK);
             }
+            _isNoteOn = true;
         }
         
         
         /** Note off */
         public function noteOff() : void
         {
-            // typical operations below
-            if (_filterOn) {
+            if (_filterOn) {    // shift filters status
                 shiftLPFilterState(EG_RELEASE);
             }
+            _isNoteOn = false;
         }
         
         
         /** Check note on */
         public function isNoteOn() : Boolean 
         {
-            return false;
+            return _isNoteOn;
+        }
+        
+        
+        /** set register */
+        public function setRegister(addr:int, data:int) : void
+        {
+            
         }
         
         
@@ -509,7 +532,7 @@ package org.si.sion.module {
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
-                        var i:int, imax:int = _chip.streamBuffer.length;
+                        var i:int, imax:int = _chip.streamCount;
                         for (i=0; i<imax; i++) {
                             if (_volume[i]>0) _chip.streamBuffer[i].write(monoOut, _bufferIndex, len, _volume[i], _pan);
                         }

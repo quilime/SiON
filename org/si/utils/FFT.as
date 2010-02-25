@@ -86,9 +86,9 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
     {
     // valiables
     //------------------------------------------------------------
-        /** Vector for real numbers, you can set data and get result by this valiables. The length is a HALF of the source data length. */
+        /** Vector for real numbers, you can set data and get result by this valiables, the length is a HALF of the source data length. */
         public var re:Vector.<Number>;
-        /** Vector for imaginal numbers, you can set data and get result by this valiables.The length is a HALF of the source data length.  */
+        /** Vector for imaginal numbers, you can set data and get result by this valiables, the length is a HALF of the source data length.  */
         public var im:Vector.<Number>;
         
         private var _length:int = 0;
@@ -202,7 +202,7 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
         
     // setter
     //------------------------------------------------------------
-        /** Set data to transform. The passed vector is copied to "re" and "im" properties. The length of "src" must be same as you passed to constructor. 
+        /** Set source data, the passed vector is copied to "re" and "im" properties, the length of "src" must be same as you passed to constructor. 
          *  @return this insance
          */
         public function setData(src:Vector.<Number>) : FFT
@@ -220,7 +220,7 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
         
     // getter
     //------------------------------------------------------------
-        /** Get source data. The returned vector is a combination of "re"(even member) and "im"(odd member) properties.
+        /** Get result. The returned vector is a combination of "re"(even member) and "im"(odd member) properties.
          *  @param dst Vector to recieve the result. The length must be same as you passed to constructor. Allocate vector inside when you pass null.
          *  @return A combination of "re"(even member) and "im"(odd member) properties.
          */
@@ -236,7 +236,7 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
         }
         
         
-        /** Get intensity. 
+        /** Get intensity (re^2+im^2).
          *  @param dst Vector to recieve intensities. The length must be HALF of the source data length. Allocate vector inside when you pass null.
          *  @return Vector of intensities, same vector as passed by the arugument when its not null.
          */
@@ -253,7 +253,7 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
         }
         
         
-        /** Get magnitude. 
+        /** Get magnitude (sqrt(re^2+im^2)).
          *  @param dst The vector to recieve magnitudes. The length must be HALF of the source data length. Allocate vector inside when you pass null.
          *  @return Vector of magnitudes, same vector as passed by the arugument when its not null.
          */
@@ -270,7 +270,7 @@ trace(fft.setDat(source).calcDCT().getIntensity()); // intensity of DCT result (
         }
         
         
-        /** Get phase. 
+        /** Get phase (atan2(re^2+im^2)).
          *  @param dst The vector to recieve phases. The length must be HALF of the source data length. Allocate vector inside when you pass null.
          *  @return Vector of phases, same vector as passed by the arugument when its not null.
          */

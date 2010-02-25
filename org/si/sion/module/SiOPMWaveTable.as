@@ -5,7 +5,10 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.module {
-    public class SiOPMWaveTable
+    import org.si.sion.sequencer.SiMMLTable;
+
+    /** SiOPM wave table */
+    public class SiOPMWaveTable extends SiOPMWaveBase
     {
         public var wavelet:Vector.<int>;
         public var fixedBits:int;
@@ -15,6 +18,7 @@ package org.si.sion.module {
         /** create new SiOPMWaveTable instance. */
         function SiOPMWaveTable()
         {
+            super(SiMMLTable.MT_CUSTOM);
             this.wavelet = null;
             this.fixedBits = 0;
             this.defaultPTType = 0;

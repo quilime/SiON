@@ -101,9 +101,9 @@ package org.si.sion.sequencer {
         /** @private [internal] register all tables. called from SiMMLTrack._prepareBuffer(). */
         internal function _registerAllTables() : void
         {
+            SiOPMTable.instance.sampleTable.stencil = sampleTable;
             SiOPMTable.instance._sion_internal::_stencilCustomWaveTables = waveTables;
             SiOPMTable.instance._sion_internal::_stencilPCMData          = pcmData;
-            SiOPMTable.instance._sion_internal::_stencilSamplerData      = samplerData;
             SiMMLTable.instance._stencilEnvelops = envelops;
             SiMMLTable.instance._stencilVoices   = voices;
         }

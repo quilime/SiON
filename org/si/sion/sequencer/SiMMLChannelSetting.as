@@ -7,11 +7,11 @@
 package org.si.sion.sequencer {
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.module.SiOPMModule;
-    import org.si.sion.module.SiOPMPCMData;
+    import org.si.sion.module.SiOPMWavePCMTable;
     import org.si.sion.module.SiOPMTable;
-    import org.si.sion.module.SiOPMChannelBase;
     import org.si.sion.module.SiOPMChannelParam;
-    import org.si.sion.module.SiOPMChannelManager;
+    import org.si.sion.module.channels.SiOPMChannelManager;
+    import org.si.sion.module.channels.SiOPMChannelBase;
 
     
     /** @private SiOPM channel setting */
@@ -36,6 +36,8 @@ package org.si.sion.sequencer {
         internal var _initIndex:int;
         internal var _channelTone:Vector.<int>;
         internal var _channelType:int;
+        internal var _isSuitableForFMVoice:Boolean;
+        internal var _defaultOpeCount:int;
         
         
         
@@ -58,6 +60,8 @@ package org.si.sion.sequencer {
             this.type = type;
             _channelType = SiOPMChannelManager.CT_CHANNEL_FM;
             _selectToneType = SELECT_TONE_NORMAL;
+            _defaultOpeCount = 1;
+            _isSuitableForFMVoice = true;
         }
         
         
@@ -69,7 +73,7 @@ package org.si.sion.sequencer {
          *  call from SiMMLTrack::reset()/setChannelModuleType().
          *  call from "%" MML command
          */
-        public function initializeTone(track:SiMMLTrack, chNum:int, bufferIndex:int) : int
+        internal function initializeTone(track:SiMMLTrack, chNum:int, bufferIndex:int) : int
         {
             if (track.channel == null) {
                 // create new channel
@@ -83,11 +87,11 @@ package org.si.sion.sequencer {
             }
 
             // initialize
-            // channelTone = chNum except for PSG and APU
+            // channelTone = chNum except for PSG, APU and analog
             var channelTone:int = _initIndex; 
             if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
             track._channelNumber = (chNum<0) ? 0 : chNum;
-            track.channel.setAlgorism(1, 0);
+            track.channel.setAlgorism(_defaultOpeCount, 0);
             selectTone(track, channelTone);
             return (chNum == -1) ? -1 : channelTone;
         }
@@ -97,11 +101,11 @@ package org.si.sion.sequencer {
          *  call from initializeTone(), SiMMLTrack::setChannelModuleType()/_bufferEnvelop()/_keyOn()/_setChannelParameters().
          *  call from "%" and "&#64;" MML command
          */
-        public function selectTone(track:SiMMLTrack, voiceIndex:int) : MMLSequence
+        internal function selectTone(track:SiMMLTrack, voiceIndex:int) : MMLSequence
         {
             if (voiceIndex == -1) return null;
             
-            var voice:SiMMLVoice, pcm:SiOPMPCMData;
+            var voice:SiMMLVoice, pcmTable:SiOPMWavePCMTable;
             
             switch (_selectToneType) {
             case SELECT_TONE_NORMAL:
@@ -118,8 +122,8 @@ package org.si.sion.sequencer {
                 break;
             case SELECT_TONE_PCM: // %7
                 if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
-                    pcm = SiOPMTable.instance.getPCMData(voiceIndex);
-                    if (pcm) track.channel.setPCMData(pcm);
+                    pcmTable = SiOPMTable.instance.getPCMData(voiceIndex);
+                    if (pcmTable) track.channel.setWaveData(pcmTable);
                 }
                 break;
             default:

@@ -4,7 +4,10 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
+    import org.si.sion.module.SiOPMModule;
+    
+    
     /** @private SiOPM sound channel manager */
     public class SiOPMChannelManager
     {
@@ -21,19 +24,19 @@ package org.si.sion.module {
     // valiables
     //--------------------------------------------------
         /** class instance of SiOPMChannelBase */
-        protected var _channelClass:Class;
+        private var _channelClass:Class;
         /** channel type */
-        protected var _channelType:int;
+        private var _channelType:int;
         /** terminator */
-        protected var _term:SiOPMChannelBase;
+        private var _term:SiOPMChannelBase;
         /** channel count */
-        protected var _length:int;
+        private var _length:int;
         
         
         
     // properties
     //--------------------------------------------------
-        /** channel count */
+        /** allocated channel count */
         public function get length() : int { return _length; }
         
         
@@ -87,7 +90,6 @@ package org.si.sion.module {
                 newChannel._next._prev = newChannel._prev;
             } else {
                 // The head channel is active -> channel overflow.
-                if (!_enableExpand) return null;
                 // create new channel.
                 newChannel = new _channelClass(_chip);
                 newChannel._channelType = _channelType;
@@ -147,19 +149,14 @@ package org.si.sion.module {
         
     // factory
     //----------------------------------------
-        /** module instance */
-        static protected var _chip:SiOPMModule;
-        /** flag enable to expand */
-        static protected var _enableExpand:Boolean;
-        /** instances */
-        static protected var _channelManagers:Vector.<SiOPMChannelManager>;
+        static private var _chip:SiOPMModule;                               // module instance
+        static private var _channelManagers:Vector.<SiOPMChannelManager>;   // manager list
         
         
         /** initialize */
-        static public function initialize(chip:SiOPMModule, enableExpand:Boolean) : void 
+        static public function initialize(chip:SiOPMModule) : void 
         {
-            _chip         = chip;
-            _enableExpand = enableExpand;
+            _chip = chip;
             _channelManagers = new Vector.<SiOPMChannelManager>(CT_MAX, true);
             _channelManagers[CT_CHANNEL_FM]      = new SiOPMChannelManager(SiOPMChannelFM,      CT_CHANNEL_FM);
             _channelManagers[CT_CHANNEL_SAMPLER] = new SiOPMChannelManager(SiOPMChannelSampler, CT_CHANNEL_SAMPLER);
@@ -201,5 +198,4 @@ package org.si.sion.module {
         }
     }
 }
-
 

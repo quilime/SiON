@@ -8,7 +8,7 @@ package org.si.sion.sequencer {
     import org.si.utils.SLLint;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
-    import org.si.sion.module.SiOPMChannelManager;
+    import org.si.sion.module.channels.SiOPMChannelManager;
     
     
     /** @private SiMML table */
@@ -29,7 +29,8 @@ package org.si.sion.sequencer {
         static public const MT_RAMP  :int = 9;  // ramp wave
         static public const MT_SAMPLE:int = 10; // sampler
         static public const MT_KS    :int = 11; // karplus strong
-        static public const MT_MAX   :int = 12;
+        static public const MT_ANALOG:int = 12; // analog like
+        static public const MT_MAX   :int = 13;
         
         static private const MT_ARRAY_SIZE:int = 11;
         
@@ -123,11 +124,12 @@ package org.si.sion.sequencer {
             channelModuleSetting[MT_CUSTOM] = new SiMMLChannelSetting(MT_CUSTOM, SiOPMTable.PG_CUSTOM,      256, 1, 256); // SCC / custom wave table
             channelModuleSetting[MT_ALL]    = new SiMMLChannelSetting(MT_ALL,    SiOPMTable.PG_SINE,        512, 1, 512); // all pgTypes
             channelModuleSetting[MT_FM]     = new SiMMLChannelSetting(MT_FM,     SiOPMTable.PG_SINE,        1,   1, 1);   // FM sound module
-            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         256, 1, 256); // PCM
+            channelModuleSetting[MT_PCM]    = new SiMMLChannelSetting(MT_PCM,    SiOPMTable.PG_PCM,         128, 1, 128); // PCM
             channelModuleSetting[MT_PULSE]  = new SiMMLChannelSetting(MT_PULSE,  SiOPMTable.PG_PULSE,       32,  1, 32);  // pulse
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
-            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         1,   1, 1);   // sampler. this is based on SiOPMChannelSampler
+            channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         4,   1, 4);   // sampler. this is based on SiOPMChannelSampler
             channelModuleSetting[MT_KS]     = new SiMMLChannelSetting(MT_KS,     0,                         3,   1, 3);   // karplus strong (0-2 to choose seed generator algrism)
+            channelModuleSetting[MT_ANALOG] = new SiMMLChannelSetting(MT_ANALOG, SiOPMTable.PG_SINE,        384, 1, 4);   // analog like
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -149,7 +151,7 @@ package org.si.sion.sequencer {
             ms._pgTypeList[11] = SiOPMTable.PG_CUSTOM;
             for (i=0; i<9;  i++) { ms._ptTypeList[i] = SiOPMTable.PT_PSG; }
             for (i=9; i<12; i++) { ms._ptTypeList[i] = SiOPMTable.PT_APU_NOISE; }
-            ms._initIndex       = 1;
+            ms._initIndex      = 1;
             ms._channelTone[0] = 4;
             ms._channelTone[1] = 4;
             ms._channelTone[2] = 8;
@@ -157,13 +159,24 @@ package org.si.sion.sequencer {
             ms._channelTone[4] = 11;
             // FM setting
             channelModuleSetting[MT_FM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_FM;
+            channelModuleSetting[MT_FM]._isSuitableForFMVoice = false;
             // PCM setting
             channelModuleSetting[MT_PCM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_PCM;
+            channelModuleSetting[MT_PCM]._isSuitableForFMVoice = false;
             // Sampler
-            channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
+            //channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
             channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
+            channelModuleSetting[MT_SAMPLE]._isSuitableForFMVoice = false;
             // Karplus strong
             channelModuleSetting[MT_KS]._channelType = SiOPMChannelManager.CT_CHANNEL_KS;
+            channelModuleSetting[MT_KS]._isSuitableForFMVoice = false;
+            // analog like setting
+            ms = channelModuleSetting[MT_ANALOG];
+            ms._channelTone[0] = 4; // triangle
+            ms._channelTone[1] = 2; // d-saw
+            ms._channelTone[2] = 5; // square
+            ms._channelTone[3] = 6; // w-noise
+            ms._defaultOpeCount = 5; // analog like algorism
 
             // tables
             _masterEnvelops = new Vector.<SiMMLEnvelopTable>(ENV_TABLE_MAX);
@@ -265,6 +278,18 @@ package org.si.sion.sequencer {
             }
             
             return -1;
+        }
+        
+        
+        /** get 0th operators pgType number from moduleType, channelNum and toneNum. 
+         *  @param moduleType Channel module type
+         *  @param channelNum Channel number. For %2-11, this value is same as 1st argument of '_&#64;'.
+         *  @param toneNum Tone number. Ussualy, this argument is used only in %0;PSG and %1;APU.
+         *  @return pgType value, or -1 when moduleType == 6(FM) or 7(PCM).
+         */
+        static public function isSuitableForFMVoice(moduleType:int) : Boolean
+        {
+            return instance.channelModuleSetting[moduleType]._isSuitableForFMVoice;
         }
     }
 }

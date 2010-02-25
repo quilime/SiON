@@ -4,9 +4,11 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.module {
+package org.si.sion.module.channels {
+    import flash.utils.ByteArray;
     import org.si.utils.SLLNumber;
     import org.si.utils.SLLint;
+    import org.si.sion.module.*;
     
     
     /** Sampler pad channel. */
@@ -14,19 +16,18 @@ package org.si.sion.module {
     {
     // valiables
     //--------------------------------------------------
-        /** note on flag */  protected var _isNoteOn:Boolean;
-        
         /** bank number */   protected var _bankNumber:int;
         /** wave number */   protected var _waveNumber:int;
-        /** one shot flag */ protected var _isOneShot:Boolean;
         
         /** expression */    protected var _expression:Number;
         
-        /** sample data */   protected var _sample:Vector.<Number>;
-        /** sample length */ protected var _sampleLength:int;
+        /** sample table */  protected var _sampleTable:SiOPMWaveSamplerTable;
+        /** sample table */  protected var _sampleData :SiOPMWaveSamplerData;
         /** sample index */  protected var _sampleIndex:int;
         /** phase reset */   protected var _sampleStartPhase:int;
-        /** channel count */ protected var _sampleChannelCount:int;
+
+        /** ByteArray to extract */ protected var _extractedByteArray:ByteArray;
+        /** sample data */          protected var _extractedSample:Vector.<Number>;
         
         
         
@@ -50,6 +51,8 @@ package org.si.sion.module {
         /** constructor */
         function SiOPMChannelSampler(chip:SiOPMModule)
         {
+            _extractedByteArray = new ByteArray();
+            _extractedSample = new Vector.<Number>(chip.bufferLength*2);
             super(chip);
         }
 
@@ -117,6 +120,12 @@ package org.si.sion.module {
             _waveNumber = p >> 6;
         }
         
+        /** Set wave data. */
+        override public function setWaveData(waveData:SiOPMWaveBase) : void {
+            _sampleTable = waveData as SiOPMWaveSamplerTable;
+            _sampleData  = waveData as SiOPMWaveSamplerData;
+        }
+        
         
         
         
@@ -140,17 +149,8 @@ package org.si.sion.module {
         /** Initialize. */
         override public function initialize(prev:SiOPMChannelBase, bufferIndex:int) : void
         {
-            _isNoteOn = false;
-            _bankNumber = 0;
-            _waveNumber = -1;
-            _isOneShot = false;
-            _sample = null;
-            _sampleLength = 0;
-            _sampleIndex = 0;
-            _sampleStartPhase = 0;
-            _sampleChannelCount = 1;
-            _expression = 0.5;
             super.initialize(prev, bufferIndex);
+            reset();
         }
         
         
@@ -161,13 +161,13 @@ package org.si.sion.module {
             _isIdling = true;
             _bankNumber = 0;
             _waveNumber = -1;
-            _isOneShot = false;
-            _sample = null;
-            _sampleLength = 0;
+            
+            _sampleTable = _table.sampleTable;
+            _sampleData = null;
+            
             _sampleIndex = 0;
             _sampleStartPhase = 0;
-            _sampleChannelCount = 1;
-            _expression = 0.5;
+            _expression = 1;
         }
         
         
@@ -175,17 +175,12 @@ package org.si.sion.module {
         override public function noteOn() : void
         {
             if (_waveNumber >= 0) {
-                _isNoteOn = true;
-                _isIdling = false;
-                var idx:int = _waveNumber + (_bankNumber<<7),
-                    data:SiOPMSamplerData = _table.getSamplerData(idx);
-                if (data) {
-                    _sample = data.waveData;
-                    _isOneShot = data.isOneShot;
-                    _sampleChannelCount = data.channelCount;
-                    _sampleLength = _sample.length >> (_sampleChannelCount-1);
-                    if (_sampleStartPhase!=255) _sampleIndex = _sampleLength * _sampleStartPhase * 0.00390625; // 1/256
+                if (_sampleTable) _sampleData = _sampleTable.getSample(_waveNumber & 127);
+                if (_sampleData && _sampleStartPhase!=255) {
+                    _sampleIndex = _sampleData.getInitialSampleIndex(_sampleStartPhase * 0.00390625); // 1/256
                 }
+                _isIdling = (_sampleData == null);
+                _isNoteOn = !_isIdling;
             }
         }
         
@@ -193,51 +188,94 @@ package org.si.sion.module {
         /** Note off. */
         override public function noteOff() : void
         {
-            if (!_isOneShot) {
-                _isNoteOn = false;
-                _isIdling = true;
-                _sample = null;
-                _sampleLength = 0;
+            if (_sampleData) {
+                if (!_sampleData.ignoreNoteOff) {
+                    _isNoteOn = false;
+                    _isIdling = true;
+                    if (_sampleTable) _sampleData = null;
+                }
             }
-        }
-        
-        
-        /** Check note on */
-        override public function isNoteOn() : Boolean
-        {
-            return _isNoteOn;
         }
         
         
         /** Buffering */
         override public function buffer(len:int) : void
         {
-            var i:int, imax:int, vol:Number;
-            if (_isIdling || _sample == null || _mute) {
+            var i:int, imax:int, vol:Number, residue:int, processed:int;
+            if (_isIdling || _sampleData == null || _mute) {
                 //_nop(len);
             } else {
-                var residureLen:int = _sampleLength - _sampleIndex,
-                    procLen:int = (len < residureLen) ? len : residureLen;
-                if (_hasEffectSend) {
-                    imax = _chip.streamBuffer.length;
-                    for (i=0; i<imax; i++) {
-                        vol = _volume[i] * _expression;
-                        if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
+                if (_sampleData.isExtracted) {
+                    // stream extracted data
+                    for (residue=len, i=0, imax=0; residue>0;) {
+                        // copy to buffer
+                        processed = (_sampleIndex + residue < _sampleData.endPoint) ? residue : (_sampleData.endPoint - _sampleIndex);
+                        if (_hasEffectSend) {
+                            imax = _chip.streamCount;
+                            for (i=0; i<imax; i++) {
+                                vol = _volume[i] * _expression;
+                                if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                            }
+                        } else {
+                            vol = _volume[0] * _expression;
+                            _chip.streamBuffer[0].writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                        }
+                        _sampleIndex += processed;
+                        
+                        // processed samples are not enough == achieves to the end
+                        residue -= processed;
+                        if (residue > 0) {
+                            if (_sampleData.loopPoint >= 0) _sampleIndex = _sampleData.loopPoint; // loop
+                            else break; // end
+                        }
                     }
                 } else {
-                    vol = _volume[0] * _expression;
-                    _chip.streamBuffer[0].writeVectorNumber(_sample, _sampleIndex, _bufferIndex, procLen, vol, _pan, _sampleChannelCount);
+                    // stream Sound data with extracting
+                    for (residue=len, i=0, imax=0; residue>0;) {
+                        // extract a part
+                        _extractedByteArray.length = 0;
+                        processed = _sampleData.soundData.extract(_extractedByteArray, residue, _sampleIndex);
+                        _sampleIndex += processed;
+                        if (_sampleIndex > _sampleData.endPoint) processed -= _sampleIndex - _sampleData.endPoint;
+                        
+                        // copy to vector
+                        imax += processed << 1;
+                        _extractedByteArray.position = 0;
+                        for (; i<imax; i++) { _extractedSample[i] = _extractedByteArray.readFloat(); }
+                        
+                        // processed samples are not enough == achieves to the end
+                        residue -= processed;
+                        if (residue > 0) {
+                            if (_sampleData.loopPoint >= 0) _sampleIndex = _sampleData.loopPoint; // loop
+                            else break; // end
+                        }
+                    }
+                    processed = len - residue;
+                    
+                    // copy to buffer
+                    if (_hasEffectSend) {
+                        imax = _chip.streamCount;
+                        for (i=0; i<imax; i++) {
+                            vol = _volume[i] * _expression;
+                            if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                        }
+                    } else {
+                        vol = _volume[0] * _expression;
+                        _chip.streamBuffer[0].writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                    }
                 }
-                if (procLen < len) {
+
+                //
+                if (processed < len) {
+                    _isNoteOn = false;
                     _isIdling = true;
-                    _sample = null;
-                    //_nop(len - procLen);
+                    if (_sampleTable) _sampleData = null;
+                    //_nop(len - processed);
                 }
             }
             
             // update buffer index
             _bufferIndex += len;
-            _sampleIndex += len;
         }
         
         

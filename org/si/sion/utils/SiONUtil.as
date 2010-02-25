@@ -85,13 +85,14 @@ package org.si.sion.utils {
          *  @param src The Sound data extracting from. 
          *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
          *  @param channelCount channel count of extracted data. 1 for monoral, 2 for stereo.
-         *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
+         *  @param length The maximum sample count to extract. The length of returning vector is limited by this value.
+         *  @param startPosition Start position to extract. -1 to set extraction continuously.
          *  @return extracted data.
          */
-        static public function extract(src:Sound, dst:Vector.<Number>=null, channelCount:int=1, sampleMax:int=1048576) : Vector.<Number>
+        static public function extract(src:Sound, dst:Vector.<Number>=null, channelCount:int=1, length:int=1048576, startPosition:int=-1) : Vector.<Number>
         {
             var wave:ByteArray = new ByteArray(), i:int, imax:int;
-            src.extract(wave, sampleMax);
+            src.extract(wave, length, startPosition);
             if (dst == null) dst = new Vector.<Number>();
             wave.position = 0;
             if (channelCount == 2) {
@@ -116,12 +117,74 @@ package org.si.sion.utils {
         /** Calculate sample length from 16th beat. 
          *  @param bpm Beat per minuits.
          *  @param beat16 Count of 16th beat.
+         *  @return sample length.
          */
-        static public function calcSampleLength(bpm:Number, beat16:Number) : Number
+        static public function calcSampleLength(bpm:Number, beat16:Number=4) : Number
         {
             // 661500 = 44100*60/4
             return beat16 * 661500 / bpm;
         }
+        
+        
+        
+        /** Check silent length at the head of Sound.
+         *  @param src source Sound
+         *  @param threshold threshold level to detect sound.
+         *  @return silent length in sample count.
+         */
+        static public function getHeadSilence(src:Sound, threshold:Number = 0.01) : int
+        {
+            var wave:ByteArray = new ByteArray(), i:int, imax:int, extracted:int, n:Number;
+            
+            threshold *= 2;
+            
+            imax = 1024;
+            for (extracted=0; imax==1024; extracted+=1024) {
+                wave.length = 0;
+                imax = src.extract(wave, 1024);
+                wave.position = 0;
+                for (i=0; i<imax; i++) {
+                    n = wave.readFloat() + wave.readFloat();
+                    if (n >= threshold) return extracted + i;
+                }
+            }
+            
+            return extracted;
+        }
+        
+
+        /** Detect distance[ms] of 2 peaks, [estimated bpm] = 60000/getPeakDistance().
+         *  @param sample stereo samples, the length must be grater than 59136*2(stereo).
+         *  @return distance[ms] of 2 peaks.
+         */
+        static public function getPeakDistance(sample:Vector.<Number>) : Number
+        {
+            var i:int, j:int, k:int, idx:int, n:Number, m:Number, envAccum:Number;
+
+            // calculate envelop
+            m = envAccum = 0;
+            for (i=0, idx=0; i<462; i++) {
+                for (n=0, j=0; j<128; j++, idx+=2) n += sample[idx];
+                m += n;
+                envAccum *= 0.875;
+                envAccum += m * m;
+                _envelop[i] = envAccum;
+                m = n;
+            }
+            
+            // calculate cross correlation and find peak index
+            for (i=0, idx=0; i<113; i++) {
+                for (n=0, j=0, k=113+i; j<226; j++, k++) n += _envelop[j]*_envelop[k];
+                _xcorr[i] = n;
+                if (_xcorr[idx] < n) idx = i;
+            }
+            
+            // caluclate bpm 2.9024943310657596 = 128/44.1
+            return (113 + idx) * 2.9024943310657596;
+        }
+        // 461.9375 = 59128/128, 59128 = length for 2 beats on bpm=89.5
+        static private var _envelop:Vector.<Number> = new Vector.<Number>(462);
+        static private var _xcorr:Vector.<Number> = new Vector.<Number>(113);
         
         
         

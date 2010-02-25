@@ -24,6 +24,8 @@ package org.si.sion.sequencer.base {
         public var headEvent:MMLEvent;
         /** Last MMLEvent. The ID is always MMLEvent.SEQUENCE_TAIL and lastEvent.next is always null. */
         public var tailEvent:MMLEvent;
+        /** Is active ? The sequence is skipped to play when this value is false. */
+        public var isActive:Boolean;
         
         // mml string
         private var _mmlString:String;
@@ -39,6 +41,8 @@ package org.si.sion.sequencer.base {
         // Is terminal sequence.
         private var _isTerminal:Boolean;
         
+        /** @private [sion seqiencer internal] callback functions for Event.INTERNAL_CALL */
+        _sion_sequencer_internal var _callbackInternalCall:Array;
         /** @private [sion seqiencer internal] owner data */
         _sion_sequencer_internal var _owner:MMLData;
         
@@ -76,12 +80,14 @@ package org.si.sion.sequencer.base {
             _owner = null;
             headEvent = null;
             tailEvent = null;
+            isActive = true;
             _mmlString = "";
             _mmlLength = -1;
             _hasRepeatAll = false;
             _prevSequence = (term) ? this : null;
             _nextSequence = (term) ? this : null;
             _isTerminal = term;
+            _callbackInternalCall = [];
         }
         
         
@@ -125,8 +131,8 @@ package org.si.sion.sequencer.base {
          */
         public function fromVector(events:Vector.<MMLEvent>) : MMLSequence
         {
-            alloc();
-            for each (var e:MMLEvent in events) connectEvent(e);
+            initialize();
+            for each (var e:MMLEvent in events) push(e);
             return this;
         }
         
@@ -136,17 +142,19 @@ package org.si.sion.sequencer.base {
         
     // operations
     //--------------------------------------------------
-        /** Alloc. */
-        public function alloc() : MMLSequence
+        /** initialize. */
+        public function initialize() : MMLSequence
         {
             if (!isEmpty()) {
                 headEvent.jump.next = tailEvent;
                 MMLParser._freeAllEvents(this);
+                _callbackInternalCall = [];
             }
             headEvent = MMLParser._allocEvent(MMLEvent.SEQUENCE_HEAD, 0);
             tailEvent = MMLParser._allocEvent(MMLEvent.SEQUENCE_TAIL, 0);
             headEvent.next = tailEvent;
             headEvent.jump = headEvent;
+            isActive = true;
             return this;
         }
         
@@ -190,42 +198,109 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Append new MMLEvent at tail */
+        /** Append new MMLEvent at tail 
+         *  @param id MML event id.
+         *  @param data MML event data.
+         *  @param length MML event length.
+         *  @see org.si.sion.sequencer.base.MMLEvent
+         */
         public function appendNewEvent(id:int, data:int, length:int=0) : MMLEvent
         {
-            var e:MMLEvent = MMLParser._allocEvent(id, data, length);
-            connectEvent(e);
+            return push(MMLParser._allocEvent(id, data, length));
+        }
+        
+        
+        /** Append new Callback function 
+         *  @param func The function to call. (function(int) : MMLEvent)
+         *  @param data The value to pass to the callback as an argument
+         */
+        public function appendNewCallback(func:Function, data:int) : MMLEvent
+        {
+            _callbackInternalCall.push(func);
+            return push(MMLParser._allocEvent(MMLEvent.INTERNAL_CALL, _callbackInternalCall.length-1, data));
+        }
+        
+        
+        /** Prepend new MMLEvent at head
+         *  @param id MML event id.
+         *  @param data MML event data.
+         *  @param length MML event length.
+         *  @see org.si.sion.sequencer.base.MMLEvent
+         */
+        public function prependNewEvent(id:int, data:int, length:int=0) : MMLEvent
+        {
+            return unshift(MMLParser._allocEvent(id, data, length));
+        }
+        
+        
+        /** Add MMLEvent at tail.
+         *  @param MML event to be pushed.
+         *  @return added event, same as an argument.
+         */
+        public function push(e:MMLEvent) : MMLEvent
+        {
+            // connect event at tail
+            headEvent.jump.next = e;
+            e.next = tailEvent;
+            headEvent.jump = e;
             return e;
         }
         
         
-        /** Prepend new MMLEvent at head */
-        public function prependNewEvent(id:int, data:int, length:int=0) : MMLEvent
+        /** Remove MMLEvent from tail.
+         *  @return removed MML event. You should call MMLEvent.free() after using this event.
+         */
+        public function pop() : MMLEvent
         {
-            var e:MMLEvent = MMLParser._allocEvent(id, data, length);
-            e.next = headEvent;
+            if (headEvent.jump == headEvent) return null;
+            for (var e:MMLEvent=headEvent.next; e!=null; e=e.next) {
+                if (e.next == headEvent.jump) {
+                    var ret:MMLEvent = e.next;
+                    e.next = tailEvent;
+                    headEvent.jump = e;
+                    ret.next = null;
+                    return ret;
+                }
+            }
+            return null;
+        }
+        
+        
+        /** Add MMLEvent at head.
+         *  @param MML event to be pushed.
+         *  @return added event, same as an argument.
+         */
+        public function unshift(e:MMLEvent) : MMLEvent
+        {
+            // connect event at head
+            e.next = headEvent.next;
             headEvent.next = e;
             if (headEvent.jump == headEvent) headEvent.jump = e;
             return e;
         }
         
         
-        /** connect MMLEvent */
-        public function connectEvent(e:MMLEvent) : MMLSequence
+        /** Remove MMLEvent from head.
+         *  @return removed MML event. You should call MMLEvent.free() after using this event.
+         */
+        public function shift() : MMLEvent
         {
-            // connect event at tail
-            headEvent.jump.next = e;
-            e.next = tailEvent;
-            headEvent.jump = e;
-            return this;
+            if (headEvent.jump == headEvent) return null;
+            var ret:MMLEvent = headEvent.next;
+            headEvent.next = ret.next;
+            ret.next = null;
+            return ret;
         }
         
         
-        /** connect 2 sequences */
-        public function connectBefore(e:MMLEvent) : MMLSequence
+        /** connect 2 sequences temporarily, this function doesnt change tail pointer, so you have to call connectBefore(null) after using this connection. 
+         *  @param secondHead head event of second sequence, null to set tail event as default.
+         *  @return this instance
+         */
+        public function connectBefore(secondHead:MMLEvent) : MMLSequence
         {
-            // headEvent.jump is last event
-            headEvent.jump.next = e;
+            // simply connect first tail to second head.
+            headEvent.jump.next = secondHead || tailEvent;
             return this;
         }
         

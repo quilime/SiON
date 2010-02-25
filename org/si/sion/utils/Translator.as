@@ -1022,8 +1022,8 @@ package org.si.sion.utils {
         // reconstruct initializing sequence
         static private function _initSequence(param:SiOPMChannelParam) : String {
             var mml:String = "";
-            if (param.cutoff<128 || param.resonanse>0 || param.far>0 || param.frr>0) {
-                mml += "@f" + String(param.cutoff) + "," + String(param.resonanse);
+            if (param.cutoff<128 || param.resonance>0 || param.far>0 || param.frr>0) {
+                mml += "@f" + String(param.cutoff) + "," + String(param.resonance);
                 if (param.far>0 || param.frr>0) {
                     mml += "," + String(param.far)  + "," + String(param.fdr1) + "," + String(param.fdr2) + "," + String(param.frr);
                     mml += "," + String(param.fdc1) + "," + String(param.fdc2) + "," + String(param.fsc)  + "," + String(param.frc);

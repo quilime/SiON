@@ -30,28 +30,76 @@ package org.si.sound.base {
         
     // properties
     //----------------------------------------
-        /** Base note of this sound */
+        /** @private */
+        override public function get isPlaying() : Boolean {
+            for each (var sound:SoundObject in _soundList) if (sound.isPlaying) return true;
+            return false;
+        }
+        
+        
+        /** @private */
         override public function set note(n:int) : void {
             _note = n;
             for each (var sound:SoundObject in _soundList) sound.note = n;
         }
-        
-        /** Sound length, uint in 16th beat, 0 sets inifinity length. @default 0. */
+        /** @private */
         override public function set length(l:Number) : void {
             _length = l;
             for each (var sound:SoundObject in _soundList) sound.length = l;
         }
-        
-        /** Synchronizing quantizing, uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        /** @private */
         override public function set quantize(q:Number) : void {
             _quantize = q;
             for each (var sound:SoundObject in _soundList) sound.quantize = q;
         }
-        
-        /** Sound delay, uint in 16th beat. @default 0. */
+        /** @private */
         override public function set delay(d:Number) : void {
             _delay = d;
             for each (var sound:SoundObject in _soundList) sound.delay = d;
+        }
+        
+        
+        /** @private */
+        override public function set coarseTune(n:int) : void {
+            _noteShift = n;
+            for each (var sound:SoundObject in _soundList) sound.coarseTune = n;
+        }
+        /** @private */
+        override public function set fineTune(p:Number) : void {
+            _pitchShift = p;
+            for each (var sound:SoundObject in _soundList) sound.fineTune = p;
+        }
+        /** @private */
+        override public function set gateTime(g:Number) : void {
+            _gateTime = (g<0) ? 0 : (g>1) ? 1 : g;
+            for each (var sound:SoundObject in _soundList) sound.gateTime = g;
+        }
+        
+        
+        /** @private */
+        override public function set effectSend1(v:Number) : void {
+            _volumes[1] = (v<0) ? 0 : (v>1) ? 1 : (v * 128);
+            for each (var sound:SoundObject in _soundList) sound.effectSend1 = v;
+        }
+        /** @private */
+        override public function set effectSend2(v:Number) : void {
+            _volumes[2] = (v<0) ? 0 : (v>1) ? 1 : (v * 128);
+            for each (var sound:SoundObject in _soundList) sound.effectSend2 = v;
+        }
+        /** @private */
+        override public function set effectSend3(v:Number) : void {
+            _volumes[3] = (v<0) ? 0 : (v>1) ? 1 : (v * 128);
+            for each (var sound:SoundObject in _soundList) sound.effectSend3 = v;
+        }
+        /** @private */
+        override public function set effectSend4(v:Number) : void {
+            _volumes[4] = (v<0) ? 0 : (v>1) ? 1 : (v * 128);
+            for each (var sound:SoundObject in _soundList) sound.effectSend4 = v;
+        }
+        /** @private */
+        override public function set pitchBend(p:Number) : void {
+            _pitchBend = p;
+            for each (var sound:SoundObject in _soundList) sound.pitchBend = p;
         }
         
         
@@ -64,6 +112,7 @@ package org.si.sound.base {
         {
             super(name);
             _soundList = new Vector.<SoundObject>();
+            _thisVolume = 1;
         }
         
         
@@ -71,14 +120,27 @@ package org.si.sound.base {
         
     // operations
     //----------------------------------------
-        /** Play sound. */
+        /** Set all children's volume by index.
+         *  @param slot streaming slot number.
+         *  @param volume volume (0:Minimum - 1:Maximum).
+         */
+        override public function setVolume(slot:int, volume:Number) : void 
+        {
+            _volumes[slot] = (volume<0) ? 0 : (volume>1) ? 128 : (volume * 128);
+            for each (var sound:SoundObject in _soundList) sound.setVolume(slot, _volumes[slot]);
+        }
+        
+        
+        
+        
+        /** Play all children sound. */
         override public function play() : void
         {
             for each (var sound:SoundObject in _soundList) sound.play();
         }
         
         
-        /** Stop sound. */
+        /** Stop all children sound. */
         override public function stop() : void
         {
             for each (var sound:SoundObject in _soundList) sound.stop();

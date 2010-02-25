@@ -73,6 +73,7 @@ package org.si.sion.sequencer.base {
                 seq = appendNewSequence();          // push new sequence
                 headEvent = seq._cutout(headEvent); // cutout sequence
                 seq._updateMMLString();             // update mml string
+                seq.isActive = true;                // activate
             }
         }
         
@@ -113,6 +114,7 @@ package org.si.sion.sequencer.base {
         {
             var seq:MMLSequence = _newSequence();
             seq._insertBefore(_term);
+            seq.isActive = false;   // inactivate
             return seq;
         }
         

@@ -15,6 +15,7 @@ package org.si.sion {
     import org.si.utils.SLLint;
     import org.si.utils.SLLNumber;
     import org.si.sion.events.*;
+    import org.si.sion.sequencer.base._sion_sequencer_internal;
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.SiMMLSequencer;
@@ -25,8 +26,10 @@ package org.si.sion {
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMWaveTable;
-    import org.si.sion.module.SiOPMPCMData;
-    import org.si.sion.module.SiOPMSamplerData;
+    import org.si.sion.module.SiOPMWavePCMTable;
+    import org.si.sion.module.SiOPMWavePCMData;
+    import org.si.sion.module.SiOPMWaveSamplerTable;
+    import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
@@ -61,7 +64,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.5.8";
+        static public const VERSION:String = "0.6.0";
         
         
         /** note-on exception mode "ignore", No exception. */
@@ -119,6 +122,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _dispatchFadingEvent:Boolean; // dispatch fading event
         private var _inStreaming:Boolean;         // in streaming
         private var _preserveStop:Boolean;        // preserve stop after streaming
+        private var _isFirstStreaming:Boolean;      // first streaming
         private var _isFinishSeqDispatched:Boolean; // FINISH_SEQUENCE event already dispacthed
         //----- operation related
         private var _autoStop:Boolean;          // auto stop when the sequence finished
@@ -250,6 +254,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Is paused ? */
         public function get isPaused() : Boolean { return _isPaused; }
         
+        /** Is on beat ? */
+        public function get isOnBeat() : Boolean { return false; }
+        
         
         // operation
         /** Playing position[ms] on mml data. @default 0 */
@@ -259,10 +266,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function set position(pos:Number) : void {
             _position = pos;
             if (sequencer.isReadyToProcess) {
-                sequencer.resetAllTracks();
+                sequencer._resetAllTracks();
                 sequencer.dummyProcess(_position * _sampleRate * 0.001);
             }
         }
+        
+        /** maximum limit of track count. @default 128 */
+        public function set maxTrackCount(max:int) : void { sequencer._maxTrackCount = max; }
+        public function get maxTrackCount() : int { return sequencer._maxTrackCount; }
         
         /** Beat par minute. @default 120 */
         public function get bpm() : Number {
@@ -330,12 +341,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _dispatchFadingEvent = false;
             _preserveStop = false;
             _inStreaming = false;
+            _isFirstStreaming = false;
             _autoStop = false;
             _noteOnExceptionMode = NEM_IGNORE;
             _debugMode = false;
             _isFinishSeqDispatched = false;
             _timerCallback = null;
-            _timerSequence.alloc();
+            _timerSequence.initialize();
             _timerSequence.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
             _timerSequence.appendNewEvent(MMLEvent.TIMER, 0);
             _timerIntervalEvent = _timerSequence.appendNewEvent(MMLEvent.WAIT, 0, 0);
@@ -541,20 +553,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     // preparation
                     if (resetEffector) effector.initialize();
                     _prepareProcess(data);
-                    
-                    // dispatch streaming start event
-                    var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
-                    dispatchEvent(event);
-                    if (event.isDefaultPrevented()) return null;   // canceled
-                    
-                    // set position
-                    if (_data && _position > 0) { sequencer.dummyProcess(_position * _sampleRate * 0.001); }
-                    
-                    // start stream
-                    _process_addAllEventListners();
-                    _soundChannel = _sound.play();
-                    _soundChannel.soundTransform = _soundTransform;
-                    
+
                     // initialize
                     _timeProcessTotal = 0;
                     for (var i:int=0; i<TIME_AVARAGING_COUNT; i++) {
@@ -563,6 +562,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     }
                     _isPaused = false;
                     _isFinishSeqDispatched = (data == null);
+                    
+                    // start streaming
+                    _isFirstStreaming = true;
+                    _soundChannel = _sound.play();
+                    _soundChannel.soundTransform = _soundTransform;
                 }
             } catch(e:Error) {
                 // error
@@ -692,15 +696,15 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Set PCM data rederd by %7.
          *  @param index PCM data number.
-         *  @param data Vector.<Number> wave data. This type ussualy comes from render().
-         *  @param isDataStereo Flag that the wave data is stereo or monoral.
+         *  @param wavelet Vector.<Number> stereo wave data. This type ussualy comes from render().
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
+         *  @param keyRangeFrom Assigning key range starts from
+         *  @param keyRangeTo Assigning key range ends at
          *  @see #render()
          */
-        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : SiOPMPCMData
+        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
         {
-            var pcm:Vector.<int> = SiONUtil.logTransVector(data, isDataStereo);
-            return SiOPMTable.registerPCMData(index, pcm, samplingOctave);
+            return SiOPMTable.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave), keyRangeFrom, keyRangeTo);
         }
         
         
@@ -708,39 +712,41 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param index PCM data number.
          *  @param sound Sound instance to set.
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
+         *  @param keyRangeFrom Assigning key range starts from
+         *  @param keyRangeTo Assigning key range ends at
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
-        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, sampleMax:int=1048576) : SiOPMPCMData
+        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, sampleMax:int=1048576) : SiOPMWavePCMData
         {
-            var data:Vector.<int> = SiONUtil.logTrans(sound, null, sampleMax);
-            return SiOPMTable.registerPCMData(index, data, samplingOctave);
+            //sampleMax;
+            return SiOPMTable.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(sound, samplingOctave), keyRangeFrom, keyRangeTo);
         }
         
         
         /** Set sampler data refered by %10.
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param data Vector.<Number> wave data. This type ussualy comes from render().
-         *  @param isOneShot True to set "one shot" sound. The "one shot" sound ignores note off.
+         *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @see #render()
          */
-        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=1) : SiOPMSamplerData
+        public function setSamplerData(index:int, data:Vector.<Number>, ignoreNoteOff:Boolean=true, channelCount:int=1) : SiOPMWaveSamplerData
         {
-            return SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
+            return SiOPMTable.registerSamplerData(index, data, ignoreNoteOff, channelCount);
         }
         
         
         /** Set sampler sound refered by %10.
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param sound Sound instance to set.
-         *  @param isOneShot True to set "one shot" sound. The "one shot" sound ignores note off.
+         *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
-        public function setSamplerSound(index:int, sound:Sound, isOneShot:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMSamplerData
+        public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMWaveSamplerData
         {
             var data:Vector.<Number> = SiONUtil.extract(sound, null, channelCount, sampleMax);
-            return SiOPMTable.registerSamplerData(index, data, isOneShot, channelCount);
+            return SiOPMTable.registerSamplerData(index, data, ignoreNoteOff, channelCount);
         }
         
         
@@ -783,53 +789,46 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // Interface for intaractivity
     //----------------------------------------
         /** Play sound registered in sampler table (registered by setSamplerData()), same as noteOn(note, new SiONVoice(10), ...).
-         *  @param note note number [0-127].
+         *  @param sampleNumber sample number [0-127].
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @param trackID new tracks id.
-         *  @param eventTriggerID Event trigger id.
-         *  @param noteOnTrigger note on trigger type. 0 sets no trigger at note on.
-         *  @param noteOffTrigger note off trigger type. 0 sets no trigger at note off.
+         *  @param trackID new tracks id (0-65535).
          *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
          *         This means you should not keep a dieposable track in your code perpetually. 
          *         If you want to keep track, set this argument false. And after using, SiMMLTrack::setDisposal() to disposed by system.<br/>
          *         [REMARKS] Not disposable track is kept perpetually in the system while streaming, this may causes critical performance loss.
          *  @return SiMMLTrack to play the note. 
          */
-        public function playSound(note:int, 
+        public function playSound(sampleNumber:int, 
                                   length:Number      = 0, 
                                   delay:Number       = 0, 
                                   quant:Number       = 0, 
                                   trackID:int        = 0, 
-                                  eventTriggerID:int = 0, 
-                                  noteOnTrigger:int  = 0, 
-                                  noteOffTrigger:int = 0,
                                   isDisposable:Boolean = true) : SiMMLTrack
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
-            var mmlTrack:SiMMLTrack = null, 
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE,
+                mmlTrack:SiMMLTrack = null, 
                 delaySamples:Number = sequencer.calcSampleDelay(0, delay, quant);
             
             // check track id exception
             if (_noteOnExceptionMode != NEM_IGNORE) {
                 // find a track sounds at same timing
-                mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                mmlTrack = sequencer._findActiveTrack(internalTrackID, delaySamples);
                 if (_noteOnExceptionMode == NEM_REJECT && mmlTrack != null) return null; // reject
                 else if (_noteOnExceptionMode == NEM_SHIFT) { // shift timing
                     var step:int = sequencer.calcSampleLength(quant);
                     while (mmlTrack) {
                         delaySamples += step;
-                        mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                        mmlTrack = sequencer._findActiveTrack(internalTrackID, delaySamples);
                     }
                 }
             }
             
-            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
+            mmlTrack = mmlTrack || sequencer._newControlableTrack(internalTrackID, isDisposable);
             if (mmlTrack) {
                 mmlTrack.setChannelModuleType(10, 0);
-                mmlTrack.setEventTrigger(eventTriggerID, noteOnTrigger, noteOffTrigger);
-                mmlTrack.keyOn(note, sequencer.calcSampleLength(length), delaySamples);
+                mmlTrack.keyOn(sampleNumber, length * sequencer.setting.resolution * 0.0625, delaySamples);
             }
             return mmlTrack;
         }
@@ -841,10 +840,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @param trackID new tracks id.
-         *  @param eventTriggerID Event trigger id.
-         *  @param noteOnTrigger note on trigger type.
-         *  @param noteOffTrigger note off trigger type.
+         *  @param trackID new tracks id (0-65535).
          *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
          *         This means you should not keep a dieposable track in your code perpetually. 
          *         If you want to keep track, set this argument false. And after using, call SiMMLTrack::setDisposal() to disposed by system.<br/>
@@ -856,35 +852,31 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                                length:Number      = 0, 
                                delay:Number       = 0, 
                                quant:Number       = 0, 
-                               trackID:int        = 0, 
-                               eventTriggerID:int = 0, 
-                               noteOnTrigger:int  = 0, 
-                               noteOffTrigger:int = 0,
+                               trackID:int        = 0,
                                isDisposable:Boolean = true) : SiMMLTrack
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
-            var mmlTrack:SiMMLTrack = null, 
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE,
+                mmlTrack:SiMMLTrack = null, 
                 delaySamples:Number = sequencer.calcSampleDelay(0, delay, quant);
             
             // check track id exception
             if (_noteOnExceptionMode != NEM_IGNORE) {
                 // find a track sounds at same timing
-                mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                mmlTrack = sequencer._findActiveTrack(internalTrackID, delaySamples);
                 if (_noteOnExceptionMode == NEM_REJECT && mmlTrack != null) return null; // reject
                 else if (_noteOnExceptionMode == NEM_SHIFT) { // shift timing
                     var step:int = sequencer.calcSampleLength(quant);
                     while (mmlTrack) {
                         delaySamples += step;
-                        mmlTrack = sequencer.findActiveTrack(trackID, delaySamples);
+                        mmlTrack = sequencer._findActiveTrack(internalTrackID, delaySamples);
                     }
                 }
             }
-            
-            mmlTrack = mmlTrack || sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
+
+            mmlTrack = mmlTrack || sequencer._newControlableTrack(internalTrackID, isDisposable);
             if (mmlTrack) {
                 if (voice) voice.setTrackVoice(mmlTrack);
-                mmlTrack.setEventTrigger(eventTriggerID, noteOnTrigger, noteOffTrigger);
-                mmlTrack.keyOn(note, sequencer.calcSampleLength(length), delaySamples);
+                mmlTrack.keyOn(note, length * sequencer.setting.resolution * 0.0625, delaySamples);
             }
             return mmlTrack;
         }
@@ -895,17 +887,18 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID track id to note off.
          *  @param delay note off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
+         *  @param stopImmediately stop sound with reseting channel's process
          *  @return All SiMMLTracks switched key off.
          */
-        public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0) : Vector.<SiMMLTrack>
+        public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0, stopImmediately:Boolean=false) : Vector.<SiMMLTrack>
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE_ID_OFFSET;
-            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), 
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE,
+                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), 
                 tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
-                if (mmlTrack.trackID == trackID) {
+                if (mmlTrack._sion_sequencer_internal::_internalTrackID == internalTrackID) {
                     if (note == -1 || (note == mmlTrack.note && mmlTrack.channel.isNoteOn())) {
-                        mmlTrack.keyOff(delaySamples);
+                        mmlTrack.keyOff(delaySamples, stopImmediately);
                         tracks.push(mmlTrack);
                     }
                 }
@@ -920,7 +913,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
          *  @param delay note on delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @param trackID new tracks id.
+         *  @param trackID new tracks id (0-65535).
          *  @param isDisposable use disposable track. The disposable track will free automatically when finished rendering. 
          *         This means you should not keep a dieposable track in your code perpetually. 
          *         If you want to keep track, set this argument false. And after using, call SiMMLTrack::setDisposal() to disposed by system.<br/>
@@ -935,17 +928,21 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                                    trackID:int      = 0,
                                    isDisposable:Boolean = true) : Vector.<SiMMLTrack>
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
-            // create new sequence tracks
-            var mmlTrack:SiMMLTrack, tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>(), 
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE,
+                mmlTrack:SiMMLTrack, 
+                tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>(), 
                 seq:MMLSequence = data.sequenceGroup.headSequence, 
                 delaySamples:int = sequencer.calcSampleDelay(0, delay, quant),
                 lengthSamples:int = sequencer.calcSampleLength(length);
+            
+            // create new sequence tracks
             while (seq) {
-                mmlTrack = sequencer.getFreeControlableTrack(trackID, isDisposable) || sequencer.newControlableTrack(trackID, isDisposable);
-                mmlTrack.sequenceOn(seq, lengthSamples, delaySamples);
-                if (voice) voice.setTrackVoice(mmlTrack);
-                tracks.push(mmlTrack);
+                if (seq.isActive) {
+                    mmlTrack = sequencer._newControlableTrack(internalTrackID, isDisposable);
+                    mmlTrack.sequenceOn(seq, lengthSamples, delaySamples);
+                    if (voice) voice.setTrackVoice(mmlTrack);
+                    tracks.push(mmlTrack);
+                }
                 seq = seq.nextSequence;
             }
             return tracks;
@@ -956,16 +953,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID tracks id to stop.
          *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
+         *  @param stopImmediately stop sound with reseting channel's process
          *  @return list of SiMMLTracks stopped to play sequence.
          */
-        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1) : Vector.<SiMMLTrack>
+        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1, stopImmediately:Boolean=false) : Vector.<SiMMLTrack>
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE_ID_OFFSET;
-            var delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null,
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE,
+                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null,
                 tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
-                if (mmlTrack.trackID == trackID) {
-                    mmlTrack.sequenceOff(delaySamples);
+                if (mmlTrack._sion_sequencer_internal::_internalTrackID == internalTrackID) {
+                    mmlTrack.sequenceOff(delaySamples, stopImmediately);
                     tracks.push(mmlTrack);
                 }
             }
@@ -974,12 +972,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         /** Create new user controlable track.
-         *  @param new user controlable track. This track is NOT disposable.
+         *  @trackID new user controlable track's ID.
+         *  @return new user controlable track. This track is NOT disposable.
          */
         public function newUserControlableTrack(trackID:int=0) : SiMMLTrack
         {
-            trackID = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.USER_CONTROLLED_ID_OFFSET;
-            return sequencer.getFreeControlableTrack(trackID, false) || sequencer.newControlableTrack(trackID, false);
+            var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.USER_CONTROLLED;
+            return sequencer._newControlableTrack(internalTrackID, false);
         }
         
         
@@ -1281,12 +1280,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             effector._prepareProcess();                                     // set stream number inside
             _trackEventQueue.length = 0;                                    // clear event que
             
-            
+            // set position
+            if (_data && _position > 0) {
+                sequencer.dummyProcess(_position * _sampleRate * 0.001);
+            }
+             
+            // set timer interruption
             if (_timerCallback != null) {
                 sequencer.setGlobalSequence(_timerSequence); // set timer interruption
                 sequencer._setTimerCallback(_timerCallback);
             }
-       }
+        }
         
         
         // on enterFrame
@@ -1318,24 +1322,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         {
             var buffer:ByteArray = e.data, 
                 output:Vector.<Number> = module.output, 
-                imax:int, i:int;
+                imax:int, i:int, event:SiONEvent;
 
             // calculate latency (0.022675736961451247 = 1/44.1)
             if (_soundChannel) {
                 _latency = e.position * 0.022675736961451247 - _soundChannel.position;
             }
-            
+
             try {
                 _inStreaming = true;
-                if (_isPaused) {
-                    // paused -> zero fill
-                    buffer = e.data;
-                    imax = _bufferLength;
-                    for (i=0; i<imax; i++) {
-                        buffer.writeFloat(0);
-                        buffer.writeFloat(0);
-                    }
-                } else {
+                
+                if (_isFirstStreaming) _firstStream(e.data);  // first streaming
+                else if (_isPaused) _fillzero(e.data);        // paused
+                else {
                     var t:int = getTimer();
                     // processing
                     sequencer.process();
@@ -1363,7 +1362,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     
                     // dispatch streaming event
                     if (_dispatchStreamEvent) {
-                        var event:SiONEvent = new SiONEvent(SiONEvent.STREAM, this, buffer, true);
+                        event = new SiONEvent(SiONEvent.STREAM, this, buffer, true);
                         dispatchEvent(event);
                         if (event.isDefaultPrevented()) stop();   // canceled
                     }
@@ -1394,6 +1393,33 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
             }
         }
+        
+        
+        // first streaming
+        private function _firstStream(buffer:ByteArray) : void {
+            _isFirstStreaming = false;
+            
+            // start enter frame event
+            _process_addAllEventListners();
+            
+            // dispatch streaming start event
+            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, buffer, true);
+            dispatchEvent(event);
+            if (event.isDefaultPrevented()) stop();   // canceled
+            
+            _fillzero(buffer);
+        }
+        
+        
+        // fill zero
+        private function _fillzero(buffer:ByteArray) : void {
+            var i:int, imax:int = _bufferLength;
+            for (i=0; i<imax; i++) {
+                buffer.writeFloat(0);
+                buffer.writeFloat(0);
+            }
+        }
+        
         
         
         

@@ -103,9 +103,9 @@ package org.si.sion.module {
         static public const DEFAULT_PG_MAX:int = 256;   // max value of pgType = 255
         static public const PG_FILTER     :int = 511;   // pg number loops between 0 to 511
         
-        static public const WAVE_TABLE_MAX:int = 128;   // custom wave table max.
-        static public const PCM_DATA_MAX    :int = 128;   // pcm data max.
-        static public const SAMPLER_DATA_MAX:int = 128;   // sampler data max.
+        static public const WAVE_TABLE_MAX:int = 128;                 // custom wave table max.
+        static public const PCM_DATA_MAX    :int = 128;               // pcm data max.
+        static public const SAMPLER_DATA_MAX:int = NOTE_TABLE_SIZE;   // sampler data max
         
 
         // lfo wave type
@@ -174,7 +174,7 @@ package org.si.sion.module {
         /** EG:sl table from 15 to 1024. */
         public var eg_slTable:Array = null;
         /** EG:tl table from linear volume. */
-        public var eg_tlTable:Array = null;
+        public var eg_tlTable:Vector.<int> = null;
         
         /** LFO:timer step. */
         public var lfo_timerSteps:Vector.<int> = null;
@@ -207,18 +207,16 @@ package org.si.sion.module {
         /** PG:Wave tables */
         public var waveTables:Vector.<SiOPMWaveTable> = null;
         
+        /** PG:Sampler table */
+        public var sampleTable:SiOPMWaveSamplerTable = null;
         /** PG:Custom wave tables */
         private var _customWaveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:Overriding custom wave tables */
         _sion_internal var _stencilCustomWaveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:PCM data */
-        private var _pcmData:Vector.<SiOPMPCMData> = null;
+        private var _pcmData:Vector.<SiOPMWavePCMTable> = null;
         /** PG:PCM data */
-        _sion_internal var _stencilPCMData:Vector.<SiOPMPCMData> = null;
-        /** PG:Wave data for sampler */
-        private var _samplerData:Vector.<SiOPMSamplerData> = null;
-        /** PG:Overriding wave data for sampler */
-        _sion_internal var _stencilSamplerData:Vector.<SiOPMSamplerData> = null;
+        _sion_internal var _stencilPCMData:Vector.<SiOPMWavePCMTable> = null;
         
         /** Table for dt1 (from fmgen.cpp). */
         public var dt1Table:Array = null;
@@ -371,18 +369,18 @@ package org.si.sion.module {
             eg_slTable[15] = 31<<5;
             
             // v(0-128) -> total_level(832- 0). translate linear volume to log scale gain.
-            eg_tlTable = new Array(257);
+            eg_tlTable = new Vector.<int>(257);
             for (i=0; i<129; i++) {
                 // 0.0078125 = 1/128
                 eg_tlTable[i] = calcLogTableIndex(i*0.0078125) >> (LOG_VOLUME_BITS - ENV_BITS);
             }
-            // v(129-192) -> total_level(0 - -192). distortion.
+            // v(129-224) -> total_level(0 - -192). distortion.
             for (i=1; i<97; i++) {
                 eg_tlTable[i+128] = -(i*2);
             }
-            // v(193-256) -> total_level=-192. distortion.
-            for (i=1; i<65; i++) {
-                eg_tlTable[i+192] = ENV_TOP;
+            // v(225-257) -> total_level=-192. distortion.
+            for (i=1; i<34; i++) {
+                eg_tlTable[i+224] = ENV_TOP;
             }
             
             // panning volume table
@@ -586,19 +584,18 @@ package org.si.sion.module {
             noWaveTable = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_PCM);
             noWaveTableOPM = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_OPM);
             waveTables = new Vector.<SiOPMWaveTable>(DEFAULT_PG_MAX);
+            sampleTable = new SiOPMWaveSamplerTable();
             _customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
-            _pcmData = new Vector.<SiOPMPCMData>(PCM_DATA_MAX);
-            _samplerData = new Vector.<SiOPMSamplerData>(SAMPLER_DATA_MAX);
+            _pcmData = new Vector.<SiOPMWavePCMTable>(PCM_DATA_MAX);
             
         // clear all tables
         //------------------------------
             for (i=0; i<DEFAULT_PG_MAX;   i++) waveTables[i] = noWaveTable;
             for (i=0; i<WAVE_TABLE_MAX;   i++) _customWaveTables[i] = null;
             for (i=0; i<PCM_DATA_MAX;     i++) _pcmData[i]          = null;
-            for (i=0; i<SAMPLER_DATA_MAX; i++) _samplerData[i]      = null;
+            sampleTable.clear();
             _stencilCustomWaveTables = null;
             _stencilPCMData = null;
-            _stencilSamplerData = null;
             
         // sine wave table
         //------------------------------
@@ -1078,19 +1075,13 @@ package org.si.sion.module {
             }
             for (i=0; i<PCM_DATA_MAX; i++) { 
                 if (instance._pcmData[i]) { 
-                    instance._pcmData[i].free();
+                    instance._pcmData[i]._siopm_module_internal::_free();
                     instance._pcmData[i] = null;
                 }
             }
-            for (i=0; i<SAMPLER_DATA_MAX; i++) {
-                if (instance._samplerData[i]) {
-                    instance._samplerData[i].free();
-                    instance._samplerData[i] = null;
-                }
-            }
+            instance.sampleTable._siopm_module_internal::_free();
             instance._stencilCustomWaveTables = null;
             instance._stencilPCMData = null;
-            instance._stencilSamplerData = null;
         }
         
         
@@ -1112,23 +1103,20 @@ package org.si.sion.module {
         }
         
         
-        /** Register PCM data. */
-        static public function registerPCMData(index:int, table:Vector.<int>, samplingOctave:int) : SiOPMPCMData
+        /** Register Sampler data. */
+        static public function registerSamplerData(index:int, table:*, ignoreNoteOff:Boolean, channelCount:int) : SiOPMWaveSamplerData
         {
-            // register PCM data
-            index &= PCM_DATA_MAX-1;
-            instance._pcmData[index] = SiOPMPCMData.alloc(table, samplingOctave);
-            return instance._pcmData[index];
+            return instance.sampleTable.setSample(SiOPMWaveSamplerData.alloc(table, ignoreNoteOff, channelCount), index & (SAMPLER_DATA_MAX-1));
         }
         
         
-        /** Register Sampler data. */
-        static public function registerSamplerData(index:int, table:Vector.<Number>, isOneShot:Boolean, channelCount:int) : SiOPMSamplerData
+        /** get PCM wave table. */
+        static public function getPCMWaveTable(index:int) : SiOPMWavePCMTable
         {
-            // register sample
-            index &= SAMPLER_DATA_MAX-1;
-            instance._samplerData[index] = SiOPMSamplerData.alloc(table, isOneShot, channelCount);
-            return instance._samplerData[index];
+            // register PCM data
+            index &= PCM_DATA_MAX-1;
+            if (instance._pcmData[index] == null) instance._pcmData[index] = new SiOPMWavePCMTable();
+            return instance._pcmData[index];
         }
         
         
@@ -1146,20 +1134,11 @@ package org.si.sion.module {
         
         
         /** get registerd PCM data */
-        public function getPCMData(index:int) : SiOPMPCMData
+        public function getPCMData(index:int) : SiOPMWavePCMTable
         {
             index &= PCM_DATA_MAX-1;
             if (_stencilPCMData && _stencilPCMData[index]) return _stencilPCMData[index];
             return _pcmData[index];
-        }
-        
-        
-        /** get registerd sampler data */
-        public function getSamplerData(index:int) : SiOPMSamplerData
-        {
-            index &= SAMPLER_DATA_MAX-1;
-            if (_stencilSamplerData && _stencilSamplerData[index]) return _stencilSamplerData[index];
-            return _samplerData[index];
         }
     }
 }

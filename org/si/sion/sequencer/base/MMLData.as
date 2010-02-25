@@ -6,9 +6,12 @@
 
 package org.si.sion.sequencer.base {
     import org.si.sion.module.SiOPMWaveTable;
-    import org.si.sion.module.SiOPMPCMData;
-    import org.si.sion.module.SiOPMSamplerData;
+    import org.si.sion.module.SiOPMWavePCMTable;
+    import org.si.sion.module.SiOPMWavePCMData;
+    import org.si.sion.module.SiOPMWaveSamplerTable;
+    import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.module.SiOPMTable;
+    import org.si.sion.module._siopm_module_internal;
     
     
     /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
@@ -40,9 +43,9 @@ package org.si.sion.sequencer.base {
         /** wave tables */
         protected var waveTables:Vector.<SiOPMWaveTable>;
         /** pcm data (log-transformed) */
-        protected var pcmData:Vector.<SiOPMPCMData>;
+        protected var pcmData:Vector.<SiOPMWavePCMTable>;
         /** wave data */
-        protected var samplerData:Vector.<SiOPMSamplerData>;
+        protected var sampleTable:SiOPMWaveSamplerTable;
         
         /** @private [sion sequencer internal] system commands that can not be parsed */
         _sion_sequencer_internal var _systemCommands:Array;
@@ -52,7 +55,14 @@ package org.si.sion.sequencer.base {
         
     // properties
     //--------------------------------------------------
-        /** Beat per minutes. Returns 0 when there are no bpm definitions. */
+        /** sequence count */
+        public function get sequenceCount() : int { return sequenceGroup.sequenceCount; }
+        
+        
+        /** Beat per minutes, 0 when this data depends on driver's BPM. */
+        public function set bpm(t:Number) : void {
+            _initialBPM = (t>0) ? (new BeatPerMinutes(t, 44100)) : null;
+        }
         public function get bpm() : Number {
             return (_initialBPM) ? _initialBPM.bpm : 0;
         }
@@ -85,8 +95,8 @@ package org.si.sion.sequencer.base {
             author = "";
             
             waveTables  = new Vector.<SiOPMWaveTable>(SiOPMTable.WAVE_TABLE_MAX);
-            pcmData     = new Vector.<SiOPMPCMData>(SiOPMTable.PCM_DATA_MAX);
-            samplerData = new Vector.<SiOPMSamplerData>(SiOPMTable.SAMPLER_DATA_MAX);
+            pcmData     = new Vector.<SiOPMWavePCMTable>(SiOPMTable.PCM_DATA_MAX);
+            sampleTable = new SiOPMWaveSamplerTable();
             _systemCommands = [];
         }
         
@@ -108,9 +118,19 @@ package org.si.sion.sequencer.base {
             title = "";
             author = "";
             
-            for (i=0; i<SiOPMTable.WAVE_TABLE_MAX; i++)   { if (waveTables[i])  { waveTables[i].free();  waveTables[i] = null; } }
-            for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++)     { if (pcmData[i])     { pcmData[i].free();     pcmData[i] = null; } }
-            for (i=0; i<SiOPMTable.SAMPLER_DATA_MAX; i++) { if (samplerData[i]) { samplerData[i].free(); samplerData[i] = null; } }
+            for (i=0; i<SiOPMTable.WAVE_TABLE_MAX; i++) {
+                if (waveTables[i]) { 
+                    waveTables[i].free();
+                    waveTables[i] = null;
+                }
+            }
+            for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++) {
+                if (pcmData[i]) {
+                    pcmData[i].._siopm_module_internal::_free();
+                    pcmData[i] = null;
+                }
+            }
+            sampleTable._siopm_module_internal::_free();
             _systemCommands.length = 0;
         }
         
@@ -149,55 +169,6 @@ package org.si.sion.sequencer.base {
             for (i=0; i<imax; i++) table[i] = SiOPMTable.calcLogTableIndex(data[i]);
             waveTables[index] = SiOPMWaveTable.alloc(table);
             return waveTables[index];
-        }
-        
-        
-        /** Set PCM data rederd from %7.
-         *  @param index PCM data number.
-         *  @param data Vector.<Number> wave data. This type ussualy comes from render().
-         *  @param isDataStereo Flag that the wave data is stereo or monoral.
-         *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
-         *  @return created data instance
-         *  @see #org.si.sion.SiONDriver.render()
-         */
-        public function setPCMData(index:int, data:Vector.<Number>, isDataStereo:Boolean=true, samplingOctave:int=5) : SiOPMPCMData
-        {
-            index &= SiOPMTable.PCM_DATA_MAX-1;
-            
-            var i:int, j:int, imax:int;
-            var pcm:Vector.<int>;
-            if (isDataStereo) {
-                imax = data.length>>1;
-                pcm = new Vector.<int>(imax);
-                for (i=0; i<imax; i++) {
-                    j = i<<1;
-                    pcm[i] = SiOPMTable.calcLogTableIndex(data[j]);
-                }
-            } else {
-                imax = data.length;
-                pcm = new Vector.<int>(imax);
-                for (i=0; i<imax; i++) {
-                    pcm[i] = SiOPMTable.calcLogTableIndex(data[i]);
-                }
-            }
-            pcmData[index] = SiOPMPCMData.alloc(pcm, samplingOctave);
-            return pcmData[index];
-        }
-        
-        
-        /** Set sampler data refered by %10.
-         *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param data Vector.<Number> wave data. This type ussualy comes from SiONDriver.render().
-         *  @param isOneShot True to set "one shot" sound. The "one shot" sound ignores note off.
-         *  @param channelCount 1 for monoral, 2 for stereo.
-         *  @return created data instance
-         *  @see #org.si.sion.SiONDriver.render()
-         */
-        public function setSamplerData(index:int, data:Vector.<Number>, isOneShot:Boolean=true, channelCount:int=2) : SiOPMSamplerData
-        {
-            index &= SiOPMTable.SAMPLER_DATA_MAX-1;
-            samplerData[index] = new SiOPMSamplerData(data, isOneShot, channelCount);
-            return samplerData[index];
         }
     }
 }

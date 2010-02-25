@@ -67,8 +67,10 @@ package org.si.sion.utils {
         
     // valiables
     //--------------------------------------------------
-        /** note table */
+        /** scale table */
         protected var _scaleTable:int;
+        /** note check table (table of available notes on signeture C) */
+        protected var _noteCheckTable:int;
         /** notes on the scale */
         protected var _scaleNotes:Vector.<int>;
         /** scale name */
@@ -122,15 +124,15 @@ package org.si.sion.utils {
             var i:int;
             if (mat) {
                 _scaleName = name;
-                var baseNote:int = [9,11,0,2,4,5,7][String(mat[2]).toLowerCase().charCodeAt() - 'a'.charCodeAt()];
+                var note:int = [9,11,0,2,4,5,7][String(mat[2]).toLowerCase().charCodeAt() - 'a'.charCodeAt()];
                 if (mat[3]) {
-                    if (mat[3]=='+' || mat[3]=='#') baseNote++;
-                    else if (mat[3]=='-') baseNote--;
+                    if (mat[3]=='+' || mat[3]=='#') note++;
+                    else if (mat[3]=='-') note--;
                 }
-                if (baseNote < 0) baseNote += 12;
-                else if (baseNote > 11) baseNote -= 12;
-                if (mat[1]) baseNote += int(mat[1].charAt(1)) * 12;
-                else baseNote += 60;
+                if (note < 0) note += 12;
+                else if (note > 11) note -= 12;
+                if (mat[1]) note += int(mat[1].charAt(1)) * 12;
+                else note += 60;
                 if (mat[4]) {
                     switch(mat[4]) {
                     case "m":    _scaleTable = ST_MINOR;            break;
@@ -164,21 +166,23 @@ package org.si.sion.utils {
                 } else {
                     _scaleTable = ST_MAJOR;
                 }
-                _scaleNotes.length = 0;
-                for (i=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + baseNote);
-                baseNote = baseNote % 12;
-                _scaleTable = ((_scaleTable << baseNote) | (_scaleTable >> (12 - baseNote))) & 0xfff;
+                this.baseNote = note;
             } else {
                 _scaleName = "C";
                 _scaleTable = ST_MAJOR;
-                _scaleNotes.length = 0;
-                for (i=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + 60);
+                this.baseNote = 60;
             }
         }
         
         
         /** base note number */
         public function get baseNote() : int { return _scaleNotes[0]; }
+        public function set baseNote(note:int) : void {
+            _scaleNotes.length = 0;
+            for (var i:int=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + note);
+            note = note % 12;
+            _noteCheckTable = ((_scaleTable << note) | (_scaleTable >> (12 - note))) & 0xfff;
+        }
         
         
         
@@ -212,10 +216,7 @@ package org.si.sion.utils {
             var i:int, imax:int = (table.length<12) ? table.length : 12;
             _scaleTable = 0;
             for (i=0; i<imax; i++) if (table[i]) _scaleTable |= (1<<i);
-            _scaleNotes.length = 0;
-            for (i=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + baseNote);
-            baseNote = baseNote % 12;
-            _scaleTable = ((_scaleTable << baseNote) | (_scaleTable >> (12 - baseNote))) & 0xfff;
+            this.baseNote = baseNote;
         }
         
         
@@ -229,7 +230,7 @@ package org.si.sion.utils {
          */
         public function check(note:int) : Boolean {
             note = note % 12;
-            return Boolean(_scaleTable & (1<<note));
+            return Boolean(_noteCheckTable & (1<<note));
         }
         
         
@@ -239,8 +240,8 @@ package org.si.sion.utils {
          */
         public function shift(note:int) : int {
             var n:int, down:int, up:int;
-            for (n=note%12, up=0;   (_scaleTable & (1<<n)) == 0; up++)   { if (++n == 12) n = 0; }
-            for (n=note%12, down=0; (_scaleTable & (1<<n)) == 0; down++) { if (--n == -1) n = 11; }
+            for (n=note%12, up=0;   (_noteCheckTable & (1<<n)) == 0; up++)   { if (++n == 12) n = 0; }
+            for (n=note%12, down=0; (_noteCheckTable & (1<<n)) == 0; down++) { if (--n == -1) n = 11; }
             return note + ((down < up) ? (-down) : up);
         }
         

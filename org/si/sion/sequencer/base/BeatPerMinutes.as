@@ -8,10 +8,12 @@ package org.si.sion.sequencer.base {
     /** Beat per minutes class, Calculates BPM-releated numbers automatically. */
     public class BeatPerMinutes
     {
-        /** 16th beat par sample */
-        public var beat16ParSample:Number;
-        /** sample par 16th beat */
-        public var sampleParBeat16:Number;
+        /** 16th beat per sample */
+        public var beat16PerSample:Number;
+        /** sample per 16th beat */
+        public var samplePerBeat16:Number;
+        /** tick per sample */
+        public var tickPerSample:Number;
         /** @private [internal] sample per tick in FIXED unit. */
         internal var _samplePerTick:Number;
         // beat per minutes
@@ -43,9 +45,10 @@ package org.si.sion.sequencer.base {
             if (beatPerMinutes != _bpm || sampleRate != _sampleRate) {
                 _bpm = beatPerMinutes
                 _sampleRate = sampleRate;
-                _samplePerTick = int(_sampleRate * 240 / (_resolution * _bpm) * (1<<MMLSequencer.FIXED_BITS));
-                beat16ParSample = _bpm / (_sampleRate * 15); // 60/4
-                sampleParBeat16 = 1 / beat16ParSample;
+                tickPerSample = _resolution * _bpm / (_sampleRate * 240)
+                beat16PerSample = _bpm / (_sampleRate * 15); // 60/4
+                samplePerBeat16 = 1 / beat16PerSample;
+                _samplePerTick = int((1/tickPerSample) * (1<<MMLSequencer.FIXED_BITS));
                 return true;
             }
             return false;

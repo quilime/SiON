@@ -62,7 +62,7 @@ package org.si.sion.module {
         
         /** multiple [0,15] */
         public function set mul(m:int) : void { fmul = (m) ? (m<<7) : 64; }
-        public function get mul() : int { return (fmul == 64) ? 0 : ((fmul>>7)&15); }
+        public function get mul() : int { return (fmul>>7)&15; }
         
         /** set pgType and ptType */
         public function setPGType(type:int) : void
