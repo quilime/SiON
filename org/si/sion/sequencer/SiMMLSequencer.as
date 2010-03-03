@@ -7,11 +7,19 @@
 package org.si.sion.sequencer {
     import flash.system.System;
     import org.si.utils.SLLint;
-    import org.si.sion.sequencer.base.*;
-    import org.si.sion.module.*;
+    import org.si.sion.sequencer.base.MMLData;
+    import org.si.sion.sequencer.base.MMLExecutorConnector;
+    import org.si.sion.sequencer.base.MMLSequencer;
+    import org.si.sion.sequencer.base.MMLEvent;
+    import org.si.sion.sequencer.base.MMLSequenceGroup;
+    import org.si.sion.sequencer.base.MMLSequence;
+    import org.si.sion.sequencer.base.MMLParser;
+    import org.si.sion.sequencer.base._sion_sequencer_internal;
+    import org.si.sion.module.SiOPMTable;
+    import org.si.sion.module.SiOPMModule;
+    import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.utils.Translator;
     import org.si.sion.namespaces._sion_internal;
-    import org.si.sion.sequencer.base._sion_sequencer_internal;
     
     
     /** The SiMMLSequencer operates SiOPMModule by MML.
@@ -356,11 +364,11 @@ package org.si.sion.sequencer {
         
     // process
     //--------------------------------------------------
-        /** Prepare to process audio.
+        /** @private [sion internal] Prepare to process audio.
          *  @param bufferLength Buffering length of processing samples at once.
          *  @param resetParams Reset all channel parameters.
          */
-        override public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
+        override public function _prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
             // initialize all channels
             _freeAllTracks();
@@ -368,7 +376,7 @@ package org.si.sion.sequencer {
             _enableChangeBPM = true;
             
             // call super function (set mmlData/grobalSequence/defaultBPM inside)
-            super.prepareProcess(data, sampleRate, bufferLength);
+            super._prepareProcess(data, sampleRate, bufferLength);
             
             if (mmlData) {
                 // initialize all sequence tracks
@@ -392,38 +400,8 @@ package org.si.sion.sequencer {
         }
         
 
-        /** Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess(). */
-        override public function process() : void
-        {
-            // clear all buffers
-            _module.clearAllBuffers();
-            _isSequenceFinished = _processAllBuffers();
-        }
-        
-
-        /** Dummy process. This funciton must be called after prepareProcess().
-         *  @param length dumming sample count. [NOTICE] This value is rounded by a buffer length. Not an exact value.
-         */
-        public function dummyProcess(sampleCount:int) : void
-        {
-            var count:int, bufCount:int = sampleCount / _module.bufferLength;
-            if (bufCount == 0) return;
-            
-            // register dummy processing events
-            _registerDummyProcessEvent();
-            
-            // buffering
-            for (count=0; count<bufCount; count++) {
-                _isSequenceFinished = _processAllBuffers();
-            }
-            
-            // register standard processing events
-            _registerProcessEvent();
-        }
-        
-        
-        // buffering all
-        private function _processAllBuffers() : Boolean
+        /** @private [sion internal] Process all tracks. Calls onProcess() inside. This funciton must be called after prepareProcess(). */
+        override public function _process() : void
         {
             var bufferingLength:int, len:int, trk:SiMMLTrack, data:SiMMLData, finished:Boolean;
             
@@ -449,7 +427,26 @@ package org.si.sion.sequencer {
             _currentTrack = null;
             _processedSampleCount += _module.bufferLength;
             
-            return finished;
+            _isSequenceFinished = finished;
+        }
+        
+
+        /** Dummy process. This funciton must be called after prepareProcess().
+         *  @param length dumming sample count. [NOTICE] This value is rounded by a buffer length. Not an exact value.
+         */
+        public function dummyProcess(sampleCount:int) : void
+        {
+            var count:int, bufCount:int = sampleCount / _module.bufferLength;
+            if (bufCount == 0) return;
+            
+            // register dummy processing events
+            _registerDummyProcessEvent();
+            
+            // pseudo processing
+            for (count=0; count<bufCount; count++) _process();
+            
+            // register standard processing events
+            _registerProcessEvent();
         }
         
         
@@ -1091,7 +1088,7 @@ package org.si.sion.sequencer {
         private function _onQuantRatio(e:MMLEvent) : MMLEvent
         {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_QUANTIZE) return e.next;  // check mask
-            _currentTrack.quantRatio = e.data / setting.maxQuantRatio;   // quantize ratio
+            _currentTrack.quantRatio = e.data / setting.maxQuantRatio;              // quantize ratio
             return e.next;
         }
         
@@ -1364,7 +1361,7 @@ package org.si.sion.sequencer {
         // @v
         private function _onMasterVolume(e:MMLEvent) : MMLEvent
         {
-            e = e.getParameters(_p, SiOPMModule.STREAM_SIZE_MAX);
+            e = e.getParameters(_p, SiOPMModule.STREAM_SEND_SIZE);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next;    // check mask
             _currentTrack.channel.setAllStreamSendLevels(_p);                       // master volume
             return e.next;

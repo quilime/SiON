@@ -59,7 +59,8 @@ package org.si.sound.base {
          *  @param scaleInstance Scale setting.
          *  @see org.si.sion.utils.Scale
          */
-        function ScaledSoundObject(scaleInstance:Scale=null) {
+        function ScaledSoundObject(scaleInstance:Scale=null) 
+        {
             super((scaleInstance) ? scaleInstance.scaleName : "");
             _scale = scaleInstance || _defaultScale;
             _scaleIndex = 0;
@@ -70,6 +71,12 @@ package org.si.sound.base {
         
     // operations
     //----------------------------------------
+        /** @inheritDoc */
+        override public function reset() : void
+        {
+            super.reset();
+            _scaleIndex = 0;
+        }
     }
 }
 

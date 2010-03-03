@@ -58,9 +58,10 @@ package org.si.sion.module.channels {
         /** base pipe */        protected var _basePipe:SLLint;
         /** out pipe */         protected var _outPipe :SLLint;
         
-        // Volume
+        // volume and stream
+        /** stream */           protected var _streams:Vector.<SiOPMStream>;
+        /** volume */           protected var _volumes:Vector.<Number>;
         /** idling flag */      protected var _isIdling:Boolean;
-        /** volume */           protected var _volume:Vector.<Number>;
         /** pan */              protected var _pan:int;
         /** effect send flag */ protected var _hasEffectSend:Boolean;
         /** mute */             protected var _mute:Boolean;
@@ -101,7 +102,8 @@ package org.si.sion.module.channels {
             _chip = chip;
             _isFree = true;
             
-            _volume = new Vector.<Number>(SiOPMModule.STREAM_SIZE_MAX, true);
+            _streams = new Vector.<SiOPMStream>(SiOPMModule.STREAM_SEND_SIZE, true);
+            _volumes = new Vector.<Number>(SiOPMModule.STREAM_SEND_SIZE, true);
             _filter_eg_time   = new Vector.<int>(6, true);
             _filter_eg_cutoff = new Vector.<int>(6, true);
         }
@@ -134,10 +136,10 @@ package org.si.sion.module.channels {
         public function set pitchBend(pb:int) : void {}
         
         /** Master volume (0-128) */
-        public function get masterVolume() : int { return _volume[0]*128; }
+        public function get masterVolume() : int { return _volumes[0]*128; }
         public function set masterVolume(v:int) : void {
             v = (v<0) ? 0 : (v>128) ? 128 : v;
-            _volume[0] = v * 0.0078125;     // 0.0078125 = 1/128
+            _volumes[0] = v * 0.0078125;     // 0.0078125 = 1/128
         }
         
         /** Pan (-64-64 left=-64, center=0, right=64).<br/>
@@ -193,17 +195,29 @@ package org.si.sion.module.channels {
         
     // volume control
     //--------------------------------------------------
-        /** set all stream send levels by Vector.<int>. */
+        /** set all stream send levels by Vector.<int>.
+         *  @param param Vector.<int>(8) of all volumes[0-128].
+         */
         public function setAllStreamSendLevels(param:Vector.<int>) : void
         {
-            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX, v:int;
+            var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE, v:int;
             for (i=0; i<imax; i++) {
                 v = param[i];
-                _volume[i] = (v != int.MIN_VALUE) ? (v * 0.0078125) : 0;
+                _volumes[i] = (v != int.MIN_VALUE) ? (v * 0.0078125) : 0;
             }
             for (_hasEffectSend=false, i=1; i<imax; i++) {
-                if (_volume[i] > 0) _hasEffectSend = true;
+                if (_volumes[i] > 0) _hasEffectSend = true;
             }
+        }
+        
+        
+        /** set stream buffer.
+         *  @param streamNum stream number[0-7]. The streamNum of 0 means master stream.
+         *  @param stream stream buffer instance. Set null to set as default.
+         */
+        public function setStreamBuffer(streamNum:int, stream:SiOPMStream = null) : void
+        {
+            _streams[streamNum] = stream;
         }
         
         
@@ -213,16 +227,17 @@ package org.si.sion.module.channels {
          */
         public function setStreamSend(streamNum:int, volume:Number) : void
         {
-            _volume[streamNum] = volume;
+            _volumes[streamNum] = volume;
             if (streamNum == 0) return;
             if (volume > 0) _hasEffectSend = true;
             else {
-                var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
+                var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE;
                 for (_hasEffectSend=false, i=1; i<imax; i++) {
-                    if (_volume[i] > 0) _hasEffectSend = true;
+                    if (_volumes[i] > 0) _hasEffectSend = true;
                 }
             }
         }
+        
 
         /** get stream send.
          *  @param streamNum stream number[0-7]. The streamNum of 0 means master volume.
@@ -230,7 +245,7 @@ package org.si.sion.module.channels {
          */ 
         public function getStreamSend(streamNum:int) : Number
         {
-            return _volume[streamNum];
+            return _volumes[streamNum];
         }        
         
         
@@ -419,15 +434,22 @@ package org.si.sion.module.channels {
         public function initialize(prev:SiOPMChannelBase, bufferIndex:int) : void
         {
             // volume
-            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
+            var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE;
             if (prev) {
-                for (i=0; i<imax; i++) _volume[i] = prev._volume[i];
+                for (i=0; i<imax; i++) {
+                    _volumes[i] = prev._volumes[i];
+                    _streams[i] = prev._streams[i];
+                }
                 _pan = prev._pan;
                 _hasEffectSend = prev._hasEffectSend;
                 _mute = prev._mute;
             } else {
-                _volume[0] = 0.5;
-                for (i=1; i<imax; i++) _volume[i] = 0;
+                _volumes[0] = 0.5;
+                _streams[0] = null;
+                for (i=1; i<imax; i++) {
+                    _volumes[i] = 0;
+                    _streams[i] = null;
+                }
                 _pan = 64;
                 _hasEffectSend = false;
                 _mute = false;
@@ -515,6 +537,8 @@ package org.si.sion.module.channels {
         /** Buffering */
         public function buffer(len:int) : void
         {
+            var i:int, stream:SiOPMStream;
+            
             if (_isIdling) {
                 // idling process
                 _nop(len);
@@ -532,12 +556,15 @@ package org.si.sion.module.channels {
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
-                        var i:int, imax:int = _chip.streamCount;
-                        for (i=0; i<imax; i++) {
-                            if (_volume[i]>0) _chip.streamBuffer[i].write(monoOut, _bufferIndex, len, _volume[i], _pan);
+                        for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                            if (_volumes[i]>0) {
+                                stream = _streams[i] || _chip.streamSlot[i];
+                                if (stream) stream.write(monoOut, _bufferIndex, len, _volumes[i], _pan);
+                            }
                         }
                     } else {
-                        _chip.streamBuffer[0].write(monoOut, _bufferIndex, len, _volume[0], _pan);
+                        stream = _streams[0] || _chip.outputStream;
+                        stream.write(monoOut, _bufferIndex, len, _volumes[0], _pan);
                     }
                 }
             }

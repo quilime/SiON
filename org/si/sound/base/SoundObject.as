@@ -9,12 +9,21 @@ package org.si.sound.base {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sound.synthesizer.SynthesizerBase;
+    import org.si.sound.synthesizer._synthesizer_internal;
     
     
     /** The SoundObject class is the base class for all objects that can be played sounds on the SiONDriver. 
      */
     public class SoundObject
     {
+    // namespace
+    //----------------------------------------
+        use namespace _synthesizer_internal;
+        
+        
+        
+        
     // valiables
     //----------------------------------------
         /** Name. */
@@ -22,8 +31,10 @@ package org.si.sound.base {
         
         /** Base note of this sound */
         protected var _note:int;
-        /** Voice data to play */
-        protected var _voice:SiONVoice;
+        /** Synthesizer instance */
+        protected var _synthesizer:SynthesizerBase;
+        /** Synthesizer instance to use SiONVoice  */
+        protected var _defaultSynthesizer:SynthesizerBase;
         /** track for noteOn() */
         protected var _track:SiMMLTrack;
         /** tracks for sequenceOn() */
@@ -42,6 +53,8 @@ package org.si.sound.base {
         protected var _pitchShift:Number;
         /** gate ratio (value of 'q' command * 0.125) */
         protected var _gateTime:Number;
+        /** Event mask (value of '@mask' command) */
+        protected var _eventMask:Number;
         /** Event trigger ID */
         protected var _eventTriggerID:int;
         /** note on trigger type */
@@ -90,8 +103,18 @@ package org.si.sound.base {
         public function set note(n:int) : void { _note = n; }
         
         /** Voice data to play */
-        public function get voice() : SiONVoice { return _voice || ((_parent) ? _parent.voice : null); }
-        public function set voice(v:SiONVoice) : void { _voice = v; }
+        public function get voice() : SiONVoice { return _synthesizer.voice || ((_parent) ? _parent.voice : null); }
+        public function set voice(v:SiONVoice) : void { 
+            _defaultSynthesizer.voice = v;
+            _synthesizer = _defaultSynthesizer;
+        }
+
+        /** Synthesizer to generate sound */
+        public function get synthesizer() : SynthesizerBase { return _synthesizer; }
+        public function set synthesizer(s:SynthesizerBase) : void {
+            _synthesizer = s || _defaultSynthesizer;
+            _synthesizer._synthesizer_internal::_owner = this;
+        }
         
         /** Sound length in 16th beat, 0 sets inifinity length. @default 0. */
         public function get length() : Number { return _length; }
@@ -123,6 +146,12 @@ package org.si.sound.base {
         public function set gateTime(g:Number) : void {
             _gateTime = (g<0) ? 0 : (g>1) ? 1 : g;
             if (_track) _track.quantRatio = _gateTime;
+        }
+        /** Track event mask. (value of '@mask' command) */
+        public function get eventMask() : int { return _eventMask; }
+        public function set eventMask(m:int) : void {
+            _eventMask = m;
+            if (_track) _track.eventMask = _eventMask;
         }
         /** Track id */
         public function get trackID() : int { return _trackID; }
@@ -157,6 +186,8 @@ package org.si.sound.base {
             _limitPan();
             if (_track) _track.channel.pan = _pan;
         }
+        
+        
         /** Channel effect send level for slot 1 (0:Minimum - 1:Maximum), this property can control track after play(). */
         public function get effectSend1() : Number { return _volumes[1] * 0.0078125; }
         public function set effectSend1(v:Number) : void {
@@ -202,29 +233,31 @@ package org.si.sound.base {
     // constructor
     //----------------------------------------
         /** constructor. */
-        function SoundObject(name:String = null)
+        function SoundObject(name:String = null, synthesizer:SynthesizerBase = null)
         {
             this.name = name || "";
             _parent = null;
-            _voice = null;
+            _synthesizer = _defaultSynthesizer = new SynthesizerBase();
+            _synthesizer._synthesizer_internal::_owner = this;
             _track = null;
             _tracks = null;
+            _volumes = new Vector.<int>(SiOPMModule.STREAM_SEND_SIZE);
             
             _note = 60;
             _length = 0;
             _delay = 0;
             _quantize = 1;
             
-            _volumes = new Vector.<int>(SiOPMModule.STREAM_SIZE_MAX);
             _volumes[0] = 64;
-            for (var i:int=1; i<SiOPMModule.STREAM_SIZE_MAX; i++) _volumes[i] = 0;
+            for (var i:int=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) _volumes[i] = 0;
             _pan = 0;
             _mute = false;
+            _pitchBend = 0;
             
             _gateTime = 0.75;
             _noteShift = 0;
             _pitchShift = 0;
-            _pitchBend = 0;
+            _eventMask = 0;
             _eventTriggerID = 0;
             _noteOnTrigger = 0;
             _noteOffTrigger = 0;
@@ -242,6 +275,36 @@ package org.si.sound.base {
         
     // settings
     //----------------------------------------
+        /** Reset */
+        public function reset() : void 
+        {
+            stop();
+            
+            _note = 60;
+            _length = 0;
+            _delay = 0;
+            _quantize = 1;
+            
+            _volumes[0] = 64;
+            for (var i:int=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) _volumes[i] = 0;
+            _pan = 0;
+            _mute = false;
+            _pitchBend = 0;
+            
+            _gateTime = 0.75;
+            _noteShift = 0;
+            _pitchShift = 0;
+            _eventMask = 0;
+            _eventTriggerID = 0;
+            _noteOnTrigger = 0;
+            _noteOffTrigger = 0;
+            
+            _thisVolume = 0.5;
+            _thisPan = 0;
+            _thisMute = false;
+        }
+        
+        
         /** Set event trigger.
          *  @param id Event trigger ID of this track. This value can be refered from SiONTrackEvent.eventTriggerID.
          *  @param noteOnType Dispatching event type at note on. 0=no events, 1=NOTE_ON_FRAME, 2=NOTE_ON_STREAM, 3=both.
@@ -298,21 +361,22 @@ package org.si.sound.base {
     //----------------------------------------
         /** driver.noteOn.
          *  @param note playing note
-         *  @param isDisposal disposal flag.
+         *  @param isDisposable disposable flag.
          *  @return playing track
          */
-        protected function _noteOn(note:int, isDisposal:Boolean) : SiMMLTrack
+        protected function _noteOn(note:int, isDisposable:Boolean) : SiMMLTrack
         {
             if (!driver) return null;
-            var t:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposal);
+            var v:SiONVoice = voice,
+                t:SiMMLTrack = driver.noteOn(note, v, _length, _delay, _quantize, _trackID, isDisposable);
             t.channel.setAllStreamSendLevels(_volumes);
             t.channel.pan       = _pan;
             t.channel.mute      = _mute;
             t.channel.pitchBend = _pitchBend * 64;
-            t.quantRatio = _gateTime;
             t.noteShift  = _noteShift;
             t.pitchShift = _pitchShift * 64;
             t.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+            if (isNaN(v.gateTime)) t.quantRatio = _gateTime;
             return t;
         }
         
@@ -330,23 +394,26 @@ package org.si.sound.base {
         
         /** driver.sequenceOn()
          *  @param data sequence data
-         *  @param isDisposal disposal flag
+         *  @param isDisposable disposable flag
+         *  @param applyLength
          *  @return vector of playing tracks
          */
-        protected function _sequenceOn(data:SiONData, isDisposal:Boolean) : Vector.<SiMMLTrack>
+        protected function _sequenceOn(data:SiONData, isDisposable:Boolean, applyLength:Boolean=true) : Vector.<SiMMLTrack>
         {
             if (!driver) return null;
-            var list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, _length, _delay, _quantize, _trackID, isDisposal),
+            var len:Number = (applyLength) ? _length : 0;
+            var v:SiONVoice = voice,
+                list:Vector.<SiMMLTrack> = driver.sequenceOn(data, v, len, _delay, _quantize, _trackID, isDisposable),
                 t:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
             for each (t in list) {
                 t.channel.setAllStreamSendLevels(_volumes);
                 t.channel.pan       = _pan;
                 t.channel.mute      = _mute;
                 t.channel.pitchBend = pb;
-                t.quantRatio = _gateTime;
                 t.noteShift  = _noteShift;
                 t.pitchShift = ps;
                 t.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+                if (isNaN(v.gateTime)) t.quantRatio = _gateTime;
             }
             return list;
         }

@@ -38,7 +38,7 @@ package org.si.sion.module.channels {
         public function toString() : String
         {
             var str:String = "SiOPMChannelSampler : ";
-            $2("vol", _volume[0]*_expression,  "pan", _pan-64);
+            $2("vol", _volumes[0]*_expression,  "pan", _pan-64);
             return str;
             function $2(p:String, i:*, q:String, j:*) : void { str += "  " + p + "=" + String(i) + " / " + q + "=" + String(j) + "\n"; }
         }
@@ -71,9 +71,9 @@ package org.si.sion.module.channels {
             if (param.opeCount == 0) return;
             
             if (withVolume) {
-                var imax:int = SiOPMModule.STREAM_SIZE_MAX;
-                for (i=0; i<imax; i++) _volume[i] = param.volumes[i];
-                for (_hasEffectSend=false, i=1; i<imax; i++) if (_volume[i] > 0) _hasEffectSend = true;
+                var imax:int = SiOPMModule.STREAM_SEND_SIZE;
+                for (i=0; i<imax; i++) _volumes[i] = param.volumes[i];
+                for (_hasEffectSend=false, i=1; i<imax; i++) if (_volumes[i] > 0) _hasEffectSend = true;
                 _pan = param.pan;
             }
         }
@@ -84,8 +84,8 @@ package org.si.sion.module.channels {
          */
         override public function getSiOPMChannelParam(param:SiOPMChannelParam) : void
         {
-            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
-            for (i=0; i<imax; i++) param.volumes[i] = _volume[i];
+            var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE;
+            for (i=0; i<imax; i++) param.volumes[i] = _volumes[i];
             param.pan = _pan;
         }
         
@@ -201,24 +201,29 @@ package org.si.sion.module.channels {
         /** Buffering */
         override public function buffer(len:int) : void
         {
-            var i:int, imax:int, vol:Number, residue:int, processed:int;
+            var i:int, imax:int, vol:Number, residue:int, processed:int, stream:SiOPMStream;
             if (_isIdling || _sampleData == null || _mute) {
                 //_nop(len);
             } else {
                 if (_sampleData.isExtracted) {
                     // stream extracted data
-                    for (residue=len, i=0, imax=0; residue>0;) {
+                    for (residue=len, i=0; residue>0;) {
                         // copy to buffer
                         processed = (_sampleIndex + residue < _sampleData.endPoint) ? residue : (_sampleData.endPoint - _sampleIndex);
                         if (_hasEffectSend) {
-                            imax = _chip.streamCount;
-                            for (i=0; i<imax; i++) {
-                                vol = _volume[i] * _expression;
-                                if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                            for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                                if (_volumes[i]>0) {
+                                    stream = _streams[i] || _chip.streamSlot[i];
+                                    if (stream) {
+                                        vol = _volumes[i] * _expression;
+                                        stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                                    }
+                                }
                             }
                         } else {
-                            vol = _volume[0] * _expression;
-                            _chip.streamBuffer[0].writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                            stream = _streams[0] || _chip.outputStream;
+                            vol = _volumes[0] * _expression;
+                            stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
                         }
                         _sampleIndex += processed;
                         
@@ -254,14 +259,19 @@ package org.si.sion.module.channels {
                     
                     // copy to buffer
                     if (_hasEffectSend) {
-                        imax = _chip.streamCount;
-                        for (i=0; i<imax; i++) {
-                            vol = _volume[i] * _expression;
-                            if (vol > 0) _chip.streamBuffer[i].writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                        for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                            if (_volumes[i]>0) {
+                                stream = _streams[i] || _chip.streamSlot[i];
+                                if (stream) {
+                                    vol = _volumes[i] * _expression;
+                                    stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                                }
+                            }
                         }
                     } else {
-                        vol = _volume[0] * _expression;
-                        _chip.streamBuffer[0].writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                        stream = _streams[0] || _chip.outputStream;
+                        vol = _volumes[0] * _expression;
+                        stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
                     }
                 }
 

@@ -38,8 +38,8 @@ package org.si.sion.sequencer {
         /** PSM guitar tension @default 8 */
         public var psmTension:int;
         
-        /** quantize ratio (same as "q" command), set -1 to ignore. @default -1 */
-        public var quantRatio:int;
+        /** gate time (same as "q" command * 0.125), set Number.NaN to ignore. @default Number.NaN */
+        public var gateTime:Number;
         /** track pitch shift (same as "k" command). @default 0 */
         public var pitchShift:int;
         /** portament. @default 0 */
@@ -191,7 +191,7 @@ package org.si.sion.sequencer {
             }
             
             // track settings
-            if (quantRatio!=-1) track.quantRatio = quantRatio*0.125;
+            if (!isNaN(gateTime)) track.quantRatio = gateTime;
             track.pitchShift = pitchShift;
             track.setPortament(portament);
             track.setReleaseSweep(releaseSweep);
@@ -229,7 +229,7 @@ package org.si.sion.sequencer {
             waveData = null;
             psmTension = 8;
             
-            quantRatio = -1;
+            gateTime = Number.NaN;
             pitchShift = 0;
             portament = 0;
             releaseSweep = 0;
@@ -278,7 +278,7 @@ package org.si.sion.sequencer {
             waveData = src.waveData;
             psmTension = src.psmTension;
             
-            quantRatio = src.quantRatio;
+            gateTime = src.gateTime;
             pitchShift = src.pitchShift;
             portament = src.portament;
             releaseSweep = src.releaseSweep;

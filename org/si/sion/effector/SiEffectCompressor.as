@@ -17,10 +17,11 @@ package org.si.sion.effector {
         private var _windowSamples:int;
         private var _windowRMSTotal:Number;
         private var _windwoRMSAveraging:Number;
-        private var _thres:Number;  // threshold
-        private var _slope:Number;  // slope angle
+        private var _threshold2:Number; // threshold^2
         private var _attRate:Number;    // attack rate  (per sample decay)
         private var _relRate:Number;    // release rate (per sample decay)
+        private var _maxGain:Number;    // max gain
+        private var _gain:Number;       // gain
         
         
         
@@ -37,18 +38,18 @@ package org.si.sion.effector {
     //------------------------------------------------------------
         /** set parameters.
          *  @param thres threshold(0-1).
-         *  @param slope slope(0-1).
          *  @param wndTime window to calculate gain[ms].
-         *  @param attTime attack [ms].
-         *  @param relTime release [ms].
+         *  @param attTime attack time [ms/6db].
+         *  @param relTime release time [ms/-6db].
+         *  @param maxGain max gain [db].
          */
-        public function setParameters(thres:Number=0.5, slope:Number=0.5, wndTime:Number=50, attTime:Number=20, relTime:Number=20) : void {
-            _thres = thres;
-            _slope = slope;
+        public function setParameters(thres:Number=0.7, wndTime:Number=50, attTime:Number=20, relTime:Number=20, maxGain:Number=-6) : void {
+            _threshold2 = thres*thres;
             _windowSamples = int(wndTime * 44.1);
             _windwoRMSAveraging = 1/_windowSamples;
-            _attRate = (attTime == 0) ? 0 : Math.exp(-1.0 / (attTime * 44.1));
-            _relRate = (relTime == 0) ? 0 : Math.exp(-1.0 / (relTime * 44.1));
+            _attRate = (attTime == 0) ? 0.5 : (Math.pow(2, -1/(attTime * 44.1)));
+            _relRate = (relTime == 0) ? 2.0 : (Math.pow(2,  1/(relTime * 44.1)));
+            _maxGain = Math.pow(2, -maxGain/6);
         }
         
         
@@ -66,11 +67,11 @@ package org.si.sion.effector {
         /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
-            setParameters((!isNaN(args[0])) ? args[0]*0.01 : 0.5,
-                          (!isNaN(args[0])) ? args[0]*0.01 : 0.5,
-                          (!isNaN(args[0])) ? args[0] : 50,
-                          (!isNaN(args[0])) ? args[0] : 20,
-                          (!isNaN(args[0])) ? args[0] : 20);
+            setParameters((!isNaN(args[0])) ? args[0]*0.01 : 0.7,
+                          (!isNaN(args[1])) ? args[1] : 50,
+                          (!isNaN(args[2])) ? args[2] : 20,
+                          (!isNaN(args[3])) ? args[3] : 20,
+                          (!isNaN(args[4])) ? -args[4] : -6);
         }
         
         
@@ -80,6 +81,7 @@ package org.si.sion.effector {
             if (_windowRMSList) SLLNumber.freeRing(_windowRMSList);
             _windowRMSList = SLLNumber.allocRing(_windowSamples);
             _windowRMSTotal = 0;
+            _gain = 2;
             return 2;
         }
         
@@ -91,9 +93,7 @@ package org.si.sion.effector {
             length <<= 1;
             
             var i:int, imax:int = startIndex + length;
-            var l:Number, r:Number, rms:Number, dt:Number, gain:Number, env:Number;
-            env = 0;
-            gain = 1;
+            var l:Number, r:Number, rms2:Number;
             for (i=startIndex; i<imax; i+=2) {
                 l = buffer[i];
                 r = buffer[i+1];
@@ -101,15 +101,12 @@ package org.si.sion.effector {
                 _windowRMSTotal  -= _windowRMSList.n;
                 _windowRMSList.n = l * l + r * r;
                 _windowRMSTotal  += _windowRMSList.n;
-                rms = Math.sqrt(_windowRMSTotal * _windwoRMSAveraging);
+                rms2 = _windowRMSTotal * _windwoRMSAveraging;
+                _gain *= (rms2 > _threshold2) ? _attRate : _relRate;
+                if (_gain > _maxGain) _gain = _maxGain;
 
-                dt = (rms > env) ? _attRate : _relRate;
-                env = (1 - dt) * rms + dt * env;
-
-                if (env > _thres) gain = gain - (env - _thres) * _slope;
-
-                l *= gain;
-                r *= gain;
+                l *= _gain;
+                r *= _gain;
                 l = (l>1) ? 1 : (l<-1) ? -1 : l;
                 r = (r>1) ? 1 : (r<-1) ? -1 : r;
                 buffer[i]   = l;

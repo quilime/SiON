@@ -9,36 +9,36 @@ package org.si.sound {
     /** Note object used in PatternSequencer. */
     public class Note
     {
-        /** Note number[0-127], -1 sets playing with sequencers default note, -2 sets rest. */
+        /** Note number[-1-127], -1 sets playing with sequencers default note. */
         public var note:int = 0;
-        /** Velocity[0-128], 0 sets playing with sequencers default velocity. */
+        /** Velocity[-1-128], -1 sets playing with sequencers default velocity, 0 sets no note (rest). */
         public var velocity:int = 0;
-        /** Length in tick count[1920 for whole tone], 0 sets playing with sequencers default length. */
-        public var tickLength:int = 0;
+        /** Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length. */
+        public var length:Number = 0;
         
         
         /** constructor
-         *  @param note Note number[0-127], -1 sets playing with sequencers default note and -2 sets as rest.
-         *  @param velocity Velocity[0-128], 0 sets playing with sequencers default velocity.
-         *  @param length Length in tick count[1920 for whole tone], 0 sets playing with sequencers default length.
+         *  @param note Note number[-1-127], -1 sets playing with sequencer's default note.
+         *  @param velocity Velocity[-1-128], -1 sets playing with sequencer's default velocity, 0 sets no note (rest).
+         *  @param length Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length.
          */
-        function Note(note:int=-2, velocity:int=0, tickLength:int=0)
+        function Note(note:int=-1, velocity:int=0, length:Number=Number.NaN)
         {
-            setNote(note, velocity, tickLength);
+            setNote(note, velocity, length);
         }
 
         
         /** Set note.
-         *  @param note Note number[0-127], -1 sets playing with sequencers default note and -2 sets as rest.
-         *  @param velocity Velocity[0-128], 0 sets playing with sequencers default velocity.
-         *  @param length Length in tick count[1920 for whole tone], 0 sets playing with sequencers default length.
+         *  @param note Note number[-1-127], -1 sets playing with sequencer's default note.
+         *  @param velocity Velocity[-1-128], -1 sets playing with sequencer's default velocity, 0 sets no note (rest).
+         *  @param length Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length.
          *  @return this instance.
          */
-        public function setNote(note:int=-1, velocity:int=0, tickLength:int=0) : Note
+        public function setNote(note:int=-1, velocity:int=-1, length:Number=Number.NaN) : Note
         {
             this.note = note;
             this.velocity = velocity;
-            this.tickLength = tickLength;
+            this.length = length;
             return this;
         }
         
@@ -46,7 +46,7 @@ package org.si.sound {
         /** Set as rest. */
         public function setRest() : Note
         {
-            note = -2;
+            velocity = 0;
             return this;
         }
     }

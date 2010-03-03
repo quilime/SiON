@@ -60,6 +60,11 @@ package org.si.sound.base {
         
         
         /** @private */
+        override public function set eventMask(m:int) : void {
+            _eventMask = m;
+            for each (var sound:SoundObject in _soundList) sound.eventMask = m;
+        }
+        /** @private */
         override public function set coarseTune(n:int) : void {
             _noteShift = n;
             for each (var sound:SoundObject in _soundList) sound.coarseTune = n;
@@ -120,6 +125,15 @@ package org.si.sound.base {
         
     // operations
     //----------------------------------------
+        /** @inheritDoc */
+        override public function reset() : void
+        {
+            super.reset();
+            _thisVolume = 1;
+            for each (var sound:SoundObject in _soundList) sound.reset();
+        }
+        
+        
         /** Set all children's volume by index.
          *  @param slot streaming slot number.
          *  @param volume volume (0:Minimum - 1:Maximum).
@@ -129,8 +143,6 @@ package org.si.sound.base {
             _volumes[slot] = (volume<0) ? 0 : (volume>1) ? 128 : (volume * 128);
             for each (var sound:SoundObject in _soundList) sound.setVolume(slot, _volumes[slot]);
         }
-        
-        
         
         
         /** Play all children sound. */

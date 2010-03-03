@@ -36,6 +36,41 @@ package org.si.sion {
     import org.si.sion.namespaces._sion_internal;
     
     
+    // Dispatching events
+    /** @eventType org.si.sion.events.SiONEvent.QUEUE_PROGRESS */
+    [Event(name="queueProgress",   type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.QUEUE_COMPLETE */
+    [Event(name="queueComplete",   type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.QUEUE_CANCEL */
+    [Event(name="queueCancel",     type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.STREAM */
+    [Event(name="stream",          type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.STREAM_START */
+    [Event(name="streamStart",     type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.STREAM_STOP */
+    [Event(name="streamStop",      type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.FINISH_SEQUENCE */
+    [Event(name="finishSequence",  type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.FADE_PROGRESS */
+    [Event(name="fadeProgress",    type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.FADE_IN_COMPLETE */
+    [Event(name="fadeInComplete",  type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONEvent.FADE_OUT_COMPLETE */
+    [Event(name="fadeOutComplete", type="org.si.sion.events.SiONEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.NOTE_ON_STREAM */
+    [Event(name="noteOnStream",    type="org.si.sion.events.SiONTrackEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.NOTE_OFF_STREAM */
+    [Event(name="noteOffStream",   type="org.si.sion.events.SiONTrackEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.NOTE_ON_FRAME */
+    [Event(name="noteOnFrame",     type="org.si.sion.events.SiONTrackEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.NOTE_OFF_FRAME */
+    [Event(name="noteOffFrame",    type="org.si.sion.events.SiONTrackEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.BEAT */
+    [Event(name="beat",            type="org.si.sion.events.SiONTrackEvent")]
+    /** @eventType org.si.sion.events.SiONTrackEvent.CHANGE_BPM */
+    [Event(name="changeBPM",       type="org.si.sion.events.SiONTrackEvent")]
+    
+    
     /** SiON driver class.<br/>
      * @see SiONData
      * @see SiONVoice
@@ -567,6 +602,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     _isFirstStreaming = true;
                     _soundChannel = _sound.play();
                     _soundChannel.soundTransform = _soundTransform;
+                    _process_addAllEventListners();
                 }
             } catch(e:Error) {
                 // error
@@ -1222,9 +1258,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 finished:Boolean = false;
             
             // processing
-            sequencer.process();
-            effector._process();
-            module.limitLevel();
+            module._beginProcess();
+            effector._beginProcess();
+            sequencer._process();
+            effector._endProcess();
+            module._endProcess();
             
             // limit rendering length
             imax      = _bufferLength<<1;
@@ -1275,7 +1313,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // THESE FUNCTIONS ORDER IS VERY IMPORTANT !!
             module.initialize(_channelCount, _bufferLength);
             module.reset();                                                 // reset channels
-            sequencer.prepareProcess(_data, _sampleRate, _bufferLength);    // set track channels (this must be called after module.reset()).
+            sequencer._prepareProcess(_data, _sampleRate, _bufferLength);   // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
             effector._prepareProcess();                                     // set stream number inside
             _trackEventQueue.length = 0;                                    // clear event que
@@ -1301,18 +1339,23 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _frameRate = t - _prevFrameTime;
             _prevFrameTime = t;
             
-            // preserve stop
-            if (_preserveStop) stop();
-            
-            // frame trigger
-            if (_trackEventQueue.length > 0) {
-                _trackEventQueue = _trackEventQueue.filter(function(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
-                    if (e._decrementTimer(_frameRate)) {
-                        dispatchEvent(e);
-                        return false;
-                    }
-                    return true;
-                });
+            // first streaming
+            if (_isFirstStreaming) {
+                _firstStream();
+            } else {
+                // preserve stop
+                if (_preserveStop) stop();
+
+                // frame trigger
+                if (_trackEventQueue.length > 0) {
+                    _trackEventQueue = _trackEventQueue.filter(function(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
+                        if (e._decrementTimer(_frameRate)) {
+                            dispatchEvent(e);
+                            return false;
+                        }
+                        return true;
+                    });
+                }
             }
         }
         
@@ -1332,14 +1375,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             try {
                 _inStreaming = true;
                 
-                if (_isFirstStreaming) _firstStream(e.data);  // first streaming
-                else if (_isPaused) _fillzero(e.data);        // paused
-                else {
+                if (_isPaused || _isFirstStreaming) {
+                    _fillzero(e.data);
+                } else {
                     var t:int = getTimer();
+                    
                     // processing
-                    sequencer.process();
-                    effector._process();
-                    module.limitLevel();
+                    module._beginProcess();
+                    effector._beginProcess();
+                    sequencer._process();
+                    effector._endProcess();
+                    module._endProcess();
                     
                     // calculate the average of processing time
                     _timePrevStream = t;
@@ -1396,18 +1442,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // first streaming
-        private function _firstStream(buffer:ByteArray) : void {
+        private function _firstStream() : void {
             _isFirstStreaming = false;
             
-            // start enter frame event
-            _process_addAllEventListners();
-            
             // dispatch streaming start event
-            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, buffer, true);
+            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
             dispatchEvent(event);
             if (event.isDefaultPrevented()) stop();   // canceled
-            
-            _fillzero(buffer);
         }
         
         

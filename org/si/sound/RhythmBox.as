@@ -14,37 +14,82 @@ package org.si.sound {
     
     
     /** Sound object playng rhythm tracks */
-    public class RhythmBox extends MMLSoundObject
+    public class RhythmBox extends SoundObjectContainer
     {
     // variables
     //----------------------------------------
-        /** voices for all tracks */
-        protected var _voices:Vector.<SiONVoice>;
-        
-        /** notes for all tracks */
-        protected var _notes:Vector.<int>;
-        
-        /** volumes for all tracks */
-        protected var _trackVolumes:Vector.<int>;
-        
-        /** phrases */
-        protected var _phrases:Vector.<Vector.<Number>>;
-        
         /** interruption step */
         protected var _interruptStep:int;
+        
+        /** bass drum pattern sequencer */
+        public var bass:PatternSequencer;
+        /** snare drum pattern sequencer */
+        public var snare:PatternSequencer;
+        /** hi-hat cymbal pattern sequencer */
+        public var hihat:PatternSequencer;
+        
+        protected var _closeHHPattern:Vector.<int>;
+        protected var _openHHPattern:Vector.<int>;
+        protected var _hhVoiceIndex:Vector.<int>;
+        protected var _hhVoices:Vector.<SiONVoice>;
+        protected var _currentHHIndex:int;
+        
         
         
         
     // properties
     //----------------------------------------
-        /** track count. this must be grater than 4. */
-        public function set trackCount(count:int) : void {
-            if (count < 4) count = 4;
-            _voices.length  = count;
-            _trackVolumes.length = count;
-            _phrases.length = count;
+        /** bass drum velocity pattern */
+        public function set bassPattern(pat:Array) : void
+        {
+            var i:int, len:int = pat.length;
+            for (i=0; i<16; i++) {
+                bass.pattern[i].velocity = pat[i % len];
+            }
         }
-        public function get trackCount() : int { return _voices.length; }
+        
+        
+        /** snare drum velocity pattern */
+        public function set snarePattern(pat:Array) : void
+        {
+            var i:int, len:int = pat.length;
+            for (i=0; i<16; i++) {
+                snare.pattern[i].velocity = pat[i % len];
+            }
+        }
+        
+        
+        /** close hi-hat cymbal velocity pattern */
+        public function set closeHHPattern(pat:Array) : void
+        {
+            var i:int, len:int = pat.length;
+            for (i=0; i<16; i++) _closeHHPattern[i] = pat[i % len];
+            _updateHHPatterns();
+        }
+        
+        
+        /** open hi-hat cymbal velocity pattern */
+        public function set openHHPattern(pat:Array) : void
+        {
+            var i:int, len:int = pat.length;
+            for (i=0; i<16; i++) _openHHPattern[i] = pat[i % len];
+            _updateHHPatterns();
+        }
+        
+        
+        /** close hi-hat cymbal voice */
+        public function set closeHHVoice(v:SiONVoice) : void
+        {
+            _hhVoices[0] = v;
+            hihat.voice = v;
+        }
+        
+
+        /** open hi-hat cymbal voice */
+        public function set openHHVoice(v:SiONVoice) : void
+        {
+            _hhVoices[1] = v;
+        }
         
         
         
@@ -52,18 +97,27 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** constructor */
-        function RhythmBox(trackCount:int = 4)
+        function RhythmBox()
         {
-            _voices       = new Vector.<SiONVoice>(trackCount);
-            _trackVolumes = new Vector.<int>(trackCount);
-            _phrases      = new Vector.<Vector.<int>>(trackCount);
-            super(null);
-            name = "RhythmBox";
-            _phrases[0] = Vector.<int>([]);
-            _phrases[1] = Vector.<int>([]);
-            _phrases[2] = Vector.<int>([]);
-            _phrases[3] = Vector.<int>([]);
+            super("RhythmBox");
             _interruptStep = 120;
+            _closeHHPattern = new Vector.<int>(16, true);
+            _openHHPattern  = new Vector.<int>(16, true);
+            _hhVoiceIndex   = new Vector.<int>(16, true);
+            _hhVoices       = new Vector.<SiONVoice>(2, true);
+            addChild(bass  = new PatternSequencer(16, 36, 255, 1));
+            addChild(snare = new PatternSequencer(16, 68, 128, 1));
+            addChild(hihat = new PatternSequencer(16, 68, 64,  1));
+            bass.pattern = new Vector.<Note>();
+            snare.pattern = new Vector.<Note>();
+            hihat.pattern = new Vector.<Note>();
+            hihat.onNoteOn = _onNoteOnHH;
+            for (var i:int=0; i<16; i++) {
+                bass.pattern[i]  = new Note();
+                snare.pattern[i] = new Note();
+                hihat.pattern[i] = new Note();
+                _hhVoiceIndex[i] = 0;
+            }
         }
         
         
@@ -71,31 +125,27 @@ package org.si.sound {
         
     // settings
     //----------------------------------------
-        /** Get volume */
-        public function getVolume(trackIndex:int) : Number {
-            return _trackVolumes[trackIndex]*0.0078125;
+        /** Get track volume */
+        public function getTrackVolume(trackIndex:int) : Number {
+            return _soundList[trackIndex].volume;
         }
         
         
-        /** Set volume */
-        public function setVolume(trackIndex:int, v:Number) : void {
-            if (v < 0) v = 0;
-            else if (v > 1) v = 1;
-            _trackVolumes[trackIndex] = v*128;
-            if (_tracks) _tracks[trackIndex].expression = _trackVolumes[trackIndex];
+        /** Set track volume */
+        public function setTrackVolume(trackIndex:int, v:Number) : void {
+            _soundList[trackIndex].volume = v;
         }
         
         
-        /** Get voice */
-        public function getVoice(trackIndex:int) : SiONVoice {
-            return _voices[trackIndex];
+        /** Get track voice */
+        public function getTrackVoice(trackIndex:int) : SiONVoice {
+            return _soundList[trackIndex].voice;
         }
         
         
-        /** Set voice */
-        public function setVoice(trackIndex:int, v:SiONVoice) : void {
-            _voices[trackIndex] = v;
-            if (_tracks) v.setTrackVoice(_tracks[trackIndex]);
+        /** Set track voice */
+        public function setTrackVoice(trackIndex:int, v:SiONVoice) : void {
+            _soundList[trackIndex].voice = v;
         }
         
         
@@ -103,29 +153,40 @@ package org.si.sound {
         
     // operations
     //----------------------------------------
+        /** @inhriteDoc */
+        override public function play() : void {
+            _currentHHIndex = 0;
+            super.play();
+        }
         
         
         
         
     // internal
     //----------------------------------------
-        private function _constructData() : void 
-        {
-            var seq:SiMMLSequence, i:int = 0, imax:int = _phrases.length;
-            _data.clear();
-            for (i=0; i<imax; i++) {
-                seq = _data.appendSequence().initialize();
-                seq.appendNewEvent(MMLEvent.REPEAT_ALL);
-                seq.appendNewCallback(_onTrackInterruption, i);
-                seq.appendNewEvent(MMLEvent.REST, 0, _interruptStep);
+        /** call after updating hi-hat patterns */
+        protected function _updateHHPatterns() : void {
+            var i:int, vel:int;
+            for (i=0; i<16; i++) {
+                if (_openHHPattern[i] > 0) {
+                    vel = _openHHPattern[i];
+                    _hhVoiceIndex[i] = 2;
+                } else {
+                    vel = _closeHHPattern[i];
+                    _hhVoiceIndex[i] = (vel==0) ? 0 : 1;
+                }
+                hihat.pattern[i].velocity = vel;
             }
         }
         
-        private function _onTrackInterruption(data:int) : MMLEvent
-        {
-            var track:SiMMLTrack = _tracks[data];
-            track.keyOn(0, );
-            return null;
+        
+        /** handler for hi-hat note on */
+        private function _onNoteOnHH() : void {
+            var voiceIndex:int = _hhVoiceIndex[hihat.frameCount];
+            if (voiceIndex != 0 && voiceIndex != _currentHHIndex) {
+                hihat.voice = _hhVoices[voiceIndex-1];
+                _currentHHIndex = voiceIndex;
+            }
         }
     }
 }

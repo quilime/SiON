@@ -83,7 +83,7 @@ package org.si.sion.module {
         function SiOPMChannelParam()
         {
             initSequence = new MMLSequence();
-            volumes = new Vector.<Number>(SiOPMModule.STREAM_SIZE_MAX, true);
+            volumes = new Vector.<Number>(SiOPMModule.STREAM_SEND_SIZE, true);
 
             operatorParam = new Vector.<SiOPMOperatorParam>(4);
             for (var i:int; i<4; i++) {
@@ -109,7 +109,7 @@ package org.si.sion.module {
             amd = 0;
             pmd = 0;
             fratio = 100;
-            for (i=1; i<SiOPMModule.STREAM_SIZE_MAX; i++) { volumes[i] = 0; }
+            for (i=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) { volumes[i] = 0; }
             volumes[0] = 0.5;
             pan = 64;
             
@@ -147,7 +147,7 @@ package org.si.sion.module {
             amd = org.amd;
             pmd = org.pmd;
             fratio = org.fratio;
-            for (i=0; i<SiOPMModule.STREAM_SIZE_MAX; i++) { volumes[i] = org.volumes[i]; }
+            for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) { volumes[i] = org.volumes[i]; }
             pan = org.pan;
             
             cutoff = org.cutoff;

@@ -54,7 +54,7 @@ package org.si.sion.module.channels {
             var str:String = "SiOPMChannelKS : operatorCount=";
             str += String(_operatorCount) + "\n";
             $("fb ", _inputLevel-6);
-            $2("vol", _volume[0],  "pan", _pan-64);
+            $2("vol", _volumes[0],  "pan", _pan-64);
             if (operator[0]) str += String(operator[0]) + "\n";
             if (operator[1]) str += String(operator[1]) + "\n";
             if (operator[2]) str += String(operator[2]) + "\n";
@@ -276,6 +276,8 @@ package org.si.sion.module.channels {
         /** Buffering */
         override public function buffer(len:int) : void
         {
+            var i:int, stream:SiOPMStream;
+            
             if (_isIdling) {
                 // idling process
                 _nop(len);
@@ -298,12 +300,15 @@ package org.si.sion.module.channels {
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
                     if (_hasEffectSend) {
-                        var i:int, imax:int = _chip.streamCount;
-                        for (i=0; i<imax; i++) {
-                            if (_volume[i]>0) _chip.streamBuffer[i].write(monoOut, _bufferIndex, len, _volume[i]*_expression, _pan);
+                        for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                            if (_volumes[i]>0) {
+                                stream = _streams[i] || _chip.streamSlot[i];
+                                if (stream) stream.write(monoOut, _bufferIndex, len, _volumes[i]*_expression, _pan);
+                            }
                         }
                     } else {
-                        _chip.streamBuffer[0].write(monoOut, _bufferIndex, len, _volume[0]*_expression, _pan);
+                        stream = _streams[0] || _chip.outputStream;
+                        stream.write(monoOut, _bufferIndex, len, _volumes[0]*_expression, _pan);
                     }
                 }
             }

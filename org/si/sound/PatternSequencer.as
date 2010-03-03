@@ -10,6 +10,7 @@ package org.si.sound {
     import org.si.sion.sequencer.base.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.*;
+    import org.si.sound.synthesizer._synthesizer_internal;
     
     
     /** Pattern sequencer */
@@ -19,9 +20,10 @@ package org.si.sound {
     //----------------------------------------
         /** callback on first beat of every seguments */
         public var onEnterSegument:Function = null;
+        /** callback on every notes */
+        public var onNoteOn:Function = null;
         /** note pattern */
         public var pattern:Vector.<Note>;
-        
         
         /** portament */
         protected var _portament:int;
@@ -29,10 +31,9 @@ package org.si.sound {
         protected var _data:SiONData;
         /** Sequence for interruption. */
         protected var _sequence:MMLSequence;
-        /** MMLEvent.INTERNAL_CALL. */
-        protected var _interruptEvent:MMLEvent;
         /** MMLEvent.REST. */
         protected var _restEvent:MMLEvent;
+        
         /** division */
         protected var _division:int;
         /** division of nest segument */
@@ -66,32 +67,32 @@ package org.si.sound {
         
         
         /** note. */
-        override public function set note(n:int) : void {
-            _note = n;
-        }
         override public function get note() : int {
             if (_currentNote==null || _currentNote.note==-1) return _note;
             return _currentNote.note;
         }
+        override public function set note(n:int) : void {
+            _note = n;
+        }
         
         
         /** velocity. */
+        public function get velocity() : int {
+            if (_currentNote==null || _currentNote.velocity==-1) return _velocity;
+            return _currentNote.velocity;
+        }
         public function set velocity(v:int) : void {
             _velocity = v;
-        }
-        public function get velocity() : int {
-            if (_currentNote==null || _currentNote.velocity==0) return _velocity;
-            return _currentNote.velocity;
         }
         
         
         /** length in 16th beat counts. */
+        override public function get length() : Number {
+            if (_currentNote==null || isNaN(_currentNote.length)) return _length;
+            return _currentNote.length;
+        }
         override public function set length(l:Number) : void {
             _length = l;
-        }
-        override public function get length() : Number {
-            if (_currentNote==null || _currentNote.tickLength==0) return _length;
-            return _currentNote.tickLength / 120;
         }
         
         
@@ -106,22 +107,30 @@ package org.si.sound {
         /** constructor 
          *  @param frameStep sequence step in beat number, 16 sets stepped in every 16th beats.
          */
-        function PatternSequencer(division:int=16)
+        function PatternSequencer(division:int=16, defaultNote:int=60, defaultVelocity:int=128, defaultLength:Number=0)
         {
             super("Pattern sequencer");
-            var len:int = 1920/division;
             pattern = null;
-            _pointer = 0;
+            onEnterSegument = null;
             _data = new SiONData();
-            _sequence = _data.appendNewSequence().initialize();
+            
+            _data.clear();
+            _sequence = _data.appendNewSequence();
+            _sequence.initialize();
             _sequence.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
-            _interruptEvent = _sequence.appendNewCallback(_onBeat, 0);
-            _restEvent      = _sequence.appendNewEvent(MMLEvent.REST, 0, len);
-            _division = division;
-            _nextSegumentDivision = division;
+            _sequence.appendNewCallback(_onBeat, 0);
+            _restEvent = _sequence.appendNewEvent(MMLEvent.REST, 0, 0);
+            
+            _pointer = 0;
             _frameCount = 0;
-            _velocity = 128;
+            _note     = defaultNote;
+            _velocity = defaultVelocity;
+            _length   = defaultLength;
             _currentNote = null;
+            quantize = 16;
+            
+            this.division = division;
+            _onEnterSegument();
         }
         
         
@@ -133,12 +142,12 @@ package org.si.sound {
         override public function play() : void
         {
             _frameCount = 0;
-            var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false);
+            var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false, false);
             if (list.length >= 1) {
                 _track = list[0];
                 _track.setPortament(_portament);
                 _pointer = 0;
-                _currentNote = (pattern && pattern.length>0) ? pattern[0] : null;
+                _currentNote = pattern[0];
             }
         }
         
@@ -159,15 +168,20 @@ package org.si.sound {
     // internal
     //----------------------------------------
         // callback on every beat
-        private function _onBeat(data:int) : MMLEvent
+        private function _onBeat(trackNumber:int) : MMLEvent
         {
             if (_frameCount == 0) _onEnterSegument();
             if (pattern && pattern.length>0) {
                 if (_pointer >= pattern.length) _pointer = 0;
                 _currentNote = pattern[_pointer];
-                if (_currentNote && _currentNote.note != -2) {
-                    _track.setNote(note, driver.sequencer.calcSampleLength(length), (_portament>0));
+                if (_currentNote && _currentNote.velocity > 0) {
+                    var sampleLength:int = driver.sequencer.calcSampleLength(length);
+                    _track.setNote(note, sampleLength, (_portament>0));
                     _track.velocity = velocity;
+                    if (onNoteOn != null) onNoteOn();
+                    if (_synthesizer._synthesizer_internal::_requireVoiceUpdate) {
+                        _synthesizer.setTrackVoice(_track);
+                    }
                 }
                 _pointer++;
             }

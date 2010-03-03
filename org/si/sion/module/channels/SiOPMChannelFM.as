@@ -89,7 +89,7 @@ package org.si.sion.module.channels {
             var str:String = "SiOPMChannelFM : operatorCount=";
             str += String(_operatorCount) + "\n";
             $("fb ", _inputLevel-6);
-            $2("vol", _volume[0],  "pan", _pan-64);
+            $2("vol", _volumes[0],  "pan", _pan-64);
             if (operator[0]) str += String(operator[0]) + "\n";
             if (operator[1]) str += String(operator[1]) + "\n";
             if (operator[2]) str += String(operator[2]) + "\n";
@@ -218,9 +218,9 @@ package org.si.sion.module.channels {
             if (param.opeCount == 0) return;
             
             if (withVolume) {
-                var imax:int = SiOPMModule.STREAM_SIZE_MAX;
-                for (i=0; i<imax; i++) _volume[i] = param.volumes[i];
-                for (_hasEffectSend=false, i=1; i<imax; i++) if (_volume[i] > 0) _hasEffectSend = true;
+                var imax:int = SiOPMModule.STREAM_SEND_SIZE;
+                for (i=0; i<imax; i++) _volumes[i] = param.volumes[i];
+                for (_hasEffectSend=false, i=1; i<imax; i++) if (_volumes[i] > 0) _hasEffectSend = true;
                 _pan = param.pan;
             }
             setFrequencyRatio(param.fratio);
@@ -243,8 +243,8 @@ package org.si.sion.module.channels {
          */
         override public function getSiOPMChannelParam(param:SiOPMChannelParam) : void
         {
-            var i:int, imax:int = SiOPMModule.STREAM_SIZE_MAX;
-            for (i=0; i<imax; i++) param.volumes[i] = _volume[i];
+            var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE;
+            for (i=0; i<imax; i++) param.volumes[i] = _volumes[i];
             param.pan = _pan;
             param.fratio = _freq_ratio;
             param.opeCount = _operatorCount;

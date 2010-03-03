@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// FM sound module based on OPM emulator and TSS algorism.
+// SiOPM sound module 
 //  Copyright (c) 2008 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -8,15 +8,16 @@ package org.si.sion.module {
     import org.si.utils.SLLNumber;
     import org.si.utils.SLLint;
     import org.si.sion.module.channels.*;
+    import org.si.sion.namespaces._sion_internal;
     
     
-    /** FM sound module based on OPM emulator and TSS algorism. */
+    /** SiOPM sound module */
     public class SiOPMModule
     {
     // constants
     //--------------------------------------------------
-        /** maximum value of stream buffer size */
-        static public const STREAM_SIZE_MAX:int = 8;
+        /** size of stream send */
+        static public const STREAM_SEND_SIZE:int = 8;
         /** pipe size */
         static public const PIPE_SIZE:int = 5;
         
@@ -29,8 +30,10 @@ package org.si.sion.module {
         public var initOperatorParam:SiOPMOperatorParam;
         /** zero buffer */
         public var zeroBuffer:SLLint;
-        /** stereo output buffer */
-        public var streamBuffer:Vector.<SiOPMStream>;
+        /** output stream */
+        public var outputStream:SiOPMStream;
+        /** slot of global mixer */
+        public var streamSlot:Vector.<SiOPMStream>;
         
         // buffer length
         private var _bufferLength:int;
@@ -43,32 +46,11 @@ package org.si.sion.module {
     // properties
     //--------------------------------------------------
         /** Buffer count */
-        public function get output() : Vector.<Number> { return streamBuffer[0].buffer; }
+        public function get output() : Vector.<Number> { return outputStream.buffer; }
         /** Buffer channel count */
-        public function get channelCount() : int { return streamBuffer[0].channels; }
+        public function get channelCount() : int { return outputStream.channels; }
         /** Buffer length */
         public function get bufferLength() : int { return _bufferLength; }
-        
-        
-        /** stream buffer count */
-        public function set streamCount(count:int) : void {
-            var i:int;
-            
-            // allocate streams
-            if (count > STREAM_SIZE_MAX) count = STREAM_SIZE_MAX;
-            else if (count < 1) count = 1;
-            if (streamBuffer.length != count) {
-                if (streamBuffer.length < count) {
-                    i = streamBuffer.length;
-                    streamBuffer.length = count;
-                    for (; i<count; i++) streamBuffer[i] = SiOPMStream.newStream(2, _bufferLength);
-                } else {
-                    for (i=count; i<streamBuffer.length; i++) SiOPMStream.deleteStream(streamBuffer[i]);
-                    streamBuffer.length = count;
-                }
-            }
-        }
-        public function get streamCount() : int { return streamBuffer.length; }
         
         
         
@@ -87,8 +69,8 @@ package org.si.sion.module {
             initOperatorParam = new SiOPMOperatorParam();
             
             // stream buffer
-            streamBuffer = new Vector.<SiOPMStream>();
-            streamCount = 1;
+            outputStream = new SiOPMStream();
+            streamSlot = new Vector.<SiOPMStream>(STREAM_SEND_SIZE, true);
 
             // zero buffer gives always 0
             zeroBuffer = SLLint.allocRing(1);
@@ -113,23 +95,22 @@ package org.si.sion.module {
          */
         public function initialize(channelCount:int, bufferLength:int) : void
         {
-            var i:int, stream:SiOPMStream, bufferLength2:int = bufferLength<<1;
+            var i:int, stream:SiOPMStream;
 
+            // reset stream slot
+            for (i=0; i<STREAM_SEND_SIZE; i++) streamSlot[i] = null;
+            streamSlot[0] = outputStream;
+            
             // reallocate buffer
             if (_bufferLength != bufferLength) {
                 _bufferLength = bufferLength;
-                for each (stream in streamBuffer) {
-                    stream.buffer.length = bufferLength2;
-                }
+                outputStream.buffer.length = bufferLength<<1;
                 for (i=0; i<PIPE_SIZE; i++) {
                     SLLint.freeRing(_pipeBuffer[i]);
                     _pipeBuffer[i] = SLLint.allocRing(bufferLength);
                     _pipeBufferPager[i] = SLLint.createRingPager(_pipeBuffer[i], true);
                 }
             }
-
-            // set standard outputs channel count
-            streamBuffer[0].channels = channelCount;
             
             // initialize all channels
             SiOPMChannelManager.initializeAllChannels();
@@ -144,28 +125,17 @@ package org.si.sion.module {
         }
         
         
-        /** Clear all buffer. */
-        public function clearAllBuffers() : void
+        /** @private [sion internal] Clear output buffer. */
+        _sion_internal function _beginProcess() : void
         {
-            var idx:int, i:int, imax:int, buf:Vector.<Number>, stream:SiOPMStream;
-            for each (stream in streamBuffer) {
-                buf = stream.buffer;
-                imax = buf.length;
-                for (i=0; i<imax; i++) buf[i] = 0;
-            }
+            outputStream.clear();
         }
         
         
-        /** Limit output level in the ranged of -1 ~ 1.*/
-        public function limitLevel() : void
+        /** @private [sion internal] Limit output level in the ranged between -1 ~ 1.*/
+        _sion_internal function _endProcess() : void
         {
-            var buf:Vector.<Number> = streamBuffer[0].buffer,
-                i:int, imax:int = buf.length, n:Number;
-            for (i=0; i<imax; i++) {
-                n = buf[i];
-                if (n < -1) buf[i] = -1;
-                else if (n > 1) buf[i] = 1;
-            }
+            outputStream.limit();
         }
         
         

@@ -18,9 +18,9 @@ package org.si.sion.module {
         /** stream buffer */
         public var buffer:Vector.<Number> = new Vector.<Number>();
 
-        /** coefficient of volume/panning */
-        protected var _panTable:Vector.<Number>;
-        protected var _i2n:Number;
+        // coefficient of volume/panning
+        private var _panTable:Vector.<Number>;
+        private var _i2n:Number;
 
         
         
@@ -39,6 +39,28 @@ package org.si.sion.module {
         
         // operation
         //--------------------------------------------------
+        /** clear buffer */
+        public function clear() : void
+        {
+            var i:int, imax:int = buffer.length;
+            for (i=0; i<imax; i++) {
+                buffer[i] = 0;
+            }
+        }
+        
+        
+        /** limit buffered signals between -1 and 1 */
+        public function limit() : void
+        {
+            var n:Number, i:int, imax:int = buffer.length;
+            for (i=0; i<imax; i++) {
+                n = buffer[i];
+                     if (n < -1) buffer[i] = -1;
+                else if (n >  1) buffer[i] =  1;
+            }
+        }
+        
+        
         /** write buffer by org.si.utils.SLLint */
         public function write(pointer:SLLint, start:int, len:int, vol:Number, pan:int) : void 
         {
@@ -138,31 +160,6 @@ package org.si.sion.module {
             }
             
             bytes.position = initPosition;
-        }
-        
-        
-        
-        
-        // factory
-        //--------------------------------------------------
-        static private var freeBuffers:Vector.<SiOPMStream> = new Vector.<SiOPMStream>();
-        
-        
-        /** create new stream buffer */
-        static public function newStream(channels:int, bufferLength:int) : SiOPMStream
-        {
-            bufferLength <<= 1;
-            var stream:SiOPMStream = freeBuffers.pop() || new SiOPMStream();
-            stream.channels = channels;
-            stream.buffer.length = bufferLength;
-            return stream;
-        }
-        
-        
-        /** delete stream buffer */
-        static public function deleteStream(stream:SiOPMStream) : void
-        {
-            freeBuffers.push(stream);
         }
     }
 }

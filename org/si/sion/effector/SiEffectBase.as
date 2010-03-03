@@ -49,10 +49,10 @@ package org.si.sion.effector {
         
         
         /** Process effect to stream buffer. The system calls this to process.
-         *  @param channels Stream channel count. 1=monoral(same data on buffer[i] ans buffer[i+1]). 2=stereo.
-         *  @param buffer Stream buffer to apply effect. This is standard stereo stream buffer like [L0,R0,L1,R1,L2,R2 ... ].
-         *  @param startIndex startIndex to apply effect. You CANNOT use this index to the stream buffer directly. Should be x2 because its a stereo stream.
-         *  @param length length to apply effect. You CANNOT use this length to the stream buffer directly. Should be x2 because its a stereo stream.
+         *  @param channels Stream channel count. 1=monoral(same data in buffer[i*2] and buffer[i*2+1]). 2=stereo.
+         *  @param buffer Stream buffer to apply effect. The order is same as wave format [L0,R0,L1,R1,L2,R2 ... ].
+         *  @param startIndex startIndex to apply effect. You CANNOT use this index to the stream buffer directly. Should be doubled because its a stereo stream.
+         *  @param length length to apply effect. You CANNOT use this length to the stream buffer directly. Should be doubled because its a stereo stream.
          *  @return output channels count.
          */
         public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int

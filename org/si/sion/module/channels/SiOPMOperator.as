@@ -500,8 +500,8 @@ package org.si.sion.module.channels {
             
             // fixed pitch
             if (param.fixedPitch == 0) {
-                _pitchIndex = 3840;
-                _updateKC(_table.nnToKC[(_pitchIndex>>6)&127]);
+                //_pitchIndex = 3840;
+                //_updateKC(_table.nnToKC[(_pitchIndex>>6)&127]);
                 _pitchFixed = false;
             } else {
                 _pitchIndex = param.fixedPitch;

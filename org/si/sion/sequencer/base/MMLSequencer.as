@@ -234,12 +234,12 @@ package org.si.sion.sequencer.base {
         
     // process
     //--------------------------------------------------
-        /** Prepare to process audio. Override and call this in the overrided function.
+        /** @private [sion internal] Prepare to process audio. Override and call this in the overrided function.
          *  @param bufferLength Sample count to buffer samples at once.
          *  @param sampleRate Sampling rate. 44100 or 22050 is available.
          *  @param resetParams Reset all channel parameters.
          */
-        public function prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
+        public function _prepareProcess(data:MMLData, sampleRate:int, bufferLength:int) : void
         {
             if (sampleRate!=22050 && sampleRate!=44100) throw new Error ("MMLSequencer error: Only 22050 or 44100 sampling rate is available.");
             mmlData = data;
@@ -258,10 +258,10 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Process all tracks. override this function. 
+        /** @private [sion internal] Process all tracks. override this function. 
          *  @return Returns true when all processes are finished.
          */
-        public function process() : void
+        public function _process() : void
         {
             // DO NOTHING !!
             // You dont have to call this in your overrided function.

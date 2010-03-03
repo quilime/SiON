@@ -5,9 +5,8 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
+package org.si.sound.base {
     import org.si.sion.*;
-    import org.si.sound.base.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sion.sequencer.SiMMLSequencer;
     import org.si.sion.sequencer.base.MMLSequence;
@@ -51,42 +50,86 @@ package org.si.sound {
         
         
         /** @private */
-        override public function set channelMute(m:Boolean) : void { 
-            super.channelMute = m;
+        override public function set coarseTune(n:int) : void {
+            super.coarseTune = n;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
-                    if (f&1) _tracks[i].channel.mute = _totalMute;
+                    if (f&1) _tracks[i].noteShift = _noteShift;
                 }
             }
         }
         
         /** @private */
-        override public function set channelVolume(v:Number) : void {
-            super.channelVolume = v;
+        override public function set fineTune(p:Number) : void {
+            super.fineTune = p;
             if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
+                var i:int, f:uint, imax:int = _tracks.length, ps:int = _pitchShift*64;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
-                    if (f&1) _tracks[i].channel.masterVolume = _totalVolume*128;
+                    if (f&1) _tracks[i].pitchShift = ps;
                 }
             }
         }
         
         /** @private */
-        override public function set channelPan(p:Number) : void {
-            super.channelPan = p;
+        override public function set gateTime(g:Number) : void {
+            super.gateTime = g;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
-                    if (f&1) _tracks[i].channel.pan = _totalPan;
+                    if (f&1) _tracks[i].quantRatio = _gateTime;
                 }
             }
         }
         
         /** @private */
-        public function set channelEffectSend1(v:Number) : void {
-            super.channelEffectSend1 = v;
-            v = _volume[1] * 0.0078125;
+        override public function set eventMask(m:int) : void {
+            super.eventMask = m;
+            if (_tracks) {
+                var i:int, f:uint, imax:int = _tracks.length;
+                for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
+                    if (f&1) _tracks[i].eventMask = _eventMask;
+                }
+            }
+        }
+        
+        /** @private */
+        override public function set mute(m:Boolean) : void { 
+            super.mute = m;
+            if (_tracks) {
+                var i:int, f:uint, imax:int = _tracks.length;
+                for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
+                    if (f&1) _tracks[i].channel.mute = _mute;
+                }
+            }
+        }
+        
+        /** @private */
+        override public function set volume(v:Number) : void {
+            super.volume = v;
+            if (_tracks) {
+                var i:int, f:uint, imax:int = _tracks.length;
+                for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
+                    if (f&1) _tracks[i].channel.masterVolume = _volumes[0];
+                }
+            }
+        }
+        
+        /** @private */
+        override public function set pan(p:Number) : void {
+            super.pan = p;
+            if (_tracks) {
+                var i:int, f:uint, imax:int = _tracks.length;
+                for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
+                    if (f&1) _tracks[i].channel.pan = _pan;
+                }
+            }
+        }
+        
+        /** @private */
+        override public function set effectSend1(v:Number) : void {
+            super.effectSend1 = v;
+            v = _volumes[1] * 0.0078125;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
@@ -96,9 +139,9 @@ package org.si.sound {
         }
         
         /** @private */
-        public function set channelEffectSend2(v:Number) : void {
-            super.channelEffectSend2 = v;
-            v = _volume[2] * 0.0078125;
+        override public function set effectSend2(v:Number) : void {
+            super.effectSend2 = v;
+            v = _volumes[2] * 0.0078125;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
@@ -108,9 +151,9 @@ package org.si.sound {
         }
         
         /** @private */
-        public function set channelEffectSend3(v:Number) : void {
-            super.channelEffectSend3 = v;
-            v = _volume[3] * 0.0078125;
+        override public function set effectSend3(v:Number) : void {
+            super.effectSend3 = v;
+            v = _volumes[3] * 0.0078125;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
@@ -120,9 +163,9 @@ package org.si.sound {
         }
         
         /** @private */
-        public function set channelEffectSend4(v:Number) : void {
-            super.channelEffectSend4 = v;
-            v = _volume[4] * 0.0078125;
+        override public function set effectSend4(v:Number) : void {
+            super.effectSend4 = v;
+            v = _volumes[4] * 0.0078125;
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
@@ -132,8 +175,8 @@ package org.si.sound {
         }
         
         /** @private */
-        public function set channelPitchBend(p:Number) : void {
-            super.channelPitchBend = p;
+        override public function set pitchBend(p:Number) : void {
+            super.pitchBend = p;
             if (_tracks) {
                 var i:int, f:uint, pb:int = p*64, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
@@ -162,11 +205,17 @@ package org.si.sound {
         
     // operations
     //----------------------------------------
+        /** Reset */
+        override public function reset() : void 
+        {
+        }
+        
+        
         /** Play sound. */
         override public function play() : void { 
             if (!_compiled) _compile();
             if (_tracks) {
-                for each (var t:SiMMLTrack in _tracks) t.setDisposal();
+                for each (var t:SiMMLTrack in _tracks) t.setDisposable();
                 _tracks = null;
             }
             _tracks = _sequenceOn(_data, false);
@@ -176,7 +225,7 @@ package org.si.sound {
         /** Stop sound. */
         override public function stop() : void {
             if (_tracks) {
-                for each (var t:SiMMLTrack in _tracks) t.setDisposal();
+                for each (var t:SiMMLTrack in _tracks) t.setDisposable();
                 _tracks = null;
             }
             _sequenceOff(false);
