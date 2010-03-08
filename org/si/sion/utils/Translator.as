@@ -7,6 +7,8 @@
 package org.si.sion.utils {
     import org.si.sion.module.*;
     import org.si.sion.sequencer.SiMMLTable;
+    import org.si.sion.effector.SiEffectModule;
+    import org.si.sion.effector.SiEffectBase;
     
     
     /** Translator */
@@ -329,6 +331,57 @@ package org.si.sion.utils {
             tsscpMML = mml;
             
             return tsscpMML;
+        }
+        
+        
+        
+        
+    // Effector
+    //--------------------------------------------------
+    // parse effector MML string
+    //--------------------------------------------------
+        /** parse effector mml */
+        static public function parseEffectorMML(mml:String, postfix:String="") : Array
+        {
+            var ret:Array, res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
+                cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true);
+            
+            // clear
+            ret = [];
+            _clearArgs();
+            
+            // parse mml
+            res = rex.exec(mml);
+            while (res) {
+                if (res[1] == ",") {
+                    args[argc++] = Number(res[2]);
+                } else {
+                    _connectEffect();
+                    cmd = res[1];
+                    _clearArgs();
+                    args[0] = Number(res[2]);
+                    argc = 1;
+                }
+                res = rex.exec(mml);
+            }
+            _connectEffect();
+            
+            return ret;
+            
+            // connect new effector
+            function _connectEffect() : void {
+                if (argc == 0) return;
+                var e:SiEffectBase = SiEffectModule.getInstance(cmd);
+                if (e) {
+                    e.mmlCallback(args);
+                    ret.push(e);
+                }
+            }
+            
+            // clear arguments
+            function _clearArgs() : void {
+                for (var i:int=0; i<16; i++) args[i]=Number.NaN;
+            }
         }
         
         

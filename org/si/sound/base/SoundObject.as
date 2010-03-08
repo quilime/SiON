@@ -7,7 +7,9 @@
 
 package org.si.sound.base {
     import org.si.sion.*;
+    import org.si.sion.utils.Translator;
     import org.si.sion.module.SiOPMModule;
+    import org.si.sion.effector.SiEffectBase;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.synthesizer.SynthesizerBase;
     import org.si.sound.synthesizer._synthesizer_internal;
@@ -35,6 +37,8 @@ package org.si.sound.base {
         protected var _synthesizer:SynthesizerBase;
         /** Synthesizer instance to use SiONVoice  */
         protected var _defaultSynthesizer:SynthesizerBase;
+        /** Effect chain instance */
+        protected var _effectChain:EffectChain;
         /** track for noteOn() */
         protected var _track:SiMMLTrack;
         /** tracks for sequenceOn() */
@@ -224,6 +228,32 @@ package org.si.sound.base {
         }
         
         
+        /** Effectors to process this sound object's output. You can set effectors by SiEffectBase, Array of SiEffectBase, EffecChain or effector MML String.
+         */
+        public function get effectors() : * {
+            return _effectChain.effectList;
+        }
+        public function set effectors(obj:*) :void {
+            if (_effectChain) _effectChain.free();
+            if (obj == null) {
+                _effectChain = null;
+            } else 
+            if (obj is SiEffectBase) {
+                _effectChain = EffectChain.alloc([obj]);
+            } else 
+            if (obj is Array) {
+                _effectChain = EffectChain.alloc(obj as Array);
+            } else 
+            if (obj is String) {
+                var list:Array = Translator.parseEffectorMML(obj as String);
+                _effectChain = EffectChain.alloc(list);
+            } else 
+            if (obj is EffectChain) {
+                _effectChain = obj as EffectChain;
+            }
+        }
+        
+        
         // counter to asign unique track id
         static private var _uniqueTrackID:int = 0;
         
@@ -239,6 +269,7 @@ package org.si.sound.base {
             _parent = null;
             _synthesizer = _defaultSynthesizer = new SynthesizerBase();
             _synthesizer._synthesizer_internal::_owner = this;
+            _effectChain = null;
             _track = null;
             _tracks = null;
             _volumes = new Vector.<int>(SiOPMModule.STREAM_SEND_SIZE);
@@ -285,6 +316,7 @@ package org.si.sound.base {
             _delay = 0;
             _quantize = 1;
             
+            _effectChain = null;
             _volumes[0] = 64;
             for (var i:int=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) _volumes[i] = 0;
             _pan = 0;
@@ -302,7 +334,7 @@ package org.si.sound.base {
             _thisVolume = 0.5;
             _thisPan = 0;
             _thisMute = false;
-        }
+       }
         
         
         /** Set event trigger.
@@ -369,7 +401,14 @@ package org.si.sound.base {
             if (!driver) return null;
             var v:SiONVoice = voice,
                 t:SiMMLTrack = driver.noteOn(note, v, _length, _delay, _quantize, _trackID, isDisposable);
-            t.channel.setAllStreamSendLevels(_volumes);
+            if (_effectChain && _effectChain.effectList.length > 0) {
+                _effectChain._activateLocalEffect();
+                _effectChain.setAllStreamSendLevels(_volumes);
+                t.channel.masterVolume = 128;
+                t.channel.setStreamBuffer(0, _effectChain.streamingBuffer);
+            } else {
+                t.channel.setAllStreamSendLevels(_volumes);
+            }
             t.channel.pan       = _pan;
             t.channel.mute      = _mute;
             t.channel.pitchBend = _pitchBend * 64;
@@ -388,6 +427,7 @@ package org.si.sound.base {
         protected function _noteOff(note:int, stopImmediately:Boolean = true) : Vector.<SiMMLTrack>
         {
             if (!driver) return null;
+            if (_effectChain) _effectChain._inactivateLocalEffect();
             return driver.noteOff(note, _trackID, _delay, _quantize, stopImmediately);
         }
         
@@ -402,18 +442,28 @@ package org.si.sound.base {
         {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
-            var v:SiONVoice = voice,
+            var v:SiONVoice = voice, effectActive:Boolean = false,
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, v, len, _delay, _quantize, _trackID, isDisposable),
                 t:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
+            if (_effectChain && _effectChain.effectList.length > 0) {
+                _effectChain._activateLocalEffect();
+                _effectChain.setAllStreamSendLevels(_volumes);
+                effectActive = true;
+            }
             for each (t in list) {
-                t.channel.setAllStreamSendLevels(_volumes);
+                if (effectActive) {
+                    t.channel.masterVolume = 128;
+                    t.channel.setStreamBuffer(0, _effectChain.streamingBuffer);
+                } else {
+                    t.channel.setAllStreamSendLevels(_volumes);
+                }
                 t.channel.pan       = _pan;
                 t.channel.mute      = _mute;
                 t.channel.pitchBend = pb;
                 t.noteShift  = _noteShift;
                 t.pitchShift = ps;
                 t.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
-                if (isNaN(v.gateTime)) t.quantRatio = _gateTime;
+                if (v && isNaN(v.gateTime)) t.quantRatio = _gateTime;
             }
             return list;
         }
@@ -426,6 +476,7 @@ package org.si.sound.base {
         protected function _sequenceOff(stopImmediately:Boolean = true) : Vector.<SiMMLTrack>
         {
             if (!driver) return null;
+            if (_effectChain) _effectChain._inactivateLocalEffect();
             return driver.sequenceOff(_trackID, 0, _quantize, stopImmediately);
         }
         

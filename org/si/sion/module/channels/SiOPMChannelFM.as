@@ -78,6 +78,8 @@ package org.si.sion.module.channels {
         /** ENV_TIMER_INITIAL * freq_ratio */  protected var _eg_timer_initial:int;
         /** LFO_TIMER_INITIAL * freq_ratio */  protected var _lfo_timer_initial:int;
         
+        /** register map type */
+        _sion_internal var registerMapType:int;
         
         
         
@@ -325,6 +327,33 @@ package org.si.sion.module.channels {
         }
         
         
+        /** set register */
+        override public function setRegister(addr:int, data:int) : void
+        {
+            switch(_sion_internal::registerMapType) {
+            case 1: 
+                _setByOPMRegister(addr, data);
+                break;
+            case 0:
+            default:
+                _setBy2A03Register(addr, data);
+                break;
+            }
+        }
+        
+        
+        // 2A03 register value
+        private function _setBy2A03Register(addr:int, data:int) : void
+        {
+        }
+        
+        
+        // OPM register value
+        private function _setByOPMRegister(addr:int, data:int) : void
+        {
+        }
+        
+        
         
         
     // interfaces
@@ -489,6 +518,7 @@ package org.si.sion.module.channels {
             _updateOperatorCount(1);
             operator[0].initialize();
             _isNoteOn = false;
+            _sion_internal::registerMapType = 0;
             
             // initialize sound channel
             super.initialize(prev, bufferIndex);

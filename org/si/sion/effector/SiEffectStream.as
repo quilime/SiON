@@ -14,11 +14,11 @@ package org.si.sion.effector {
     {
     // valiables
     //--------------------------------------------------------------------------------
+        /** effector chain */
+        public var chain:Vector.<SiEffectBase> = new Vector.<SiEffectBase>();
+        
         /** @private [internal] streaming buffer */
         internal var _stream:SiOPMStream;
-        
-        // effector chain
-        private var _chain:Vector.<SiEffectBase> = new Vector.<SiEffectBase>();
         
         // module
         private var _module:SiOPMModule;
@@ -56,6 +56,22 @@ package org.si.sion.effector {
         
     // setting
     //--------------------------------------------------------------------------------
+        /** set all stream send levels by Vector.<int>.
+         *  @param param Vector.<int>(8) of all volumes[0-128].
+         */
+        public function setAllStreamSendLevels(param:Vector.<int>) : void
+        {
+            var i:int, imax:int = SiOPMModule.STREAM_SEND_SIZE, v:int;
+            for (i=0; i<imax; i++) {
+                v = param[i];
+                _volumes[i] = (v != int.MIN_VALUE) ? (v * 0.0078125) : 0;
+            }
+            for (_hasEffectSend=false, i=1; i<imax; i++) {
+                if (_volumes[i] > 0) _hasEffectSend = true;
+            }
+        }
+        
+        
         /** set stream send.
          *  @param streamNum stream number[0-7]. The streamNum of 0 means master volume.
          *  @param volume send level[0-1].
@@ -98,8 +114,11 @@ package org.si.sion.effector {
         /** reset, called when effector module is initialized */
         public function reset() : void
         {
+            var i:int;
             _stream.buffer.length = _module.bufferLength<<1;
-            for (var i:int=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+            _stream.clear();
+            
+            for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
                 _volumes[i] = 0;
                 _outputStreams[i] = null;
             }
@@ -112,17 +131,17 @@ package org.si.sion.effector {
         /** free */
         public function free() : void
         {
-            for each (var e:SiEffectBase in _chain) e._isFree = true;
-            _chain.length = 0;
+            for each (var e:SiEffectBase in chain) e._isFree = true;
+            chain.length = 0;
         }
         
         
         /** prepare for process */
         public function prepareProcess() : int
         {
-            if (_chain.length == 0) return 0;
-            _stream.channels = _chain[0].prepareProcess();
-            for (var i:int=1; i<_chain.length; i++) _chain[i].prepareProcess();
+            if (chain.length == 0) return 0;
+            _stream.channels = chain[0].prepareProcess();
+            for (var i:int=1; i<chain.length; i++) chain[i].prepareProcess();
             return _stream.channels;
         }
         
@@ -132,9 +151,9 @@ package org.si.sion.effector {
         {
             var i:int, imax:int, effect:SiEffectBase, stream:SiOPMStream,
                 buffer:Vector.<Number> = _stream.buffer, channels:int = _stream.channels;
-            imax = _chain.length;
+            imax = chain.length;
             for (i=0; i<imax; i++) {
-                channels = _chain[i].process(channels, buffer, startIndex, length);
+                channels = chain[i].process(channels, buffer, startIndex, length);
             }
             
             // write in stream buffer
@@ -160,15 +179,6 @@ package org.si.sion.effector {
         
     // effector connection
     //--------------------------------------------------------------------------------
-        /** Connect effector at tail.
-         *  @param effector Effector instance.
-         */
-        public function connect(effector:SiEffectBase) : void
-        {
-            _chain.push(effector);
-        }
-        
-        
         /** Parse MML for effector 
          *  @param mml MML string.
          *  @param postfix Postfix string.
@@ -204,7 +214,7 @@ package org.si.sion.effector {
                 var e:SiEffectBase = SiEffectModule.getInstance(cmd);
                 if (e) {
                     e.mmlCallback(args);
-                    connect(e);
+                    chain.push(e);
                 }
             }
             
@@ -212,17 +222,6 @@ package org.si.sion.effector {
             function _clearArgs() : void {
                 for (var i:int=0; i<16; i++) args[i]=Number.NaN;
             }
-        }
-        
-
-        /** Get connected effector
-         *  @param slot Effector slot number.
-         *  @param index The index of connected effector.
-         *  @return Effector instance.
-         */
-        public function getEffector(index:int) : SiEffectBase 
-        {
-            return (index < _chain.length) ? _chain[index] : null;
         }
     }
 }

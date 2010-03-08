@@ -24,6 +24,8 @@ package org.si.sound {
         public var onNoteOn:Function = null;
         /** note pattern */
         public var pattern:Vector.<Note>;
+        /** voice list refered by Note.voiceIndex. @see org.si.sound.Note.voiceIndex */
+        public var voiceList:Array;
         
         /** portament */
         protected var _portament:int;
@@ -47,6 +49,9 @@ package org.si.sound {
         /** Current note */
         protected var _currentNote:Note;
         
+        /** default pattern, this pattern is used when notes or velocities propertiy is called */
+        protected var _defaultPattern:Vector.<Note>;
+        
         
         
         
@@ -66,9 +71,9 @@ package org.si.sound {
         public function set division(div:int) : void { _nextSegumentDivision = div; }
         
         
-        /** note. */
+        /** curent note */
         override public function get note() : int {
-            if (_currentNote==null || _currentNote.note==-1) return _note;
+            if (_currentNote==null || _currentNote.note<0) return _note;
             return _currentNote.note;
         }
         override public function set note(n:int) : void {
@@ -76,13 +81,64 @@ package org.si.sound {
         }
         
         
-        /** velocity. */
+        /** curent note's velocity. */
         public function get velocity() : int {
-            if (_currentNote==null || _currentNote.velocity==-1) return _velocity;
+            if (_currentNote==null || _currentNote.velocity<0) return _velocity;
             return _currentNote.velocity;
         }
         public function set velocity(v:int) : void {
             _velocity = v;
+        }
+        
+        
+        /** Array of sequence's notes. */
+        public function set notes(list:Array) : void {
+            var i:int, pi:int, li:int;
+            if (pattern && pattern !== _defaultPattern) {
+                for (i=0; i<16; i++) {
+                    pi = i % pattern.length;
+                    _defaultPattern[i].copyFrom(pattern[pi]);
+                }
+            }
+            for (i=0; i<16; i++) {
+                li = i % list.length;
+                _defaultPattern[i].note = list[li];
+            }
+            pattern = _defaultPattern;
+        }
+        
+        
+        /** Array of sequence's velocities */
+        public function set velocities(list:Array) : void {
+            var i:int, pi:int, li:int;
+            if (pattern && pattern !== _defaultPattern) {
+                for (i=0; i<16; i++) {
+                    pi = i % pattern.length;
+                    _defaultPattern[i].copyFrom(pattern[pi]);
+                }
+            }
+            for (i=0; i<16; i++) {
+                li = i % list.length;
+                _defaultPattern[i].velocity = list[li];
+            }
+            pattern = _defaultPattern;
+        }
+        
+        
+        /** Array of sequence's voice indicies */
+        public function set voiceIndicies(list:Array) : void {
+            var i:int, pi:int, li:int;
+            if (pattern && pattern !== _defaultPattern) {
+                for (i=0; i<16; i++) {
+                    pi = i % pattern.length;
+                    _defaultPattern[i].copyFrom(pattern[pi]);
+                }
+            }
+            for (i=0; i<16; i++) {
+                li = i % list.length;
+                _defaultPattern[i].voiceIndex = list[li];
+            }
+            pattern = _defaultPattern;
         }
         
         
@@ -111,6 +167,7 @@ package org.si.sound {
         {
             super("Pattern sequencer");
             pattern = null;
+            voiceList = null;
             onEnterSegument = null;
             _data = new SiONData();
             
@@ -128,6 +185,9 @@ package org.si.sound {
             _length   = defaultLength;
             _currentNote = null;
             quantize = 16;
+
+            _defaultPattern = new Vector.<Note>(16);
+            for (var i:int=0; i<16; i++) _defaultPattern[i] = new Note();
             
             this.division = division;
             _onEnterSegument();
@@ -176,12 +236,16 @@ package org.si.sound {
                 _currentNote = pattern[_pointer];
                 if (_currentNote && _currentNote.velocity > 0) {
                     var sampleLength:int = driver.sequencer.calcSampleLength(length);
-                    _track.setNote(note, sampleLength, (_portament>0));
-                    _track.velocity = velocity;
                     if (onNoteOn != null) onNoteOn();
+                    // voice change
+                    if (voiceList && _currentNote.voiceIndex >= 0) {
+                        voice = voiceList[_currentNote.voiceIndex];
+                    }
                     if (_synthesizer._synthesizer_internal::_requireVoiceUpdate) {
                         _synthesizer.setTrackVoice(_track);
-                    }
+                    } 
+                    _track.velocity = velocity;
+                    _track.setNote(note, sampleLength, (_portament>0));
                 }
                 _pointer++;
             }

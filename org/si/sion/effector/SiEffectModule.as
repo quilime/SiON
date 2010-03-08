@@ -73,7 +73,7 @@ package org.si.sion.effector {
     // operations
     //--------------------------------------------------------------------------------
         /** Initialize all effectors. This function is called from SiONDriver.play() with the 2nd argment true. 
-        *  When you want to connect effectors by code, you have to call this first, then call connect() and SiONDriver.play() with the 2nd argment false.
+         *  When you want to connect effectors by code, you have to call this first, then call connect() and SiONDriver.play() with the 2nd argment false.
          */
         public function initialize() : void
         {
@@ -141,7 +141,7 @@ package org.si.sion.effector {
         /** @private [sion internal] processing. */
         _sion_internal function _endProcess() : void
         {
-            var i:int, slot:int, buffer:Vector.<Number>,
+            var i:int, slot:int, buffer:Vector.<Number>, effect:SiEffectStream, 
                 bufferLength:int = _module.bufferLength,
                 output:Vector.<Number> = _module.output,
                 imax:int = output.length;
@@ -153,8 +153,10 @@ package org.si.sion.effector {
             
             // global effect (slot1-slot7)
             for (slot=1; slot<SiOPMModule.STREAM_SEND_SIZE; slot++) {
-                if (_globalEffects[slot]) {
-                    _globalEffects[slot].process(0, bufferLength, false);
+                effect = _globalEffects[slot];
+                if (effect) {
+                    effect.process(0, bufferLength, false);
+                    buffer = effect._stream.buffer;
                     for (i=0; i<imax; i++) output[i] += buffer[i];
                 }
             }
@@ -228,7 +230,7 @@ package org.si.sion.effector {
         public function connect(slot:int, effector:SiEffectBase) : void
         {
             if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream();
-            _globalEffects[slot].connect(effector);
+            _globalEffects[slot].chain.push(effector);
         }
         
         
@@ -252,7 +254,8 @@ package org.si.sion.effector {
         public function getEffector(slot:int, index:int) : SiEffectBase 
         {
             if (_globalEffects[slot] == null) return null;
-            return _globalEffects[slot].getEffector(index);
+            var chain:Vector.<SiEffectBase> = _globalEffects[slot].chain;
+            return (index<chain.length) ? chain[index] : null;
         }
         
         

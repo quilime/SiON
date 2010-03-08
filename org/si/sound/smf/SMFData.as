@@ -13,7 +13,6 @@
 
 package org.si.sound.smf {
     import flash.utils.ByteArray;
-    import org.si.sound.smf.*;
     
     
     /** Standard MIDI File class */
