@@ -84,18 +84,18 @@ package org.si.sion.utils {
         /** put Sound.extract() result into Vector.<Number>. This data is used for sampler module (%10).
          *  @param src The Sound data extracting from. 
          *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
-         *  @param channelCount channel count of extracted data. 1 for monoral, 2 for stereo.
+         *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
          *  @param length The maximum sample count to extract. The length of returning vector is limited by this value.
          *  @param startPosition Start position to extract. -1 to set extraction continuously.
          *  @return extracted data.
          */
-        static public function extract(src:Sound, dst:Vector.<Number>=null, channelCount:int=1, length:int=1048576, startPosition:int=-1) : Vector.<Number>
+        static public function extract(src:Sound, dst:Vector.<Number>=null, dstChannelCount:int=1, length:int=1048576, startPosition:int=-1) : Vector.<Number>
         {
             var wave:ByteArray = new ByteArray(), i:int, imax:int;
             src.extract(wave, length, startPosition);
             if (dst == null) dst = new Vector.<Number>();
             wave.position = 0;
-            if (channelCount == 2) {
+            if (dstChannelCount == 2) {
                 // stereo
                 imax = wave.length >> 2;
                 dst.length = imax;
@@ -110,6 +110,52 @@ package org.si.sion.utils {
                     dst[i] = (wave.readFloat() + wave.readFloat()) * 0.6;
                 }
             }
+            return dst;
+        }
+        
+        
+        /** extract ADPCM data
+         *  @param src The ADPCM ByteArray data extracting from. 
+         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
+         *  @return extracted data.
+         */
+        static public function extractADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
+        {
+            var data:int, r0:int, r1:int, i:int, imax:int, 
+                predRate:int = 127, output:int = 0;
+        
+            // chaging ratio table
+            var crTable:Vector.<int> = Vector.<int>([1,3,5,7,9,11,13,15,-1,-3,-5,-7,-9,-11,-13,-15]);
+            // prediction updating table
+            var puTable:Vector.<int> = Vector.<int>([57,57,57,57,77,102,128,153,57,57,57,57,77,102,128,153]);
+            
+            imax = src.length * 2;
+            if (dst == null) dst = new Vector.<Number>();
+            dst.length = imax;
+            
+            for (i=0; i<imax;) {
+                data = src.readUnsignedByte();
+                r0 = (data >> 4) & 0x0f;
+                r1 = data & 0x0f;
+                
+                predRate = (predRate * crTable[r0]) >> 3;
+                output += predRate;
+                dst[i] = output * 0.000030517578125;
+                predRate = (predRate * puTable[r0]) >> 6;
+                     if (predRate < 127)   predRate = 127;
+                else if (predRate > 24576) predRate = 24576;
+                i++;
+                
+                predRate = (predRate * crTable[r1]) >> 3;
+                output += predRate;
+                dst[i] = output * 0.000030517578125;
+                predRate = (predRate * puTable[r1]) >> 6;
+                     if (predRate < 127)   predRate = 127;
+                else if (predRate > 24576) predRate = 24576;
+                i++;
+            }
+            
             return dst;
         }
         

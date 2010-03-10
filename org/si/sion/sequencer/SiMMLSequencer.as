@@ -206,6 +206,9 @@ package org.si.sion.sequencer {
             newMMLEventListener('_nf', _onFilterReleaseEnv);
             newMMLEventListener('!na', _onAmplitudeEnvTSSCP);
             newMMLEventListener('po',  _onPortament);
+
+            // global event
+            newMMLEventListener('@fadeout', _onFadeOut, true);
             
             // processing events
             _registerProcessEvent();
@@ -1595,6 +1598,12 @@ package org.si.sion.sequencer {
             return e.next;
         }
         
+
+        // @fadeout
+        private function _onFadeOut(e:MMLEvent) : MMLEvent
+        {
+            return e.next;
+        }
         
         
         
