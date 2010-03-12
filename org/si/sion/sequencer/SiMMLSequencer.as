@@ -884,7 +884,7 @@ package org.si.sion.sequencer {
             MMLParser.prepareParse(setting, mml);
             e = MMLParser.parse();
             
-            if (e != null) {
+            if (e != null && e.next != null) {
                 seq._cutout(e);
                 for (prev = seq.headEvent; prev.next != null; prev = e) {
                     e = prev.next;

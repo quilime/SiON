@@ -31,7 +31,7 @@ package org.si.sound.mdx {
         function PDXData()
         {
             adpcmData = new Vector.<ByteArray>(96, true);
-            pcmData = Vector.<Vector.<Number>>(96, true);
+            pcmData = new Vector.<Vector.<Number>>(96, true);
         }
         
         
@@ -70,8 +70,8 @@ package org.si.sound.mdx {
                     adpcmData[i] = new ByteArray();
                     bytes.position = offset;
                     bytes.readBytes(adpcmData[i], 0, length);
+                    if (extractAll) pcmData[i] = SiONUtil.extractADPCM(adpcmData[i]);
                 }
-                if (extractAll) pcmData[i] = SiONUtil.extractADPCM(adpcmData[i]);
             }
             
             return this;

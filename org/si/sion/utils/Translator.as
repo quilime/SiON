@@ -14,7 +14,7 @@ package org.si.sion.utils {
     /** Translator */
     public class Translator
     {
-        /** constructor */
+        /** constructor, do nothing. */
         function Translator()
         {
         }

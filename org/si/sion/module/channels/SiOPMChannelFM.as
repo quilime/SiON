@@ -50,7 +50,7 @@ package org.si.sion.module.channels {
         
     // valiables
     //--------------------------------------------------
-        /** eg_out threshold to check idling */ static _sion_internal var idlingThreshold:int = 4096; // = 256*8*2 = volume<1/256
+        /** eg_out threshold to check idling */ static _sion_internal var idlingThreshold:int = 8192; // = 512*8*2 = volume<1/512
         
         // Operators
         /** operators */        public var operator:Vector.<SiOPMOperator>;

@@ -16,7 +16,7 @@ package org.si.sound.mdx {
     //--------------------------------------------------------------------------------
         static public const REST:int = 0x00;
         static public const NOTE:int = 0x80;
-        static public const TEMPO:int = 0xff;
+        static public const TIMERB:int = 0xff;
         static public const REGISTER:int = 0xfe;
         static public const VOICE:int = 0xfd;
         static public const PAN:int = 0xfc;
@@ -51,8 +51,8 @@ package org.si.sound.mdx {
     // variables
     //--------------------------------------------------------------------------------
         public var type:int = 0;
-        public var value:int = 0;
-        public var value2:int = 0;
+        public var data:int = 0;
+        public var data2:int = 0;
         public var clock:uint = 0;
         public var deltaClock:uint = 0;
         
@@ -73,11 +73,11 @@ package org.si.sound.mdx {
         
     // constructor
     //--------------------------------------------------------------------------------
-        function MDXEvent(type:int, value:int, value2:int, clock:int, deltaClock:int) 
+        function MDXEvent(type:int, data:int, data2:int, clock:int, deltaClock:int) 
         {
             this.type = type;
-            this.value = value;
-            this.value2 = value2;
+            this.data = data;
+            this.data2 = data2;
             this.clock = clock;
             this.deltaClock = deltaClock;
         }
