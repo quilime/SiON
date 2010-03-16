@@ -35,8 +35,8 @@ package org.si.sion.module {
         /** slot of global mixer */
         public var streamSlot:Vector.<SiOPMStream>;
         
-        // buffer length
-        private var _bufferLength:int;
+        private var _bufferLength:int;  // buffer length
+        private var _bitRate:int;       // bit rate
         
         // pipes
         private var _pipeBuffer:Vector.<SLLint>;
@@ -49,6 +49,8 @@ package org.si.sion.module {
         public function get output() : Vector.<Number> { return outputStream.buffer; }
         /** Buffer channel count */
         public function get channelCount() : int { return outputStream.channels; }
+        /** Bit rate */
+        public function get bitRate() : int { return _bitRate; }
         /** Buffer length */
         public function get bufferLength() : int { return _bufferLength; }
         
@@ -91,10 +93,13 @@ package org.si.sion.module {
     //--------------------------------------------------
         /** Initialize module and all tone generators.
          *  @param channelCount ChannelCount
+         *  @param bitRate bit rate 
          *  @param bufferLength Maximum buffer size processing at once.
          */
-        public function initialize(channelCount:int, bufferLength:int) : void
+        public function initialize(channelCount:int, bitRate:int, bufferLength:int) : void
         {
+            _bitRate = bitRate;
+            
             var i:int, stream:SiOPMStream;
 
             // reset stream slot
@@ -136,6 +141,7 @@ package org.si.sion.module {
         _sion_internal function _endProcess() : void
         {
             outputStream.limit();
+            if (_bitRate != 0) outputStream.quantize(_bitRate);
         }
         
         

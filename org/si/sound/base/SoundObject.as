@@ -8,6 +8,9 @@
 package org.si.sound.base {
     import org.si.sion.*;
     import org.si.sion.utils.Translator;
+    import org.si.sion.utils.Fader;
+    import org.si.sion.namespaces._sion_internal;
+    import org.si.sion.events.SiONEvent;
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.effector.SiEffectBase;
     import org.si.sion.sequencer.SiMMLTrack;
@@ -43,6 +46,10 @@ package org.si.sound.base {
         protected var _track:SiMMLTrack;
         /** tracks for sequenceOn() */
         protected var _tracks:Vector.<SiMMLTrack>;
+        /** Auto-fader to fade in/out. */
+        protected var _fader:Fader;
+        /** Fader volume. */
+        protected var _faderVolume:Number;
         
         /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
         protected var _length:Number;
@@ -272,7 +279,9 @@ package org.si.sound.base {
             _effectChain = null;
             _track = null;
             _tracks = null;
+            _fader = new Fader(null, 1);
             _volumes = new Vector.<int>(SiOPMModule.STREAM_SEND_SIZE);
+            _faderVolume = 1;
             
             _note = 60;
             _length = 0;
@@ -316,9 +325,11 @@ package org.si.sound.base {
             _delay = 0;
             _quantize = 1;
             
+            _fader.setFade(null, 1);
             _effectChain = null;
             _volumes[0] = 64;
             for (var i:int=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) _volumes[i] = 0;
+            _faderVolume = 1;
             _pan = 0;
             _mute = false;
             _pitchBend = 0;
@@ -358,6 +369,38 @@ package org.si.sound.base {
         public function setVolume(slot:int, volume:Number) : void 
         {
             _volumes[slot] = (volume<0) ? 0 : (volume>1) ? 128 : (volume * 128);
+        }
+        
+        
+        /** Set fading in. 
+         *  @param time fading time[sec].
+         */
+        public function fadeIn(time:Number) : void
+        {
+            var drv:SiONDriver = driver;
+            if (drv) {
+                if (!_fader.isActive) {
+                    drv.addEventListener(SiONEvent.STREAM, _onStream);
+                    drv._sion_internal::forceDispatchStreamEvent();
+                }
+                _fader.setFade(_fadeVolume, 0, 1, time * drv.sampleRate / drv.bufferLength);
+            }
+        }
+        
+        
+        /** Set fading out.
+         *  @param time fading time[sec].
+         */
+        public function fadeOut(time:Number) : void
+        {
+            var drv:SiONDriver = driver;
+            if (drv) {
+                if (!_fader.isActive) {
+                    drv.addEventListener(SiONEvent.STREAM, _onStream);
+                    drv._sion_internal::forceDispatchStreamEvent();
+                }
+                _fader.setFade(_fadeVolume, 1, 0, time * drv.sampleRate / drv.bufferLength);
+            }
         }
         
         
@@ -510,8 +553,8 @@ package org.si.sound.base {
         /** @private [internal use] */
         internal function _updateVolume() : void
         {
-            if (_parent) _volumes[0] = _parent._volumes[0] * _thisVolume;
-            else _volumes[0] = _thisVolume * 128;
+            if (_parent) _volumes[0] = _parent._volumes[0] * _thisVolume * _faderVolume;
+            else _volumes[0] = _thisVolume * _faderVolume * 128;
         }
         
         
@@ -536,6 +579,24 @@ package org.si.sound.base {
         {
             if (_pan < -1) _pan = -1;
             else if (_pan > 1) _pan = 1;
+        }
+
+        
+        /** Handler for SiONEvent.STREAM */
+        protected function _onStream(e:SiONEvent) : void
+        {
+            if (!_fader.execute()) {
+                driver.removeEventListener(SiONEvent.STREAM, _onStream);
+                driver._sion_internal::forceDispatchStreamEvent(false);
+            }
+        }
+        
+        
+        /** call from fader */
+        protected function _fadeVolume(v:Number) : void
+        {
+            _faderVolume = v;
+            _updateVolume();
         }
     }
 }

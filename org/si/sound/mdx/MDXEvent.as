@@ -53,7 +53,6 @@ package org.si.sound.mdx {
         public var type:int = 0;
         public var data:int = 0;
         public var data2:int = 0;
-        public var clock:uint = 0;
         public var deltaClock:uint = 0;
         
         
@@ -64,7 +63,22 @@ package org.si.sound.mdx {
         /** toString */
         public function toString() : String
         {
-
+            var i:int;
+            switch (type) {
+            case REST: return "r ;"+String(deltaClock);
+            case NOTE: 
+                i = (data+15)%12;
+                return "o"+String(((data+15)/12)>>0)+_noteText[i]+";"+String(deltaClock);
+            case REPEAT_BEGIN: return "["+String(data);
+            case REPEAT_BREAK: return "|";
+            case REPEAT_END: return "]";
+            case PORTAMENT: return "po";
+            case SLUR: return "&";
+            case VOICE: return "@"+String(data);
+            case PAN: return "p"+String(data);
+            case VOLUME: return (data<16) ? "v"+String(data) : "@v"+String(data&127);
+            default:   return "#"+ type.toString(16) + "; " + String(data);
+            }
             return "";
         }
         
@@ -73,12 +87,11 @@ package org.si.sound.mdx {
         
     // constructor
     //--------------------------------------------------------------------------------
-        function MDXEvent(type:int, data:int, data2:int, clock:int, deltaClock:int) 
+        function MDXEvent(type:int, data:int, data2:int, deltaClock:int) 
         {
             this.type = type;
             this.data = data;
             this.data2 = data2;
-            this.clock = clock;
             this.deltaClock = deltaClock;
         }
     }

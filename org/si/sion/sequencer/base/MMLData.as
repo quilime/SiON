@@ -132,6 +132,8 @@ package org.si.sion.sequencer.base {
             }
             sampleTable._siopm_module_internal::_free();
             _systemCommands.length = 0;
+            
+            globalSequence.initialize();
         }
         
         

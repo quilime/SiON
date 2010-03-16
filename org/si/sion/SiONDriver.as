@@ -149,8 +149,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _fader:Fader;                   // sound fader
         //----- SiOPM module related
         private var _channelCount:int;          // module output channels (1 or 2)
-        private var _sampleRate:int;            // module output frequency ratio (44100 or 22050)
-        private var _bitRate:int;               // module output bitrate (0 or 8 or 16)
+        private var _sampleRate:Number;         // module output frequency ratio (44100 or 22050)
+        private var _bitRate:int;               // module output bitrate
         private var _bufferLength:int;          // module and streaming buffer size (8192, 4096 or 2048)
         private var _debugMode:Boolean;         // true; throw Error, false; throw ErrorEvent
         private var _dispatchStreamEvent:Boolean; // dispatch steam event
@@ -236,6 +236,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Streaming buffer length. */
         public function get bufferLength() : int { return _bufferLength; }
+        /** Sample rate (44100 is only available in current version). */
+        public function get sampleRate() : Number { return _sampleRate; }
+        /** bit rate, 0 means float value[-1 - +1]. */
+        public function get bitRate() : Number { return _bitRate; }
         
         /** Sound volume. */
         public function get volume() : Number { return _masterVolume; }
@@ -347,8 +351,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Create driver to manage the synthesizer, sequencer and effector. Only one SiONDriver instance can be created.
          *  @param bufferLength Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
          *  @param channel Channel count. 1(monoral) or 2(stereo) is available.
-         *  @param sampleRate Sampling ratio of wave. 22050 or 44100 is available.
-         *  @param bitRate Bit ratio of wave. 0, 8 or 16 is available. 0 means float value [-1 to 1].
+         *  @param sampleRate Sampling ratio of wave. 44100 is only available in current version.
+         *  @param bitRate Bit ratio of wave. 0 means float value [-1 to 1].
          */
         function SiONDriver(bufferLength:int=2048, channelCount:int=2, sampleRate:int=44100, bitRate:int=0)
         {
@@ -368,7 +372,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // initialize
             _tempData = null;
             _channelCount = channelCount;
-            _sampleRate = 44100; // sampleRate; 44100 is only available now.
+            _sampleRate = 44100; // sampleRate; 44100 is only in current version.
             _bitRate = bitRate;
             _bufferLength = bufferLength;
             _listenEvent = NO_LISTEN;
@@ -710,6 +714,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             sequencer.onBeatCallbackFilter = filter - 1;
         }
         
+        
+        /** Force dispatch stream event. The SiONEvent.STREAM is dispatched only when the event listener is set BEFORE calling play(). You can let SiONDriver to dispatch SiONEvent.STREAM event by this function. 
+         *  @param dispatch Set true to force dispatching. Or set false to not dispatching if there are no listeners.
+         */
+        _sion_internal function forceDispatchStreamEvent(dispatch:Boolean=true) : void
+        {
+            _dispatchStreamEvent = dispatch || (hasEventListener(SiONEvent.STREAM));
+        }
         
         
         
@@ -1311,7 +1323,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             }
             
             // THESE FUNCTIONS ORDER IS VERY IMPORTANT !!
-            module.initialize(_channelCount, _bufferLength);
+            module.initialize(_channelCount, _bitRate, _bufferLength);
             module.reset();                                                 // reset channels
             sequencer._prepareProcess(_data, _sampleRate, _bufferLength);   // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)

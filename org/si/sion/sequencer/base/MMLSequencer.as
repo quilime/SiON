@@ -506,7 +506,6 @@ package org.si.sion.sequencer.base {
             // sort and create global sequence
             seq = mmlData.globalSequence;
             
-            seq.initialize();
             list = list.sortOn(length, Array.NUMERIC);
             pos = 0;
             initialBPM = 0;

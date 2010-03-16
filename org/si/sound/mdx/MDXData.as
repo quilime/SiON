@@ -6,8 +6,8 @@
 
 
 package org.si.sound.mdx {
-    import org.si.sion.SiONData;
-    import org.si.sion.SiONVoice;
+    import org.si.sion.*;
+    import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.sequencer.base.MMLEvent;
@@ -23,10 +23,12 @@ package org.si.sound.mdx {
         public var bpm:Number = 0;
         public var title:String = null;
         public var pdxFileName:String = null;
-        public var voices:Vector.<SiONVoice>  = new Vector.<SiONVoice>(256, true);
-        public var tracks:Vector.<MDXTrack>  = new Vector.<MDXTrack>(16, true);
-        public var globalEvents:Vector.<MDXEvent> = new Vector.<MDXEvent>();
-        
+        public var voices:Vector.<SiONVoice> = new Vector.<SiONVoice>(256, true);
+        public var tracks:Vector.<MDXTrack> = new Vector.<MDXTrack>(16, true);
+        public var executors:Vector.<MDXExecutor> = new Vector.<MDXExecutor>(16, true);
+        public var currentBPM:Number;
+        private var _noiseVoice:SiONVoice;
+        private var _noiseVoiceNumber:int;
         
         
         
@@ -50,7 +52,9 @@ package org.si.sound.mdx {
     //--------------------------------------------------------------------------------
         function MDXData()
         {
-            
+            for (var i:int=0; i<16; i++) executors[i] = new MDXExecutor();
+            _noiseVoice = new SiONVoice(2, 1);
+            _noiseVoice.channelParam.operatorParam[0].ptType = SiOPMTable.PT_OPM_NOISE;
         }
         
         
@@ -66,9 +70,9 @@ package org.si.sound.mdx {
             bpm = 0;
             title = null;
             pdxFileName = null;
-            globalEvents.length = 0;
             for (i=0; i<16; i++) tracks[i] = null;
             for (i=0; i<256; i++) voices[i] = null;
+            _noiseVoiceNumber = -1;
             return this;
         }
         
@@ -79,39 +83,42 @@ package org.si.sound.mdx {
          */
         public function convertToSiONData(data:SiONData=null, pdxData:PDXData=null) : SiONData
         {
-            var i:int, imax:int, prevClock:uint, currentClock:uint;
+            if (SiONDriver.mutex == null) throw new Error("MDXData.convertToSiONData() : This function can be called after creating SiONDriver.");
+            
+            var i:int, imax:int;
             
             if (data == null) data = new SiONData();
             data.clear();
-            
             data.bpm = bpm;
-            data.globalSequence.initialize();
-            imax = globalEvents.length;
-            currentClock = prevClock = 0;
-            for (i=0; i<imax; i++) {
-                switch(globalEvents[i].type) {
-                case MDXEvent.TIMERB:
-                    currentClock = globalEvents[i].clock;
-                    if (prevClock < currentClock) data.globalSequence.appendNewEvent(MMLEvent.WAIT, (currentClock-prevClock)*10);
-                    data.globalSequence.appendNewEvent(MMLEvent.TEMPO, 4883/(256-globalEvents[i].data));
-                    prevClock = currentClock;
-                    break;
-                }
-            }
-
-            imax = (isPCM8) ? 16 : 9;
-            for (i=0; i<imax; i++) {
-                tracks[i]._constructMMLSequence(data.appendNewSequence());
-            }
             
+            // set voice data
             imax = voices.length;
-            for (i=0; i<imax; i++) {
-                data.voices[i] = voices[i]
-            }
+            for (i=0; i<imax; i++) data.voices[i] = voices[i];
             
+            // set adpcm data
             if (pdxData) {
                 imax = 96;
                 for (i=0; i<imax; i++) data.setPCMData(i, pdxData.pcmData[i]);
+            }
+            
+            // construct mml sequences
+            imax = (isPCM8) ? 16 : 9;
+            for (i=0; i<imax; i++) {
+                executors[i].initialize(data.appendNewSequence().initialize(), tracks[i], _noiseVoiceNumber);
+            }
+
+            var totalClock:uint=0, nextClock:uint, c:uint;
+            currentBPM = bpm;
+            while (totalClock != uint.MAX_VALUE) {
+                // sync
+                for (i=0; i<imax; i++) executors[i].globalExec(totalClock, this);
+                // exec
+                nextClock = uint.MAX_VALUE;
+                for (i=0; i<imax; i++) {
+                    c = executors[i].exec(totalClock, currentBPM);
+                    if (c < nextClock) nextClock = c;
+                }
+                totalClock = nextClock;
             }
             
             return data;
@@ -145,7 +152,7 @@ package org.si.sound.mdx {
             // data offsets
             dataPointer = bytes.position;
             voiceOffset = bytes.readUnsignedShort();  // tone data
-            for (i=0; i<16; i++) mmlOffsets[i] = dataPointer + bytes.readUnsignedShort();
+            for (i=0; i<16; i++) trace(mmlOffsets[i] = dataPointer + bytes.readUnsignedShort());
             // check pcm8
             bytes.position = mmlOffsets[0];
             isPCM8 = (bytes.readUnsignedByte() == 0xe8);
@@ -188,7 +195,7 @@ package org.si.sound.mdx {
                     opp.mute = (((mask >> opi) & 1) == 0);
                     v = (reg[0] >> (opi<<3)) & 255;
                     opp.dt1  = (v >> 4) & 7;
-                    opp.fmul = (v & 7) << 7;
+                    opp.mul  = v & 15;
                     opp.tl   = (reg[1] >> (opi<<3)) & 127;
                     v = (reg[2] >> (opi<<3)) & 255;
                     opp.ksr = (v >> 6) & 3;
@@ -203,6 +210,16 @@ package org.si.sound.mdx {
                     opp.sl = (v >> 4) & 15;
                     opp.rr = (v & 15) << 2;
                 }
+                
+                trace(voice.getMML(voiceNumber));
+            }
+            
+            _noiseVoiceNumber = -1;
+            for (i=255; i>=0; --i) {
+                if (voices[i] == null) {
+                    _noiseVoiceNumber = i;
+                    voices[i] = _noiseVoice;
+                }
             }
         }
         
@@ -212,27 +229,31 @@ package org.si.sound.mdx {
         {
             var i:int, imax:int = (isPCM8) ? 16 : 9;
             // load tracks
+            bpm = 0;
             for (i=0; i<imax; i++) {
                 bytes.position = mmlOffsets[i];
                 tracks[i] = new MDXTrack(this, i);
                 tracks[i].loadBytes(bytes);
-            }
-            
-            // sort all global events
-            globalEvents = globalEvents.sort(function(a:MDXEvent, b:MDXEvent) : Number { return (a.clock - b.clock); });
-            
-            // load bpm
-            bpm = 87.19642857142857; // 4883/(256-200)
-            imax = globalEvents.length;
-            for (i=0; i<imax; i++) {
-                if (globalEvents[i].clock > 0) break;
-                if (globalEvents[i].type == MDXEvent.TIMERB) {
-                    bpm = 4883/(256-globalEvents[i].data);//4370.285//4883
-                    break;
+                if (tracks[i].timerB != -1 && bpm == 0) {
+                    bpm = 4883/(256-tracks[i].timerB);
                 }
             }
+            if (bpm == 0) bpm = 87.19642857142857; // 4883/(256-200)
+        }
+        
+        
+        /** @private [internal] call from MDXExecutor.sync() */
+        internal function onSyncSend(channelNumber:int, syncClock:uint) : void
+        {
+            executors[channelNumber & 15].sync(syncClock);
+        }
+        
+        
+        /** @private [internal] call from MDXExecutor.sync() */
+        internal function onTimerB(timerB:int) : void
+        {
+            currentBPM = 4883/(256-timerB);
         }
     }
 }
-
 

@@ -35,7 +35,7 @@ package org.si.sound.synthesizer {
         
         
         
-    // valiables
+    // properties
     //----------------------------------------
         /** voice setting */
         public function get voice() : SiONVoice { return _voice; }
@@ -69,7 +69,7 @@ package org.si.sound.synthesizer {
         
         
         /** request voice update */
-        public function requestUpdateVoice() : void
+        public function requestUpdate() : void
         {
             _requireVoiceUpdate = true;
         }

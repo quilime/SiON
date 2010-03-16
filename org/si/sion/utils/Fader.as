@@ -46,7 +46,7 @@ package org.si.sion.utils {
          */
         function Fader(callback:Function=null, valueFrom:Number=0, valueTo:Number=1, term:int=60)
         {
-            if (callback != null) setFade(callback, valueFrom, valueTo, term);
+            setFade(callback, valueFrom, valueTo, term);
         }
         
         
@@ -62,12 +62,12 @@ package org.si.sion.utils {
          */
         public function setFade(callback:Function, valueFrom:Number=0, valueTo:Number=1, term:int=60) : Fader
         {
+            _value = valueFrom;
             if (term == 0 || callback == null) {
                 _counter = 0;
                 return this;
             }
             _callback = callback;
-            _value = valueFrom;
             _end = valueTo;
             _step = (valueTo - valueFrom) / term;
             _counter = term;

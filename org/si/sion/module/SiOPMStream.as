@@ -61,6 +61,17 @@ package org.si.sion.module {
         }
         
         
+        /** Quantize buffer by bit rate. */
+        public function quantize(bitRate:int) : void
+        {
+            var i:int, imax:int = buffer.length,
+                r:Number = 1<<bitRate, ir:Number = 2/r;
+            for (i=0; i<imax; i++) {
+                buffer[i] = ((buffer[i] * r) >> 1) * ir;
+            }
+        }
+        
+        
         /** write buffer by org.si.utils.SLLint */
         public function write(pointer:SLLint, start:int, len:int, vol:Number, pan:int) : void 
         {
