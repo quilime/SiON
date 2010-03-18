@@ -136,24 +136,43 @@ package org.si.sion.utils {
             
             for (i=0; i<imax;) {
                 data = src.readUnsignedByte();
-                r0 = (data >> 4) & 0x0f;
-                r1 = data & 0x0f;
+                r0 = data & 0x0f;
+                r1 = (data >> 4) & 0x0f;
                 
-                predRate = (predRate * crTable[r0]) >> 3;
+                predRate *= crTable[r0];
+                predRate >>= 3;
                 output += predRate;
                 dst[i] = output * 0.000030517578125;
-                predRate = (predRate * puTable[r0]) >> 6;
-                     if (predRate < 127)   predRate = 127;
-                else if (predRate > 24576) predRate = 24576;
+                predRate *= puTable[r0]
+                predRate >>= 6;
+                if (predRate>0) {
+                         if (predRate < 127)   predRate = 127;
+                    else if (predRate > 24576) predRate = 24576;
+                } else {
+                         if (predRate > -127)   predRate = -127;
+                    else if (predRate < -24576) predRate = -24576;
+                }
                 i++;
                 
-                predRate = (predRate * crTable[r1]) >> 3;
+                predRate *= crTable[r1];
+                predRate >>= 3;
                 output += predRate;
                 dst[i] = output * 0.000030517578125;
-                predRate = (predRate * puTable[r1]) >> 6;
-                     if (predRate < 127)   predRate = 127;
-                else if (predRate > 24576) predRate = 24576;
+                predRate *= puTable[r1];
+                predRate >>= 6;
+                if (predRate>0) {
+                         if (predRate < 127)   predRate = 127;
+                    else if (predRate > 24576) predRate = 24576;
+                } else {
+                         if (predRate > -127)   predRate = -127;
+                    else if (predRate < -24576) predRate = -24576;
+                }
                 i++;
+            }
+            
+            for (i=0; i<imax; i++) {
+                if (dst[i] < -1) dst[i] = -1;
+                else if (dst[i] > 1) dst[i] = 1;
             }
             
             return dst;

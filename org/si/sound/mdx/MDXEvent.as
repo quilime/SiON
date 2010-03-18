@@ -69,6 +69,8 @@ package org.si.sound.mdx {
             case NOTE: 
                 i = (data+15)%12;
                 return "o"+String(((data+15)/12)>>0)+_noteText[i]+";"+String(deltaClock);
+            case GATE:   return "q"+String(data);
+            case DETUNE: return "k"+String(data>>8);
             case REPEAT_BEGIN: return "["+String(data);
             case REPEAT_BREAK: return "|";
             case REPEAT_END: return "]";
@@ -77,6 +79,12 @@ package org.si.sound.mdx {
             case VOICE: return "@"+String(data);
             case PAN: return "p"+String(data);
             case VOLUME: return (data<16) ? "v"+String(data) : "@v"+String(data&127);
+            case LFO_DELAY:  return "LFO_delay"+String(data);
+            case PITCH_LFO:  return "LFO"+(data&255).toString(16)+" mp"+(data>>8)+","+(data2);
+            case VOLUME_LFO: return "LFO"+(data&255).toString(16)+" ma"+(data>>8)+","+(data2);
+            case FREQUENCY:  return "FREQ"+String(data);
+            case TIMERB:     return "TIMER_B "+String(data);
+            case SET_PCM8:   return "PCM8";
             default:   return "#"+ type.toString(16) + "; " + String(data);
             }
             return "";

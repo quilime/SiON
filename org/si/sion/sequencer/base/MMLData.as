@@ -126,7 +126,7 @@ package org.si.sion.sequencer.base {
             }
             for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++) {
                 if (pcmData[i]) {
-                    pcmData[i].._siopm_module_internal::_free();
+                    pcmData[i]._siopm_module_internal::_free();
                     pcmData[i] = null;
                 }
             }

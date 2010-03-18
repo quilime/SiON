@@ -98,13 +98,16 @@ package org.si.sound.mdx {
             // set adpcm data
             if (pdxData) {
                 imax = 96;
-                for (i=0; i<imax; i++) data.setPCMData(i, pdxData.pcmData[i]);
+                for (i=0; i<imax; i++) {
+                    data.setPCMData(i, pdxData.pcmData[i]);
+                }
             }
             
             // construct mml sequences
             imax = (isPCM8) ? 16 : 9;
             for (i=0; i<imax; i++) {
-                executors[i].initialize(data.appendNewSequence().initialize(), tracks[i], _noiseVoiceNumber);
+                if (tracks[i].hasNoData) executors[i].initialize(null, tracks[i], _noiseVoiceNumber);
+                else executors[i].initialize(data.appendNewSequence().initialize(), tracks[i], _noiseVoiceNumber);
             }
 
             var totalClock:uint=0, nextClock:uint, c:uint;
@@ -120,6 +123,8 @@ package org.si.sound.mdx {
                 }
                 totalClock = nextClock;
             }
+            
+            data.title = title;
             
             return data;
         }
@@ -140,19 +145,20 @@ package org.si.sound.mdx {
             while (true) { if (bytes.readByte() == 0x0d && bytes.readByte() == 0x0a && bytes.readByte() == 0x1a) break; }
             titleLength = bytes.position - 3;
             bytes.position = 0;
-            title = bytes.readMultiByte(titleLength, "us-ascii"); //shift_jis
+            title = bytes.readMultiByte(titleLength, "shift_jis"); //us-ascii
             bytes.position = titleLength + 3;
             
             // pdx file
             while (true) { if (bytes.readByte() == 0) break; }
             pdxLength = bytes.position - titleLength - 4;
-            pdxFileName = bytes.readMultiByte(pdxLength, "us-ascii");
+            bytes.position = titleLength + 3;
+            if (pdxLength != 0) pdxFileName = bytes.readMultiByte(pdxLength, "shift_jis"); //us-ascii
             bytes.position = titleLength + pdxLength + 4;
             
             // data offsets
             dataPointer = bytes.position;
             voiceOffset = bytes.readUnsignedShort();  // tone data
-            for (i=0; i<16; i++) trace(mmlOffsets[i] = dataPointer + bytes.readUnsignedShort());
+            for (i=0; i<16; i++) mmlOffsets[i] = dataPointer + bytes.readUnsignedShort();
             // check pcm8
             bytes.position = mmlOffsets[0];
             isPCM8 = (bytes.readUnsignedByte() == 0xe8);
@@ -211,7 +217,7 @@ package org.si.sound.mdx {
                     opp.rr = (v & 15) << 2;
                 }
                 
-                trace(voice.getMML(voiceNumber));
+//trace(voice.getMML(voiceNumber));
             }
             
             _noiseVoiceNumber = -1;

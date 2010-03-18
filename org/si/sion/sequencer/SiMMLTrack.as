@@ -603,8 +603,8 @@ package org.si.sion.sequencer {
             
             // free previous table
             if (table[1]) SLLint.freeList(table[1]);
-            
-            if (depth < end_depth) {
+
+            if ((0<=depth && depth<end_depth) || (depth<0 && depth>end_depth)) {
                 // make table and envelop on
                 table[1] = _makeModulationTable(depth, end_depth, delay, term);
                 _envelopOn(1);

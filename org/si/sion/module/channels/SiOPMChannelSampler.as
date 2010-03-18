@@ -65,7 +65,7 @@ package org.si.sion.module.channels {
          *  @param param SiOPMChannelParam.
          *  @param withVolume Set volume when its true.
          */
-        override public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void
+        override public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean, withModulation:Boolean=true) : void
         {
             var i:int;
             if (param.opeCount == 0) return;

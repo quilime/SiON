@@ -13,7 +13,7 @@ package org.si.sion.utils {
     import org.si.sion.SiONVoice;
     
     
-    /** Preset voice data. 457 voices are available now (default:11, valsound:258, GM:128, GMdrum:60).
+    /** Preset voice data. 462 voices are available now (default:16, valsound:258, GM:128, GMdrum:60).
 @example Create new instance and access voices by key.
 <listing version="3.0">
 var voices:SiONPresetVoice = new SiONPresetVoice(); // create new instance.
@@ -79,11 +79,11 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
                 _new("beep",      "Pulse wave sample",  new SiONVoice(5,81));
                 _new("ramp",      "Ramp wave sample",   new SiONVoice(5,160));
 
-                _percuss("bassdrum",  "Simple bass drum",      0, 63, 28, -128);
-                _percuss("snare",     "Simple snare drum",    17, 63, 32, 0, 64, 1);
-                _percuss("closedhh",  "Simple closed hi-hat", 19, 63, 40, 0);
-                _percuss("openedhh",  "Simple opened hi-hat", 19, 63, 28, 0);
-                _percuss("symbal",    "Simple symbal",        16, 48, 24, 0);
+                _percuss("bass",     "Simple 1operator bass drum",      0, 63, 28, -128);
+                _percuss("snare",    "Simple 1operator snare drum",    17, 63, 32, 0, 64, 1);
+                _percuss("closedhh", "Simple 1operator closed hi-hat", 19, 63, 40, 0);
+                _percuss("openedhh", "Simple 1operator opened hi-hat", 19, 63, 28, 0);
+                _percuss("crash",    "Simple 1operator crash symbal",  16, 48, 24, 0);
                 
                 _analog("dualsaw",      "Dual saw",      0, 1, 1, 0, 8);
                 _analog("dualsquare",   "Dual square",   0, 5, 5, 0, 8);

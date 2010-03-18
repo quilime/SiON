@@ -30,6 +30,8 @@ package org.si.sion.sequencer {
         public var channelNum:int;
         /** tone number, 1st argument of '&#64;'. -1;do nothing. @default -1 */
         public var toneNum:int;
+        /** preferable note. -1;no preferable note. @default -1 */
+        public var preferableNote:int
         
         /** parameters for FM sound channel. */
         public var channelParam:SiOPMChannelParam;
@@ -224,6 +226,7 @@ package org.si.sion.sequencer {
             moduleType = 5;
             channelNum = 0;
             toneNum = -1;
+            preferableNote = -1;
             
             channelParam = new SiOPMChannelParam();
             waveData = null;
@@ -273,6 +276,7 @@ package org.si.sion.sequencer {
             moduleType = src.moduleType;
             channelNum = src.channelNum;
             toneNum = src.toneNum;
+            preferableNote = src.preferableNote;
             channelParam.copyFrom(src.channelParam);
             
             waveData = src.waveData;

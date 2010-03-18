@@ -174,7 +174,7 @@ package org.si.sion.module.channels {
         {
             _am_depth = depth<<2;
             _am_out = (_lfo_waveTable[_lfo_phase] * _am_depth) >> 7 << 3;
-            _lfoSwitch(_pm_depth > 0 || _am_depth > 0);
+            _lfoSwitch(_pm_depth != 0 || _am_depth > 0);
         }
         
         
@@ -185,7 +185,7 @@ package org.si.sion.module.channels {
         {
             _pm_depth = depth;
             _pm_out = (((_lfo_waveTable[_lfo_phase]<<1)-255) * _pm_depth) >> 8;
-            _lfoSwitch(_pm_depth > 0 || _am_depth > 0);
+            _lfoSwitch(_pm_depth != 0 || _am_depth > 0);
             if (_pm_depth == 0) {
                 if (operator[0]) operator[0].detune2 = 0;
                 if (operator[1]) operator[1].detune2 = 0;
@@ -213,8 +213,9 @@ package org.si.sion.module.channels {
         /** Set by SiOPMChannelParam. 
          *  @param param SiOPMChannelParam.
          *  @param withVolume Set volume when its true.
+         *  @param withModulation Set modulation when its true.
          */
-        override public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void
+        override public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean, withModulation:Boolean=true) : void
         {
             var i:int;
             if (param.opeCount == 0) return;
@@ -228,11 +229,14 @@ package org.si.sion.module.channels {
             setFrequencyRatio(param.fratio);
             setAlgorism(param.opeCount, param.alg);
             setFeedBack(param.fb, param.fbc);
-            initializeLFO(param.lfoWaveShape);
-            _lfo_timer = (param.lfoFreqStep>0) ? 1 : 0;
-            _lfo_timer_step = param.lfoFreqStep;
-            setAmplitudeModulation(param.amd);
-            setPitchModulation(param.pmd);
+            if (withModulation) {
+                trace(param.pmd);
+                initializeLFO(param.lfoWaveShape);
+                _lfo_timer = (param.lfoFreqStep>0) ? 1 : 0;
+                _lfo_timer_step = param.lfoFreqStep;
+                setAmplitudeModulation(param.amd);
+                setPitchModulation(param.pmd);
+            }
             setLPFilter(param.cutoff, param.resonance, param.far, param.fdr1, param.fdr2, param.frr, param.fdc1, param.fdc2, param.fsc, param.frc);
             for (i=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.operatorParam[i]);
@@ -634,7 +638,7 @@ package org.si.sion.module.channels {
                 bp = bp.next;
                 op = op.next;
             }
-            
+
             // update pointers
             _inPipe   = ip;
             _basePipe = bp;

@@ -18,9 +18,6 @@ package org.si.sound {
     {
     // variables
     //----------------------------------------
-        /** interruption step */
-        protected var _interruptStep:int;
-        
         /** bass drum pattern sequencer */
         public var bass:PatternSequencer;
         /** snare drum pattern sequencer */
@@ -59,7 +56,6 @@ package org.si.sound {
         function RhythmBox()
         {
             super("RhythmBox");
-            _interruptStep = 120;
             addChild(bass  = new PatternSequencer(16, 36, 255, 1));
             addChild(snare = new PatternSequencer(16, 68, 128, 1));
             addChild(hihat = new PatternSequencer(16, 68, 64,  1));

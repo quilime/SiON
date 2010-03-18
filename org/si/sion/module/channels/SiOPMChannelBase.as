@@ -114,7 +114,7 @@ package org.si.sion.module.channels {
     // interfaces
     //--------------------------------------------------
         /** Set by SiOPMChannelParam. */
-        public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean) : void {}
+        public function setSiOPMChannelParam(param:SiOPMChannelParam, withVolume:Boolean, withModulation:Boolean=true) : void {}
         /** Get SiOPMChannelParam. */
         public function getSiOPMChannelParam(param:SiOPMChannelParam) : void {}
         /** Set wave data. */

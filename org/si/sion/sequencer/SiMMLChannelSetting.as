@@ -116,7 +116,7 @@ package org.si.sion.sequencer {
                 if (voiceIndex<0 || voiceIndex>=SiMMLTable.VOICE_MAX) voiceIndex=0;
                 voice = SiMMLTable.instance.getSiMMLVoice(voiceIndex);
                 if (voice) { // this module changes only channel params, not track params.
-                    track.channel.setSiOPMChannelParam(voice.channelParam, false);
+                    track.channel.setSiOPMChannelParam(voice.channelParam, false, false);
                     return (voice.channelParam.initSequence.isEmpty()) ? null : voice.channelParam.initSequence;
                 }
                 break;

@@ -19,6 +19,8 @@ package org.si.sound {
         public var length:Number = 0;
         /** Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing. @see si.org.sound.PatternSequencer.voiceList */
         public var voiceIndex:Number = 0;
+        /** Any informations */
+        public var data:* = null;
         
         
         
@@ -30,13 +32,15 @@ package org.si.sound {
          *  @param velocity Velocity[-1-128], -1 sets playing with sequencer's default velocity, 0 sets no note (rest).
          *  @param length Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length.
          *  @param voiceIndex Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing. @see si.org.sound.PatternSequencer.voiceList.
+         *  @param data Any informations you want.
          */
-        function Note(note:int=-1, velocity:int=0, length:Number=Number.NaN, voiceIndex:int=-1)
+        function Note(note:int=-1, velocity:int=0, length:Number=Number.NaN, voiceIndex:int=-1, data:*=null)
         {
             this.note = note;
             this.velocity = velocity;
             this.length = length;
             this.voiceIndex = voiceIndex;
+            this.data = data;
         }
 
         
@@ -49,14 +53,16 @@ package org.si.sound {
          *  @param velocity Velocity[-1-128], -1 sets playing with sequencer's default velocity, 0 sets no note (rest).
          *  @param length Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length.
          *  @param voiceIndex Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing. @see si.org.sound.PatternSequencer.voiceList.
+         *  @param data Any informations you want.
          *  @return this instance.
          */
-        public function setNote(note:int=-1, velocity:int=-1, length:Number=Number.NaN, voiceIndex:int=-1) : Note
+        public function setNote(note:int=-1, velocity:int=-1, length:Number=Number.NaN, voiceIndex:int=-1, data:*=null) : Note
         {
             this.note = note;
             this.velocity = velocity;
             this.length = length;
             this.voiceIndex = voiceIndex;
+            this.data = data;
             return this;
         }
         

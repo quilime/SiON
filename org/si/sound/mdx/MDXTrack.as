@@ -30,6 +30,11 @@ package org.si.sound.mdx {
         
     // properties
     //--------------------------------------------------------------------------------
+        /** has no data. */
+        public function get hasNoData() : Boolean {
+            return (sequence.length <= 1);
+        }
+        
         /** to string. */
         public function toString():String
         {
@@ -71,17 +76,19 @@ package org.si.sound.mdx {
         {
             clear();
             
-            var code:int, v:int, pos:int, mem:Array=[], exitLoop:Boolean = false;
+            var clock:int, code:int, v:int, pos:int, mem:Array=[], exitLoop:Boolean = false;
             
             while (!exitLoop && bytes.bytesAvailable>0) {
                 pos = bytes.position;
                 code = bytes.readUnsignedByte();
                 if (code<0x80) { // rest
                     newEvent(MDXEvent.REST, 0, 0, code+1);
+                    clock += code+1;
                 } else
                 if (code<0xe0) { // note
                     v = bytes.readUnsignedByte() + 1;
                     newEvent(MDXEvent.NOTE, code - 0x80, 0, v);
+                    clock += v;
                 } else {
                     switch(code) {
                     //----- 2 operands
@@ -126,27 +133,28 @@ package org.si.sound.mdx {
                     //----- others
                     case MDXEvent.TIMERB:
                         v = bytes.readUnsignedByte();
-                        if (timerB == -1) timerB = v;
+                        if (clock == 0) timerB = v;
                         newEvent(code, v);
                         break;
                     case MDXEvent.PITCH_LFO:
                     case MDXEvent.VOLUME_LFO:
                         v = bytes.readUnsignedByte();
                         if (v == 0x80 || v == 0x81) newEvent(code, v);
-                        else newEvent(code, v | (bytes.readUnsignedShort()<<8), bytes.readUnsignedShort());
+                        else newEvent(code, v | (bytes.readUnsignedShort()<<8), bytes.readShort());
                         break;
                     case MDXEvent.OPM_LFO:
                         v = bytes.readUnsignedByte();
                         if (v == 0x80 || v == 0x81) newEvent(code, v<<16);
                         else {
                             v = (v<<16) | (bytes.readUnsignedByte()<<8) | bytes.readUnsignedByte();
-                            newEvent(code, v, bytes.readUnsignedShort());
+                            newEvent(code, v, bytes.readShort());
                         }
                         break;
                     case MDXEvent.DATA_END: // ...?
-                        v = bytes.readUnsignedShort();
-                        newEvent(code, bytes.readUnsignedShort());
-                        if (v!=0) segnoPointer = mem[v];
+                        v = bytes.readShort();
+                        newEvent(code, v);
+                        if (v>0 && pos-v+3>=0) segnoPointer = mem[pos-v+3];
+                        else if (v<0 && pos+v+3>=0) segnoPointer = mem[pos+v+3];
                         exitLoop = true;
                         break;
                     default:
@@ -165,8 +173,8 @@ package org.si.sound.mdx {
                 return inst;
             }
 
-trace("------------------- ch", channelNumber, "-------------------");
-trace(String(this));
+//trace("------------------- ch", channelNumber, "-------------------");
+//trace(String(this));
             return this;
         }
     }
