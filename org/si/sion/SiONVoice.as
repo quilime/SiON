@@ -247,16 +247,16 @@ package org.si.sion {
         
         
         /** Set low pass filter envelop parameters.
-         *  @param cutoff LP filter cutoff
-         *  @param resonance LP filter resonance
-         *  @param far LP filter attack rate
-         *  @param fdr1 LP filter decay rate 1
-         *  @param fdr2 LP filter decay rate 2
-         *  @param frr LP filter release rate
-         *  @param fdc1 LP filter decay cutoff 1
-         *  @param fdc2 LP filter decay cutoff 2
-         *  @param fsc LP filter sustain cutoff
-         *  @param frc LP filter release cutoff
+         *  @param cutoff LP filter cutoff (0-128)
+         *  @param resonance LP filter resonance (0-9)
+         *  @param far LP filter attack rate (0-63)
+         *  @param fdr1 LP filter decay rate 1 (0-63)
+         *  @param fdr2 LP filter decay rate 2 (0-63)
+         *  @param frr LP filter release rate (0-63)
+         *  @param fdc1 LP filter decay cutoff 1 (0-128)
+         *  @param fdc2 LP filter decay cutoff 2 (0-128)
+         *  @param fsc LP filter sustain cutoff (0-128)
+         *  @param frc LP filter release cutoff (0-128)
          *  @return this SiONVoice instance
          */
         public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice {
@@ -270,6 +270,38 @@ package org.si.sion {
             channelParam.fdc2 = fdc2;
             channelParam.fsc = fsc;
             channelParam.frc = frc;
+            return this;
+        }
+        
+        
+        /** Set amplitude modulation parameters (same as "ma" command of MML).
+         *  @param depth start modulation depth (same as 1st argument)
+         *  @param end_depth end modulation depth (same as 2nd argument)
+         *  @param delay changing delay (same as 3rd argument)
+         *  @param term changing term (same as 4th argument)
+         *  @return this instance
+         */
+        public function setAmplitudeModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice {
+            channelParam.amd = amDepth = depth;
+            amDepthEnd = end_depth;
+            amDelay = delay;
+            amTerm = term;
+            return this;
+        }
+        
+        
+        /** Set amplitude modulation parameters (same as "mp" command of MML).
+         *  @param depth start modulation depth (same as 1st argument)
+         *  @param end_depth end modulation depth (same as 2nd argument)
+         *  @param delay changing delay (same as 3rd argument)
+         *  @param term changing term (same as 4th argument)
+         *  @return this instance
+         */
+        public function setPitchModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice {
+            channelParam.pmd = pmDepth = depth;
+            pmDepthEnd = end_depth;
+            pmDelay = delay;
+            pmTerm = term;
             return this;
         }
     }

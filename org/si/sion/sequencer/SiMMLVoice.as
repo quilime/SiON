@@ -8,6 +8,7 @@ package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMWaveBase;
     import org.si.sion.module.SiOPMWavePCMTable;
+    import org.si.sion.module.SiOPMWavePCMData;
     import org.si.sion.module.SiOPMWaveTable;
     import org.si.sion.module.SiOPMWaveSamplerTable;
     import org.si.sion.namespaces._sion_internal;
@@ -31,7 +32,7 @@ package org.si.sion.sequencer {
         /** tone number, 1st argument of '&#64;'. -1;do nothing. @default -1 */
         public var toneNum:int;
         /** preferable note. -1;no preferable note. @default -1 */
-        public var preferableNote:int
+        public var preferableNote:int;
         
         /** parameters for FM sound channel. */
         public var channelParam:SiOPMChannelParam;
@@ -120,7 +121,7 @@ package org.si.sion.sequencer {
         public function get isFMVoice() : Boolean { return (moduleType == 6); }
         
         /** PCM voice flag */
-        public function get isPCMVoice() : Boolean { return (waveData is SiOPMWavePCMTable); }
+        public function get isPCMVoice() : Boolean { return (waveData is SiOPMWavePCMTable || waveData is SiOPMWavePCMData); }
         
         /** Sampler voice flag */
         public function get isSamplerVoice() : Boolean { return (waveData is SiOPMWaveSamplerTable); }

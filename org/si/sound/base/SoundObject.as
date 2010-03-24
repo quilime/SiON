@@ -14,7 +14,8 @@ package org.si.sound.base {
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.effector.SiEffectBase;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.synthesizer.SynthesizerBase;
+    import org.si.sound.synthesizer.VoiceReference;
+    import org.si.sound.synthesizer.BasicSynth;
     import org.si.sound.synthesizer._synthesizer_internal;
     
     
@@ -37,9 +38,9 @@ package org.si.sound.base {
         /** Base note of this sound */
         protected var _note:int;
         /** Synthesizer instance */
-        protected var _synthesizer:SynthesizerBase;
+        protected var _synthesizer:VoiceReference;
         /** Synthesizer instance to use SiONVoice  */
-        protected var _defaultSynthesizer:SynthesizerBase;
+        protected var _voiceReference:VoiceReference;
         /** Effect chain instance */
         protected var _effectChain:EffectChain;
         /** track for noteOn() */
@@ -114,17 +115,21 @@ package org.si.sound.base {
         public function set note(n:int) : void { _note = n; }
         
         /** Voice data to play */
-        public function get voice() : SiONVoice { return _synthesizer.voice || ((_parent) ? _parent.voice : null); }
+        public function get voice() : SiONVoice { 
+            return _synthesizer._synthesizer_internal::_voice;
+        }
         public function set voice(v:SiONVoice) : void { 
-            _defaultSynthesizer.voice = v;
-            _synthesizer = _defaultSynthesizer;
+            _voiceReference.voice = v;
+            if (!isPlaying) _synthesizer = _voiceReference;
         }
 
         /** Synthesizer to generate sound */
-        public function get synthesizer() : SynthesizerBase { return _synthesizer; }
-        public function set synthesizer(s:SynthesizerBase) : void {
-            _synthesizer = s || _defaultSynthesizer;
-            _synthesizer._synthesizer_internal::_owner = this;
+        public function get synthesizer() : VoiceReference { 
+            return _synthesizer;
+        }
+        public function set synthesizer(s:VoiceReference) : void {
+            if (isPlaying) throw new Error("SoundObject: Synthesizer should not be changed during playing.");
+            _synthesizer = s || _voiceReference;
         }
         
         /** Sound length in 16th beat, 0 sets inifinity length. @default 0. */
@@ -270,12 +275,12 @@ package org.si.sound.base {
     // constructor
     //----------------------------------------
         /** constructor. */
-        function SoundObject(name:String = null, synthesizer:SynthesizerBase = null)
+        function SoundObject(name:String = null, synth:BasicSynth = null)
         {
             this.name = name || "";
             _parent = null;
-            _synthesizer = _defaultSynthesizer = new SynthesizerBase();
-            _synthesizer._synthesizer_internal::_owner = this;
+            _voiceReference = new VoiceReference();
+            _synthesizer = synth || _voiceReference;
             _effectChain = null;
             _track = null;
             _tracks = null;
@@ -411,11 +416,9 @@ package org.si.sound.base {
         /** Play sound. */
         public function play() : void
         {
-            if (_track) {
-                _track.setDisposable();
-                _track = null;
-            }
+            stop();
             _track = _noteOn(_note, false);
+            if (_track) _synthesizer._synthesizer_internal::_registerTrack(_track);
         }
         
         
@@ -423,10 +426,11 @@ package org.si.sound.base {
         public function stop() : void
         {
             if (_track) {
+                _synthesizer._synthesizer_internal::_unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
+                _noteOff(-1, false);
             }
-            _noteOff(-1, false);
         }
         
         
@@ -442,7 +446,8 @@ package org.si.sound.base {
         protected function _noteOn(note:int, isDisposable:Boolean) : SiMMLTrack
         {
             if (!driver) return null;
-            var v:SiONVoice = voice,
+            _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
+            var v:SiONVoice = _synthesizer._synthesizer_internal::_voice,
                 t:SiMMLTrack = driver.noteOn(note, v, _length, _delay, _quantize, _trackID, isDisposable);
             if (_effectChain && _effectChain.effectList.length > 0) {
                 _effectChain._activateLocalEffect();
@@ -485,7 +490,8 @@ package org.si.sound.base {
         {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
-            var v:SiONVoice = voice, effectActive:Boolean = false,
+            _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
+            var v:SiONVoice = _synthesizer._synthesizer_internal::_voice, effectActive:Boolean = false,
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, v, len, _delay, _quantize, _trackID, isDisposable),
                 t:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
             if (_effectChain && _effectChain.effectList.length > 0) {

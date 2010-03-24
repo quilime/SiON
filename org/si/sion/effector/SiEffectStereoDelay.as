@@ -26,12 +26,18 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectStereoDelay()
+        /** constructor 
+         *  @param delayTime delay time[ms]. maximum value is about 1500.
+         *  @param feedback feedback decay(-1-1). Negative value to invert phase.
+         *  @param isCross stereo crossing delay.
+         *  @param wet mixing level(0-1).
+         */
+        function SiEffectStereoDelay(delayTime:Number=250, feedback:Number=0.25, isCross:Boolean=false, wet:Number=0.25)
         {
             _delayBuffer = new Vector.<Vector.<Number>>(2, true);
             _delayBuffer[0] = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
             _delayBuffer[1] = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
+            setParameters(delayTime, feedback, isCross, wet);
         }
         
         
@@ -43,9 +49,10 @@ package org.si.sion.effector {
          *  @param delayTime delay time[ms]. maximum value is about 1500.
          *  @param feedback feedback decay(-1-1). Negative value to invert phase.
          *  @param isCross stereo crossing delay.
-         *  @param wet mixing level.
+         *  @param wet mixing level(0-1).
          */
-        public function setParameters(delayTime:Number=250, feedback:Number=0.25, isCross:Boolean=false, wet:Number=1) : void {
+        public function setParameters(delayTime:Number=250, feedback:Number=0.25, isCross:Boolean=false, wet:Number=0.25) : void
+        {
             var offset:int = int(delayTime * 44.1),
                 cross:int  = (isCross) ? 1 : 0;
             if (offset > DELAY_BUFFER_FILTER) offset = DELAY_BUFFER_FILTER;

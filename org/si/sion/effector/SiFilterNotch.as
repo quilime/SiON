@@ -8,6 +8,20 @@ package org.si.sion.effector {
     /** Notch. */
     public class SiFilterNotch extends SiFilterBase
     {
+    // constructor
+    //------------------------------------------------------------
+        /** constructor.
+         *  @param freq cutoff frequency[Hz].
+         *  @param band band width [oct].
+         */
+        function SiFilterNotch(freq:Number=3000, band:Number=1) 
+        {
+            setParameters(freq, band);
+        }
+        
+        
+        
+        
     // operations
     //------------------------------------------------------------
         /** set parameters

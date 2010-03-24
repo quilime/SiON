@@ -15,10 +15,18 @@ package org.si.sion.effector {
     {
     // variables
     //------------------------------------------------------------
-        protected var _p0r:Number, _p1r:Number, _p0l:Number, _p1l:Number;
-        protected var _cutIndex:int, _res:Number, _table:SiOPMTable;
+        /** @private */ static protected var _incEnvelopTable:SLLint = null;
+        /** @private */ static protected var _decEnvelopTable:SLLint = null;
+        /** @private */ protected var _p0r:Number;
+        /** @private */ protected var _p1r:Number;
+        /** @private */ protected var _p0l:Number;
+        /** @private */ protected var _p1l:Number;
+        /** @private */ protected var _cutIndex:int;
+        /** @private */ protected var _res:Number;
+        /** @private */ protected var _table:SiOPMTable;
         
-        private var _ptrCut:SLLint, _ptrRes:SLLint
+        private var _ptrCut:SLLint;
+        private var _ptrRes:SLLint
         private var _lfoStep:int;
         private var _lfoResidueStep:int;
         
@@ -28,7 +36,20 @@ package org.si.sion.effector {
     // constructor
     //------------------------------------------------------------
         /** constructor */
-        function SiCtrlFilterBase() {}
+        function SiCtrlFilterBase() {
+            if (_incEnvelopTable == null) {
+                _incEnvelopTable = SLLint.allocList(129);
+                _decEnvelopTable = SLLint.allocList(129);
+                var ptrit:SLLint = _incEnvelopTable, 
+                    ptrdt:SLLint = _decEnvelopTable;
+                for (var i:int=0; i<129; i++) {
+                    ptrit.i = i;
+                    ptrdt.i = 128-i;
+                    ptrit = ptrit.next;
+                    ptrdt = ptrdt.next;
+                }
+            }
+        }
         
         
         
@@ -57,7 +78,8 @@ package org.si.sion.effector {
          *  @param cutoff cutoff(0-1).
          *  @param resonance resonance(0-1).
          */
-        public function control(cutoff:Number, resonance:Number) : void {
+        public function control(cutoff:Number, resonance:Number) : void
+        {
             _lfoStep = 2048;
             _lfoResidueStep = 4096;
             

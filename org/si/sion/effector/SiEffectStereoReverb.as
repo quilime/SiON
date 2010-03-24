@@ -24,11 +24,17 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectStereoReverb()
+        /** constructor
+         *  @param delay1 long delay(0-1).
+         *  @param delay2 short delay(0-1).
+         *  @param feedback feedback decay(-1-1). Negative value to invert phase.
+         *  @param wet mixing level(0-1).
+         */
+        function SiEffectStereoReverb(delay1:Number=0.7, delay2:Number=0.4, feedback:Number=0.8, wet:Number=0.3)
         {
             _delayBufferL = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
             _delayBufferR = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
+            setParameters(delay1, delay2, feedback, wet);
         }
         
         
@@ -40,9 +46,10 @@ package org.si.sion.effector {
          *  @param delay1 long delay(0-1).
          *  @param delay2 short delay(0-1).
          *  @param feedback feedback decay(-1-1). Negative value to invert phase.
-         *  @param wet mixing level.
+         *  @param wet mixing level(0-1).
          */
-        public function setParameters(delay1:Number=0.7, delay2:Number=0.4, feedback:Number=0.8, wet:Number=1) : void {
+        public function setParameters(delay1:Number=0.7, delay2:Number=0.4, feedback:Number=0.8, wet:Number=0.3) : void
+        {
             if (delay1<0.01) delay1=0.01;
             else if (delay1>0.99) delay1=0.99;
             if (delay2<0.01) delay2=0.01;

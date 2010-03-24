@@ -8,6 +8,20 @@ package org.si.sion.effector {
     /** BPF. */
     public class SiFilterBandPass extends SiFilterBase
     {
+    // constructor
+    //------------------------------------------------------------
+        /** constructor.
+         *  @param freq cutoff frequency[Hz].
+         *  @param band band width [oct].
+         */
+        function SiFilterBandPass(freq:Number=3000, band:Number=1) 
+        {
+            setParameters(freq, band);
+        }
+        
+        
+        
+        
     // operations
     //------------------------------------------------------------
         /** set parameters

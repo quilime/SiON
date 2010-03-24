@@ -18,8 +18,14 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectWaveShaper() {}        
+        /** constructor
+         *  @param distortion distortion(0-1).
+         *  @param outputLevel output level(0-1).
+         */
+        function SiEffectWaveShaper(distortion:Number=0.5, outputLevel:Number=1.0) 
+        {
+            setParameters(distortion, outputLevel);
+        }        
         
         
         
@@ -30,7 +36,8 @@ package org.si.sion.effector {
          *  @param distortion distortion(0-1).
          *  @param outputLevel output level(0-1).
          */
-        public function setParameters(distortion:Number=0.5, outputLevel:Number=1.0) : void {
+        public function setParameters(distortion:Number=0.5, outputLevel:Number=1.0) : void
+        {
             if (distortion >= 1) distortion = 0.9999847412109375; //65535/65536
             _coefficient = 2*distortion/(1-distortion);
             _outputLevel = outputLevel;

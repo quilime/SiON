@@ -20,16 +20,29 @@ package org.si.sion.effector {
         private var _pL:SLLNumber, _pR:SLLNumber;
         
         
-        /** constructor */
-        function SiEffectAutoPan()
+        
+        
+    // constructor
+    //------------------------------------------------------------
+        /** constructor
+         *  @param frequency rotation frequency(Hz).
+         *  @param width stereo width(0-1). 0 sets as auto pan with keeping stereo.
+         */
+        function SiEffectAutoPan(frequency:Number=1, width:Number=1)
         {
             _pL = SLLNumber.allocRing(256);
+            _lfoResidueStep = 0;
+            setParameters(frequency, width);
         }
         
         
+        
+        
+    // operations
+    //------------------------------------------------------------
         /** set parameter
          *  @param frequency rotation frequency(Hz).
-         *  @param width stereo width(0-1). 0 means stereo auto pan.
+         *  @param width stereo width(0-1). 0 sets as auto pan with keeping stereo.
          */
         public function setParameters(frequency:Number=1, width:Number=1) : void 
         {
@@ -57,6 +70,7 @@ package org.si.sion.effector {
         
         // overrided funcitons
         //------------------------------------------------------------
+        /** @private */
         override public function initialize() : void
         {
             _lfoResidueStep = 0;
@@ -64,6 +78,7 @@ package org.si.sion.effector {
         }
         
 
+        /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
             setParameters((!isNaN(args[0])) ? args[0] : 1, 
@@ -71,12 +86,14 @@ package org.si.sion.effector {
         }
         
         
+        /** @private */
         override public function prepareProcess() : int
         {
             return (_stereo) ? 2 : 1;
         }
         
         
+        /** @private */
         override public function process(channels:int, buffer:Vector.<Number>, startIndex:int, length:int) : int
         {
             startIndex <<= 1;
@@ -97,6 +114,7 @@ package org.si.sion.effector {
         }
         
         
+        /** @private */
         public function processLFOmono(buffer:Vector.<Number>, startIndex:int, length:int) : void
         {
             var c:Number = _pL.n, s:Number = _pR.n,

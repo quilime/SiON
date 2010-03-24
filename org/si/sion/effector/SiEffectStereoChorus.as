@@ -30,12 +30,23 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectStereoChorus()
+        /** constructor.
+         *  @param delayTime delay time[ms]. maximum value is about 94.
+         *  @param feedback feedback ratio(0-1).
+         *  @param frequency frequency of chorus[Hz].
+         *  @param depth depth of chorus.
+         *  @param wet wet mixing level(0-1).
+         */
+        function SiEffectStereoChorus(delayTime:Number=20, feedback:Number=0.2, frequency:Number=4, depth:Number=20, wet:Number=0.5)
         {
             _delayBufferL = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
             _delayBufferR = new Vector.<Number>(1<<DELAY_BUFFER_BITS);
             _sin = SiEffectTable.instance.sinTable;
+            
+            _lfoPhase = 0;
+            _lfoResidueStep = 0;
+            _pointerRead = 0;
+            setParameters(delayTime, feedback, frequency, depth, wet);
         }
         
         
@@ -48,7 +59,7 @@ package org.si.sion.effector {
          *  @param feedback feedback ratio(0-1).
          *  @param frequency frequency of chorus[Hz].
          *  @param depth depth of chorus.
-         *  @param wet wet mixing level.
+         *  @param wet wet mixing level(0-1).
          */
         public function setParameters(delayTime:Number=20, feedback:Number=0.2, frequency:Number=4, depth:Number=20, wet:Number=0.5) : void {
             var offset:int = int(delayTime * 44.1);

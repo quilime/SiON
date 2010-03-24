@@ -8,13 +8,28 @@ package org.si.sion.effector {
     /** HPF. */
     public class SiFilterHighPass extends SiFilterBase
     {
+    // constructor
+    //------------------------------------------------------------
+        /** constructor.
+         *  @param freq cutoff frequency[Hz].
+         *  @param band band width [oct].
+         */
+        public function SiFilterHighPass(freq:Number=5500, band:Number=1)
+        {
+            setParameters(freq, band);
+        }
+        
+        
+        
+        
     // operations
     //------------------------------------------------------------
         /** set parameters
          *  @param freq cutoff frequency[Hz].
          *  @param band band width [oct].
          */
-        public function setParameters(freq:Number=5500, band:Number=1) : void {
+        public function setParameters(freq:Number=5500, band:Number=1) : void
+        {
             var omg:Number = freq * 0.00014247585730565955, // 2*pi/44100
                 cos:Number = Math.cos(omg), sin:Number = Math.sin(omg),
                 alp:Number = sin * sinh(0.34657359027997264 * band * omg / sin), // log(2)*0.5

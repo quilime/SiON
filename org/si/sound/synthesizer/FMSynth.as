@@ -1,4 +1,4 @@
-// Synthesizer using various frequency modulation sound chip
+// Frequency Modulation Synthesizer
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -10,9 +10,9 @@ package org.si.sound.synthesizer {
     import org.si.sound.base.SoundObject;
     
     
-    /** Synthesizer using various frequency modulation sound chip
+    /** Frequency Modulation Synthesizer
      */
-    public class FMSynth extends SynthesizerBase
+    public class FMSynth extends BasicSynth
     {
     // namespace
     //----------------------------------------
@@ -57,7 +57,7 @@ package org.si.sound.synthesizer {
         
         
         /** @private */
-        public function set voice(v:SiONVoice) : void {
+        override public function set voice(v:SiONVoice) : void {
             _voice.copyFrom(v); // copy from passed voice
             _requireVoiceUpdate = true;
         }
@@ -70,8 +70,7 @@ package org.si.sound.synthesizer {
         /** constructor */
         function FMSynth()
         {
-            _requireVoiceUpdate = false;
-            _voice = new SiONVoice();
+            super();
             operators = new Vector.<FMSynthOperator>(4);
             for (var i:int=0; i<4; i++) operators[i] = new FMSynthOperator(this, i);
         }

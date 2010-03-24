@@ -8,6 +8,17 @@ package org.si.sion.effector {
     /** controlable HPF. */
     public class SiCtrlFilterHighPass extends SiCtrlFilterBase
     {
+        /** constructor. 
+         *  @param cutoff cutoff(0-1).
+         *  @param resonance resonance(0-1).
+         */
+        function SiCtrlFilterHighPass(cutoff:Number=1, resonance:Number=0)
+        {
+            initialize();
+            control(cutoff, resonance);
+        }
+        
+        
         /** @private */
         override protected function processLFO(buffer:Vector.<Number>, startIndex:int, length:int) : void
         {

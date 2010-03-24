@@ -259,7 +259,7 @@ package org.si.sound.synthesizer {
             if (detune  != int.MIN_VALUE) _param.detune = detune;
             if (ams     != int.MIN_VALUE) _param.ams = ams&3;
             if (phase   != int.MIN_VALUE) _param.phase = phase&255;
-            if (fixNote != int.MIN_VALUE) _param.fixedPitchIndex = (fixNote&127)<<6;
+            if (fixNote != int.MIN_VALUE) _param.fixedPitch = (fixNote&127)<<6;
             _owner._requireVoiceUpdate = true;
         }
     }

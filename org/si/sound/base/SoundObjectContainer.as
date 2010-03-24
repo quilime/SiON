@@ -6,6 +6,10 @@
 
 
 package org.si.sound.base {
+    import org.si.sion.*;
+    import org.si.sound.synthesizer.*;
+    
+    
     /** The SoundObjectContainer class is the base class for all objects that can serve as sound object containers on the sound list. 
      */
     public class SoundObjectContainer extends SoundObject
@@ -42,6 +46,19 @@ package org.si.sound.base {
             _note = n;
             for each (var sound:SoundObject in _soundList) sound.note = n;
         }
+
+        /** @private */
+        override public function set voice(v:SiONVoice) : void { 
+            super.voice = v;
+            for each (var sound:SoundObject in _soundList) sound.voice = v;
+        }
+
+        /** @private */
+        override public function set synthesizer(s:VoiceReference) : void {
+            super.synthesizer = s;
+            for each (var sound:SoundObject in _soundList) sound.synthesizer = s;
+        }
+        
         /** @private */
         override public function set length(l:Number) : void {
             _length = l;
@@ -131,6 +148,18 @@ package org.si.sound.base {
             super.reset();
             _thisVolume = 1;
             for each (var sound:SoundObject in _soundList) sound.reset();
+        }
+        
+        
+        /** Set all children's event triggers.
+         *  @param id Event trigger ID of this track. This value can be refered from SiONTrackEvent.eventTriggerID.
+         *  @param noteOnType Dispatching event type at note on. 0=no events, 1=NOTE_ON_FRAME, 2=NOTE_ON_STREAM, 3=both.
+         *  @param noteOffType Dispatching event type at note off. 0=no events, 1=NOTE_OFF_FRAME, 2=NOTE_OFF_STREAM, 3=both.
+         *  @see org.si.sion.events.SiONTrackEvent
+         */
+        override public function setEventTrigger(id:int, noteOnType:int=1, noteOffType:int=0) : void
+        {
+            for each (var sound:SoundObject in _soundList) sound.setEventTrigger(id, noteOnType, noteOffType);
         }
         
         

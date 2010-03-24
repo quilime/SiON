@@ -8,6 +8,20 @@ package org.si.sion.effector {
     /** LPF. */
     public class SiFilterLowPass extends SiFilterBase
     {
+    // constructor
+    //------------------------------------------------------------
+        /** constructor.
+         *  @param freq cutoff frequency[Hz].
+         *  @param band band width [oct].
+         */
+        public function SiFilterLowPass(freq:Number=800, band:Number=1)
+        {
+            setParameters(freq, band);
+        }
+        
+        
+        
+        
     // operations
     //------------------------------------------------------------
         /** set parameters

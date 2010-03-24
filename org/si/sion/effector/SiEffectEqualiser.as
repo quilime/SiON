@@ -27,8 +27,17 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectEqualiser() {}
+        /** constructor.
+         *  @param lowGain low gain(0-1-..).
+         *  @param midGain middle gain(0-1-..).
+         *  @param highGain high gain(0-1-..).
+         *  @param lowFreq frequency for LPF[Hz].
+         *  @param highFreq frequency for HPF[Hz].
+         */
+        function SiEffectEqualiser(lowGain:Number=1, midGain:Number=1, highGain:Number=1, lowFreq:Number=880, highFreq:Number=5000) 
+        {
+            setParameters(lowGain, midGain, highGain, lowFreq, highFreq);
+        }
         
         
         

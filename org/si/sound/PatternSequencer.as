@@ -83,7 +83,8 @@ package org.si.sound {
         
         /** curent note's velocity. */
         public function get velocity() : int {
-            if (_currentNote==null || _currentNote.velocity<0) return _velocity;
+            if (_currentNote == null) return 0;
+            if (_currentNote.velocity<0) return _velocity;
             return _currentNote.velocity;
         }
         public function set velocity(v:int) : void {
@@ -201,13 +202,17 @@ package org.si.sound {
         /** Play sound. */
         override public function play() : void
         {
+            stop();
             _frameCount = 0;
-            var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false, false);
-            if (list.length >= 1) {
-                _track = list[0];
-                _track.setPortament(_portament);
-                _pointer = 0;
-                _currentNote = pattern[0];
+            if (pattern && pattern.length>0) {
+                var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false, false);
+                if (list.length >= 1) {
+                    _track = list[0];
+                    _track.setPortament(_portament);
+                    _pointer = 0;
+                    _currentNote = pattern[0];
+                    _synthesizer._synthesizer_internal::_registerTrack(_track);
+                }
             }
         }
         
@@ -216,10 +221,11 @@ package org.si.sound {
         override public function stop() : void
         {
             if (_track) {
+                _synthesizer._synthesizer_internal::_unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
+                _sequenceOff(false);
             }
-            _sequenceOff(false);
         }
         
         
@@ -234,7 +240,8 @@ package org.si.sound {
             if (pattern && pattern.length>0) {
                 if (_pointer >= pattern.length) _pointer = 0;
                 _currentNote = pattern[_pointer];
-                if (_currentNote && _currentNote.velocity > 0) {
+                var vel:int = velocity;
+                if (vel > 0) {
                     var sampleLength:int = driver.sequencer.calcSampleLength(length);
                     if (onNoteOn != null) onNoteOn();
                     // voice change
@@ -242,9 +249,10 @@ package org.si.sound {
                         voice = voiceList[_currentNote.voiceIndex];
                     }
                     if (_synthesizer._synthesizer_internal::_requireVoiceUpdate) {
-                        _synthesizer.setTrackVoice(_track);
+                        _synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
+                        _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
                     } 
-                    _track.velocity = velocity;
+                    _track.velocity = vel;
                     _track.setNote(note, sampleLength, (_portament>0));
                 }
                 _pointer++;

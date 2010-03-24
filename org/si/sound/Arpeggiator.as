@@ -12,6 +12,7 @@ package org.si.sound {
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.ScaledSoundObject;
+    import org.si.sound.synthesizer._synthesizer_internal;
     
     
     /** Arpeggiator */
@@ -126,11 +127,13 @@ package org.si.sound {
         /** Play sound. */
         override public function play() : void
         {
+            stop();
             var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false);
             if (list.length >= 1) {
                 _track = list[0];
                 _track.setPortament(_portament);
                 _track.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
+                _synthesizer._synthesizer_internal::_registerTrack(_track);
             }
         }
         
@@ -139,10 +142,11 @@ package org.si.sound {
         override public function stop() : void
         {
             if (_track) {
+                _synthesizer._synthesizer_internal::_uregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
+                _sequenceOff(true);
             }
-            _sequenceOff(true);
         }
         
         

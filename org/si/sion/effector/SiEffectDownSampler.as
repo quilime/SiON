@@ -20,8 +20,15 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** Constructor. do nothing. */
-        function SiEffectDownSampler() {}
+        /** Constructor. 
+         *  @param freqShift frequency shift 0=44.1kHz, 1=22.05kHz, 2=11.025kHz.
+         *  @param bitRate bit rate of the sample
+         *  @param channelCount channel count 1=monoral, 2=stereo
+         */
+        function SiEffectDownSampler(freqShift:int=0, bitRate:int=16, channelCount:int=2) 
+        {
+            setParameters(freqShift, bitRate, channelCount);
+        }
         
         
         /** set parameter

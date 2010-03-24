@@ -28,8 +28,17 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** constructor */
-        function SiEffectCompressor() {}
+        /** constructor
+         *  @param thres threshold(0-1).
+         *  @param wndTime window to calculate gain[ms].
+         *  @param attTime attack time [ms/6db].
+         *  @param relTime release time [ms/-6db].
+         *  @param maxGain max gain [db].
+         */
+        function SiEffectCompressor(thres:Number=0.7, wndTime:Number=50, attTime:Number=20, relTime:Number=20, maxGain:Number=-6)
+        {
+            setParameters(thres, wndTime, attTime, relTime, maxGain);
+        }
         
         
         

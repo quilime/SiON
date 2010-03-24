@@ -8,6 +8,21 @@ package org.si.sion.effector {
     /** Peaking EQ. */
     public class SiFilterPeak extends SiFilterBase
     {
+    // constructor
+    //------------------------------------------------------------
+        /** constructor.
+         *  @param freq cutoff frequency[Hz].
+         *  @param band band width [oct].
+         *  @param gain gain [dB].
+         */
+        function SiFilterPeak(freq:Number=3000, band:Number=1, gain:Number=6) 
+        {
+            setParameters(freq, band);
+        }
+        
+        
+        
+        
     // operations
     //------------------------------------------------------------
         /** set parameters

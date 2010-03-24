@@ -230,7 +230,6 @@ package org.si.sion.module.channels {
             setAlgorism(param.opeCount, param.alg);
             setFeedBack(param.fb, param.fbc);
             if (withModulation) {
-                trace(param.pmd);
                 initializeLFO(param.lfoWaveShape);
                 _lfo_timer = (param.lfoFreqStep>0) ? 1 : 0;
                 _lfo_timer_step = param.lfoFreqStep;
@@ -445,6 +444,7 @@ package org.si.sion.module.channels {
                 if (ope._final) ope.rr = rr;
             }
         }
+        
         
         /** Pitch bend (uses SiOPMOperator.detune) */
         override public function set pitchBend(pb:int) : void {

@@ -19,12 +19,17 @@ package org.si.sion.effector {
         
     // constructor
     //------------------------------------------------------------
-        /** Constructor. do nothing. */
-        function SiEffectSpeakerSimulator() {}
+        /** Constructor. 
+         *  @param hardness hardness of diaphragm (0-1). 0 sets no effect. 1 sets hardest.
+         */
+        function SiEffectSpeakerSimulator(hardness:Number=0.2) 
+        {
+            setParameters(hardness);
+        }
         
                 
         /** set parameter
-         *  @param springCoef hardness of diaphragm (0-1). 0 sets no effect. 1 sets hardest.
+         *  @param hardness hardness of diaphragm (0-1). 0 sets no effect. 1 sets hardest.
          */
         public function setParameters(hardness:Number=0.2) : void 
         {

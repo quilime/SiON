@@ -10,6 +10,7 @@ package org.si.sound.base {
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sion.sequencer.SiMMLSequencer;
     import org.si.sion.sequencer.base.MMLSequence;
+    import org.si.sound.synthesizer._synthesizer_internal;
     
     
     /** Sound object with plural tracks */
@@ -214,21 +215,20 @@ package org.si.sound.base {
         /** Play sound. */
         override public function play() : void { 
             if (!_compiled) _compile();
-            if (_tracks) {
-                for each (var t:SiMMLTrack in _tracks) t.setDisposable();
-                _tracks = null;
-            }
+            stop();
             _tracks = _sequenceOn(_data, false);
+            if (_tracks) _synthesizer._synthesizer_internal::_registerTracks(_tracks);
         }
         
         
         /** Stop sound. */
         override public function stop() : void {
             if (_tracks) {
+                _synthesizer._synthesizer_internal::_unregisterTracks(_tracks[0], _tracks.length);
                 for each (var t:SiMMLTrack in _tracks) t.setDisposable();
                 _tracks = null;
+                _sequenceOff(false);
             }
-            _sequenceOff(false);
         }
         
         

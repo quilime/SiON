@@ -1,4 +1,4 @@
-// Synthesizer object
+// Voice reference
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -8,11 +8,10 @@ package org.si.sound.synthesizer {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.SoundObject;
+   
     
-    
-    /** The Synthesizer object is a wrapper of SiONVoice.
-     */
-    public class SynthesizerBase
+    /** Voice reference, basic class of all synthesizers. */
+    public class VoiceReference
     {
     // namespace
     //----------------------------------------
@@ -23,13 +22,10 @@ package org.si.sound.synthesizer {
         
     // valiables
     //----------------------------------------
-        /** Owner sound object */
-        _synthesizer_internal var _owner:SoundObject = null;
-        
-        /** Instance of voice setting */
+        /** @private [synthesizer internal] Instance of voice setting */
         _synthesizer_internal var _voice:SiONVoice = null;
         
-        /** Flag to require voice update */
+        /** @private [synthesizer internal] Flag to require voice update */
         _synthesizer_internal var _requireVoiceUpdate:Boolean;
         
         
@@ -43,14 +39,14 @@ package org.si.sound.synthesizer {
             _requireVoiceUpdate = (_voice !== v);
             _voice = v;
         }
-        
+            
         
         
         
     // constructor
     //----------------------------------------
         /** constructor */
-        function SynthesizerBase()
+        function VoiceReference()
         {
             _requireVoiceUpdate = false;
         }
@@ -60,18 +56,21 @@ package org.si.sound.synthesizer {
         
     // operation
     //----------------------------------------
-        /** set track voice */
-        public function setTrackVoice(track:SiMMLTrack) : void 
+        /** @private [synthesizer internal] register single track */
+        public function _registerTrack(track:SiMMLTrack) : void
         {
-            voice.setTrackVoice(track);
-            _requireVoiceUpdate = false;
         }
         
         
-        /** request voice update */
-        public function requestUpdate() : void
+        /** @private [synthesizer internal] register prural tracks */
+        public function _registerTracks(tracks:Vector.<SiMMLTrack>) : void
         {
-            _requireVoiceUpdate = true;
+        }
+        
+        
+        /** @private [synthesizer internal] unregister tracks */
+        public function _unregisterTracks(firstTrack:SiMMLTrack, count:int=1) : void
+        {
         }
     }
 }
