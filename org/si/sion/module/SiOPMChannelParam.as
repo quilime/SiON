@@ -204,8 +204,9 @@ package org.si.sion.module {
             if (addr < 0x20) {  // Module parameter
                 switch(addr) {
                 case 15: // NOIZE:7 FREQ:4-0 for channel#7
-                    if (channel == 7 && data & 128) {
-                        operatorParam[3].setPGType(SiOPMTable.PG_NOISE_PULSE);
+                    if (channel == 7 && (data & 128)) {
+                        operatorParam[3].pgType = SiOPMTable.PG_NOISE_PULSE;
+                        operatorParam[3].ptType = SiOPMTable.PT_OPM_NOISE;
                         operatorParam[3].fixedPitch = ((data & 31) << 6) + 2048;
                     }
                     break;
@@ -245,7 +246,7 @@ package org.si.sion.module {
                         }
                     } else {
                         // Operator parameter
-                        opp = operatorParam[[0,2,1,3][(addr >> 3) & 3]];
+                        opp = operatorParam[[3,1,2,0][(addr >> 3) & 3]]; // [0,2,1,3]?
                         switch((addr-0x40) >> 5) {
                         case 0: // DT1:6-4 MUL:3-0
                             opp.dt1 = (data >> 4) & 7;

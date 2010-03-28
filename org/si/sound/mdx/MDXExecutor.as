@@ -30,10 +30,10 @@ package org.si.sound.mdx {
         internal var waitSync:Boolean;
         internal var volume:int;
         internal var fineVolumeFlag:Boolean;
-        
+        internal var isPCM8:Boolean;
         
         static private var _panTable:Array = [4,0,8,4];
-        static private var _freqTable:Array = [26,31,38,43,50];//[18,23,30,35,42];
+        static private var _freqTable:Array = [26, 31, 38, 43, 50];
         static private var _volTable:Array = [85,  87,  90,  93,  95,  98, 101, 103,  106, 109, 111, 114, 117, 119, 122, 125];
         static private var _volTablePCM8:Array = [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80];
         static private var _tlTable:Array;
@@ -53,16 +53,16 @@ package org.si.sound.mdx {
                 _tlTable = new Array(128);
                 for (i=0; i<128; i++) _tlTable[127-i] = ((1<<(i>>3))*(8+(i&7)))>>12;
                 for (i=0; i<16; i++) _volTable[i] = _tlTable[127-_volTable[i]];
-                for (i=0; i<16; i++) _volTablePCM8[i] = _tlTable[127-_volTablePCM8[i]];
             }
         }
         
         
-        internal function initialize(mmlseq:MMLSequence, mdxtrack:MDXTrack, noiseVoiceNumber:int) : void 
+        internal function initialize(mmlseq:MMLSequence, mdxtrack:MDXTrack, noiseVoiceNumber:int, isPCM8:Boolean) : void 
         {
             this.mmlseq = mmlseq;
             this.mdxtrack = mdxtrack;
             this.noiseVoiceNumber = noiseVoiceNumber;
+            this.isPCM8 = isPCM8;
             clock = 0;
             pointer = 0;
             pointerMax = mdxtrack.sequence.length;
@@ -83,15 +83,6 @@ package org.si.sound.mdx {
             fineVolumeFlag = false;
             
             if (mmlseq) {
-                if (mdxtrack.channelNumber < 8) {
-                    mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 6); // use FM voice
-                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 32);
-                } else {
-                    mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 7); // use PCM voice
-                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 128);
-                    mmlseq.appendNewEvent(MMLEvent.VOLUME, 24);
-                }
-            
                 var sequencer:SiMMLSequencer = SiONDriver.mutex.sequencer;
                 eventIDFadeOut = sequencer.getEventID("@fadeout");
                 eventIDExp     = sequencer.getEventID("x");
@@ -101,6 +92,18 @@ package org.si.sound.mdx {
                 eventIDAMod    = sequencer.getEventID("ma");
                 eventIDPMod    = sequencer.getEventID("mp");
                 eventIDIndex   = sequencer.getEventID("i");
+                
+                if (mdxtrack.channelNumber < 8) {
+                    mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 6); // use FM voice
+                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 32);
+                    mmlseq.appendNewEvent(MMLEvent.QUANT_RATIO, 8);
+                } else {
+                    mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 7); // use PCM voice
+                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 128);
+                    mmlseq.appendNewEvent(MMLEvent.VOLUME, 22);
+                    mmlseq.appendNewEvent(MMLEvent.QUANT_RATIO, 8);
+                    mmlseq.appendNewEvent(eventIDPShift, 40);
+                }
             }
         }
         
@@ -148,7 +151,10 @@ package org.si.sound.mdx {
                         mmlseq.appendNewEvent(MMLEvent.PITCHBEND, 0, e.deltaClock * 10);
                         lastNoteMML = mmlseq.appendNewEvent(MMLEvent.NOTE, e.data+15 + (v*e.deltaClock+8192)/16384, 0);
                         break;
-                    case MDXEvent.REGISTER: { mmlseq.appendNewEvent(MMLEvent.REGISTER, (e.data << 8) | e.data2); }break;
+                    case MDXEvent.REGISTER: 
+                        mmlseq.appendNewEvent(MMLEvent.REGISTER,  e.data);
+                        mmlseq.appendNewEvent(MMLEvent.PARAMETER, e.data2);
+                        break;
                     case MDXEvent.FADEOUT:  { mmlseq.appendNewEvent(eventIDFadeOut, e.data2); }break;
                     case MDXEvent.VOICE:
                         if (mdxtrack.channelNumber < 8) { // ...?
@@ -251,6 +257,7 @@ package org.si.sound.mdx {
                                 if (noiseVoiceNumber != -1) {
                                     mmlseq.appendNewEvent(MMLEvent.MOD_PARAM, noiseVoiceNumber);
                                     anFreq = e.data & 31;
+//trace("noiz!!");
                                 }
                             } else {
                                 mmlseq.appendNewEvent(MMLEvent.MOD_PARAM, voiceID);
@@ -287,9 +294,7 @@ package org.si.sound.mdx {
 
             function _vol() : void {
                 if (mdxtrack.channelNumber < 8) mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
-                else {
-                    mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
-                }
+                else mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? (127-volume) : _volTable[volume]);
             }
             
             function _mod(eventID:int, data:int, ws:int, fq:int) : void {
@@ -322,7 +327,7 @@ package org.si.sound.mdx {
                     data.onSyncSend(e.data, syncClock);
                     break;
                 case MDXEvent.TIMERB:
-                    data.onTimerB(e.data);
+                    data.onTimerB(e.data, syncClock);
                     break;
                 case MDXEvent.SYNC_WAIT:
                     syncWaitSync = true;

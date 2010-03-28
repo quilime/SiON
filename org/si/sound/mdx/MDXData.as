@@ -11,6 +11,7 @@ package org.si.sound.mdx {
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.sequencer.base.MMLEvent;
+    import org.si.sion.sequencer.base.MMLSequence;
     import flash.utils.ByteArray;
     
     
@@ -26,9 +27,11 @@ package org.si.sound.mdx {
         public var voices:Vector.<SiONVoice> = new Vector.<SiONVoice>(256, true);
         public var tracks:Vector.<MDXTrack> = new Vector.<MDXTrack>(16, true);
         public var executors:Vector.<MDXExecutor> = new Vector.<MDXExecutor>(16, true);
-        public var currentBPM:Number;
         private var _noiseVoice:SiONVoice;
         private var _noiseVoiceNumber:int;
+        private var _currentBPM:Number;
+        private var _globalSequence:MMLSequence;
+        private var _globalPrevClock:uint;
         
         
         
@@ -90,6 +93,7 @@ package org.si.sound.mdx {
             if (data == null) data = new SiONData();
             data.clear();
             data.bpm = bpm;
+            _globalSequence = data.globalSequence;
             
             // set voice data
             imax = voices.length;
@@ -99,26 +103,29 @@ package org.si.sound.mdx {
             if (pdxData) {
                 imax = 96;
                 for (i=0; i<imax; i++) {
-                    data.setPCMData(i, pdxData.pcmData[i]);
+                    if (pdxData.pcmData[i]) data.setPCMData(i, pdxData.pcmData[i]);
                 }
             }
             
             // construct mml sequences
             imax = (isPCM8) ? 16 : 9;
             for (i=0; i<imax; i++) {
-                if (tracks[i].hasNoData) executors[i].initialize(null, tracks[i], _noiseVoiceNumber);
-                else executors[i].initialize(data.appendNewSequence().initialize(), tracks[i], _noiseVoiceNumber);
+                if (tracks[i].hasNoData) executors[i].initialize(null, tracks[i], _noiseVoiceNumber, isPCM8);
+                else executors[i].initialize(data.appendNewSequence().initialize(), tracks[i], _noiseVoiceNumber, isPCM8);
             }
 
             var totalClock:uint=0, nextClock:uint, c:uint;
-            currentBPM = bpm;
+            _currentBPM = bpm;
+            _globalPrevClock = 0;
             while (totalClock != uint.MAX_VALUE) {
                 // sync
-                for (i=0; i<imax; i++) executors[i].globalExec(totalClock, this);
+                for (i=0; i<imax; i++) {
+                    executors[i].globalExec(totalClock, this);
+                }
                 // exec
                 nextClock = uint.MAX_VALUE;
                 for (i=0; i<imax; i++) {
-                    c = executors[i].exec(totalClock, currentBPM);
+                    c = executors[i].exec(totalClock, _currentBPM);
                     if (c < nextClock) nextClock = c;
                 }
                 totalClock = nextClock;
@@ -152,7 +159,10 @@ package org.si.sound.mdx {
             while (true) { if (bytes.readByte() == 0) break; }
             pdxLength = bytes.position - titleLength - 4;
             bytes.position = titleLength + 3;
-            if (pdxLength != 0) pdxFileName = bytes.readMultiByte(pdxLength, "shift_jis"); //us-ascii
+            if (pdxLength != 0) {
+                pdxFileName = bytes.readMultiByte(pdxLength, "shift_jis").toUpperCase(); //us-ascii
+                if (pdxFileName.substr(-4,4) != ".PDX") pdxFileName += ".PDX";
+            }
             bytes.position = titleLength + pdxLength + 4;
             
             // data offsets
@@ -181,7 +191,8 @@ package org.si.sound.mdx {
             var i:int, opi:int, v:int, voice:SiONVoice, voiceNumber:int, fbalg:int, mask:int, 
                 opp:SiOPMOperatorParam, reg:Array = [], opia:Array = [3,1,2,0], dt2Table:Array = [0, 384, 500, 608];
             
-            for (i=0; i<voiceLength; i+=27) {
+            voiceLength /= 27;
+            for (i=0; i<voiceLength; i++) {
                 voiceNumber = bytes.readUnsignedByte();
                 fbalg = bytes.readUnsignedByte();
                 mask  = bytes.readUnsignedByte();
@@ -256,9 +267,13 @@ package org.si.sound.mdx {
         
         
         /** @private [internal] call from MDXExecutor.sync() */
-        internal function onTimerB(timerB:int) : void
+        internal function onTimerB(timerB:int, syncClock:uint) : void
         {
-            currentBPM = 4883/(256-timerB);
+            if (syncClock == 0) return;
+            if (syncClock > _globalPrevClock) _globalSequence.appendNewEvent(MMLEvent.WAIT, 0, (syncClock - _globalPrevClock)*10);
+            _globalPrevClock = syncClock;
+            _currentBPM = 4883/(256-timerB);
+            _globalSequence.appendNewEvent(MMLEvent.TEMPO, _currentBPM);
         }
     }
 }

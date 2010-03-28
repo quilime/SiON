@@ -1593,8 +1593,8 @@ package org.si.sion.sequencer {
         // register event
         private function _onRegisterUpdate(e:MMLEvent) : MMLEvent
         {
-            var addr:int = e.data>>8, data:int = e.data & 0xff;
-            _currentTrack._callbackUpdateRegister(addr, data);
+            e = e.getParameters(_p, 2);
+            _currentTrack._callbackUpdateRegister(_p[0], _p[1]);
             return e.next;
         }
         

@@ -80,6 +80,7 @@ package org.si.sion.module.channels {
         
         /** register map type */
         _sion_internal var registerMapType:int;
+        _sion_internal var registerMapChannel:int;
         
         
         
@@ -317,15 +318,18 @@ package org.si.sion.module.channels {
             var pcmData:SiOPMWavePCMData = waveData as SiOPMWavePCMData;
             if (waveData is SiOPMWavePCMTable) pcmData = (waveData as SiOPMWavePCMTable).getSample(0);
             
-            if (pcmData) {
+            if (pcmData && pcmData.wavelet) {
                 _updateOperatorCount(1);
                 _funcProcessType = PROC_PCM;
                 _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
                 activeOperator.setPCMData(pcmData);
             } else 
             if (waveData is SiOPMWaveTable) {
-                _updateOperatorCount(1);
-                activeOperator.setWaveTable(waveData as SiOPMWaveTable);
+                var waveTable:SiOPMWaveTable = waveData as SiOPMWaveTable;
+                if (waveTable.wavelet) {
+                    _updateOperatorCount(1);
+                    activeOperator.setWaveTable(waveTable);
+                }
             }
         }
         
@@ -334,10 +338,10 @@ package org.si.sion.module.channels {
         override public function setRegister(addr:int, data:int) : void
         {
             switch(_sion_internal::registerMapType) {
-            case 1: 
+            case 0:
                 _setByOPMRegister(addr, data);
                 break;
-            case 0:
+            case 1: 
             default:
                 _setBy2A03Register(addr, data);
                 break;
@@ -352,8 +356,90 @@ package org.si.sion.module.channels {
         
         
         // OPM register value
+        private var _pmd:int=0, _amd:int=0;
         private function _setByOPMRegister(addr:int, data:int) : void
         {
+            var i:int, v:int, pms:int, ams:int, op:SiOPMOperator, 
+                channel:int = _sion_internal::registerMapChannel;
+            
+            if (addr < 0x20) {  // Module parameter
+                switch(addr) {
+                case 15: // NOIZE:7 FREQ:4-0 for channel#7
+                    if (channel == 7 && _operatorCount==4 && (data & 128) != 0) {
+                        operator[3].pgType = SiOPMTable.PG_NOISE_PULSE;
+                        operator[3].ptType = SiOPMTable.PT_OPM_NOISE;
+                        operator[3].pitchIndex = ((data & 31) << 6) + 2048;
+                    }
+                    break;
+                case 24: // LFO FREQ:7-0 for all 8 channels
+                    v = SiOPMTable.instance.lfo_timerSteps[data];
+                    _lfo_timer = (v>0) ? 1 : 0;
+                    _lfo_timer_step = v;
+                    break;
+                case 25: // A(0)/P(1):7 DEPTH:6-0 for all 8 channels
+                    if (data & 128) _amd = data & 127;
+                    else            _pmd = data & 127;
+                    break;
+                case 27: // LFO WS:10 for all 8 channels
+                    initializeLFO(data & 3);
+                    break;
+                }
+            } else {
+                if (channel == (addr&7)) {
+                    if (addr < 0x40) {
+                        // Channel parameter
+                        switch((addr-0x20) >> 3) {
+                        case 0: // L:7 R:6 FB:5-3 ALG:2-0
+                            v = data >> 6;
+                            setAlgorism(4, data & 7);
+                            setFeedBack((data >> 3) & 7, 0);
+                            _volumes[0] = (v) ? 0.5 : 0;
+                            _pan = (v==1) ? 128 : (v==2) ? 0 : 64;
+                            break;
+                        case 1: // KC:6-0
+                            for (i=0; i<4; i++) operator[i].kc = data & 127;
+                            break;
+                        case 2: // KF:6-0
+                            for (i=0; i<4; i++) operator[i].kf = data & 127;
+                            break;
+                        case 3: // PMS:6-4 AMS:10
+                            pms = (data >> 4) & 7;
+                            ams = (data     ) & 3;
+                            if (data & 128) setPitchModulation((pms<6) ? (_pmd >> (6-pms)) : (_pmd << (pms-5)));
+                            else            setAmplitudeModulation((ams>0) ? (_amd << (ams-1)) : 0);
+                            break;
+                        }
+                    } else {
+                        // Operator parameter
+                        op = operator[[3,1,2,0][(addr >> 3) & 3]]; // [0,2,1,3]
+                        switch((addr-0x40) >> 5) {
+                        case 0: // DT1:6-4 MUL:3-0
+                            op.dt1 = (data >> 4) & 7;
+                            op.mul = (data     ) & 15;
+                            break;
+                        case 1: // TL:6-0
+                            op.tl = data & 127;
+                            break;
+                        case 2: // KS:76 AR:4-0
+                            op.ks = (data >> 6) & 3;
+                            op.ar = (data & 31) << 1;
+                            break;
+                        case 3: // AMS:7 DR:4-0
+                            op.ams = ((data >> 7) & 1)<<1;
+                            op.dr  = (data & 31) << 1;
+                            break;
+                        case 4: // DT2:76 SR:4-0
+                            op.detune = [0, 384, 500, 608][(data >> 6) & 3];
+                            op.sr     = (data & 31) << 1;
+                            break;
+                        case 5: // SL:7-4 RR:3-0
+                            op.sl = (data >> 4) & 15;
+                            op.rr = (data & 15) << 2;
+                            break;
+                        }
+                    }
+                }
+            }
         }
         
         
@@ -522,7 +608,8 @@ package org.si.sion.module.channels {
             _updateOperatorCount(1);
             operator[0].initialize();
             _isNoteOn = false;
-            _sion_internal::registerMapType = 0;
+            _sion_internal::registerMapType = 0
+            _sion_internal::registerMapChannel = 0;
             
             // initialize sound channel
             super.initialize(prev, bufferIndex);
@@ -1130,7 +1217,6 @@ package org.si.sion.module.channels {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
                 phase_filter:int = SiOPMTable.PHASE_FILTER;
-            
             
             // buffering
             var ip:SLLint = _inPipe,

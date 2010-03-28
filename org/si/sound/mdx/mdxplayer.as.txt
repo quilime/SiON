@@ -51,11 +51,13 @@ package {
         
         private function _onPDXLoad(name:String, bytes:ByteArray) : void {
             pdxData.loadBytes(bytes);
-            pdxData.fileName = name;
-            _onComplete();
+            pdxData.fileName = name.toUpperCase();
+            if (pdxData.fileName != mdxData.pdxFileName) title.text = mdxData.pdxFileName + "; Wrong PDX file ?";
+            else _onComplete();
         }
         
         private function _onComplete() : void {
+            driver.stop();
             sionData = mdxData.convertToSiONData(sionData, pdxData);
             title.text = sionData.title;
             driver.play(sionData);

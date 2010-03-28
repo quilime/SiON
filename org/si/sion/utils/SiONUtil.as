@@ -122,7 +122,6 @@ package org.si.sion.utils {
          */
         static public function extractYM2151ADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
         {
-            
             var data:int, r:int, i:int, imax:int, pcm:int=0, sample:Number, 
                 InpPcm:int=0, InpPcm_prev:int=0, scale:int=0, output:int=0;
         
