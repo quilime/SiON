@@ -56,8 +56,11 @@ package org.si.sion {
          *  @param ar Attack rate (0-63).
          *  @param rr Release rate (0-63).
          *  @param dt pitchShift (64=1halftone).
+         *  @param con connection type of 2nd operator, -1 sets 1operator voice.
+         *  @param ws2 wave shape of 2nd operator.
+         *  @param dt2 pitchShift of 2nd operator (64=1halftone).
          */
-        function SiONVoice(moduleType:int=5, channelNum:int=0, ar:int=63, rr:int=63, dt:int=0)
+        function SiONVoice(moduleType:int=5, channelNum:int=0, ar:int=63, rr:int=63, dt:int=0, connectionType:int=-1, ws2:int=0, dt2:int=0)
         {
             super();
             
@@ -67,6 +70,13 @@ package org.si.sion {
             channelParam.operatorParam[0].ar = ar;
             channelParam.operatorParam[0].rr = rr;
             pitchShift = dt;
+            if (connectionType >= 0) {
+                channelParam.opeCount = 5;
+                channelParam.alg = (connectionType<=2) ? connectionType : 0;
+                channelParam.operatorParam[0].pgType = channelNum;
+                channelParam.operatorParam[1].pgType = ws2;
+                channelParam.operatorParam[1].detune = dt2;
+            }
         }
         
         

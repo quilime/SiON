@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.SoundObject;
@@ -67,10 +67,12 @@ package org.si.sound.synthesizer {
         
     // constructor
     //----------------------------------------
-        /** constructor */
-        function FMSynth()
+        /** constructor 
+         *  @param channelNumber pseudo channel number.
+         */
+        function FMSynth(channelNumber:int = 0)
         {
-            super();
+            super(5, channelNumber);
             operators = new Vector.<FMSynthOperator>(4);
             for (var i:int=0; i<4; i++) operators[i] = new FMSynthOperator(this, i);
         }

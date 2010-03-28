@@ -33,8 +33,9 @@ package org.si.sound.mdx {
         
         
         static private var _panTable:Array = [4,0,8,4];
-        static private var _freqTable:Array = [18,23,30,35,42];
+        static private var _freqTable:Array = [26,31,38,43,50];//[18,23,30,35,42];
         static private var _volTable:Array = [85,  87,  90,  93,  95,  98, 101, 103,  106, 109, 111, 114, 117, 119, 122, 125];
+        static private var _volTablePCM8:Array = [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80];
         static private var _tlTable:Array;
 
         private var eventIDFadeOut:int;
@@ -52,6 +53,7 @@ package org.si.sound.mdx {
                 _tlTable = new Array(128);
                 for (i=0; i<128; i++) _tlTable[127-i] = ((1<<(i>>3))*(8+(i&7)))>>12;
                 for (i=0; i<16; i++) _volTable[i] = _tlTable[127-_volTable[i]];
+                for (i=0; i<16; i++) _volTablePCM8[i] = _tlTable[127-_volTablePCM8[i]];
             }
         }
         
@@ -87,6 +89,7 @@ package org.si.sound.mdx {
                 } else {
                     mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 7); // use PCM voice
                     mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 128);
+                    mmlseq.appendNewEvent(MMLEvent.VOLUME, 24);
                 }
             
                 var sequencer:SiMMLSequencer = SiONDriver.mutex.sequencer;
@@ -162,18 +165,14 @@ package org.si.sound.mdx {
                         }
                         break;
                     case MDXEvent.VOLUME:
-                        if (mdxtrack.channelNumber < 8) {
-                            if (e.data < 16) {
-                                volume = e.data;
-                                fineVolumeFlag = false;
-                            } else {
-                                volume = e.data & 127;
-                                fineVolumeFlag = true;
-                            }
-                            _vol();
+                        if (e.data < 16) {
+                            volume = e.data;
+                            fineVolumeFlag = false;
                         } else {
-                            mmlseq.appendNewEvent(eventIDExp, 127);
+                            volume = e.data & 127;
+                            fineVolumeFlag = true;
                         }
+                        _vol();
                         break;
                     case MDXEvent.VOLUME_DEC:
                         if (--volume == 0) volume=0;
@@ -287,7 +286,10 @@ package org.si.sound.mdx {
             return (pointer >= pointerMax || waitSync) ? uint.MAX_VALUE : clock;
 
             function _vol() : void {
-                mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
+                if (mdxtrack.channelNumber < 8) mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
+                else {
+                    mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
+                }
             }
             
             function _mod(eventID:int, data:int, ws:int, fq:int) : void {
@@ -333,7 +335,7 @@ package org.si.sound.mdx {
         
         
         internal function sync(currentClock:uint) : void {
-trace(currentClock, clock);
+//trace(currentClock, clock);
             if (currentClock > clock) {
                 mmlseq.appendNewEvent(MMLEvent.REST, 0, (currentClock - clock)*10);
                 clock = currentClock;

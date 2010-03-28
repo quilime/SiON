@@ -26,7 +26,7 @@ package org.si.sion.module {
         static public const SAMPLING_TABLE_BITS :int = 10;   // sine wave table entries = 2 ^ SAMPLING_TABLE_BITS = 1024
         static public const HALF_TONE_BITS      :int = 6;    // half tone resolution    = 2 ^ HALF_TONE_BITS      = 64
         static public const NOTE_BITS           :int = 7;    // max note value          = 2 ^ NOTE_BITS           = 128
-        static public const NOISE_TABLE_BITS    :int = 15;   // 16k noise 
+        static public const NOISE_TABLE_BITS    :int = 15;   // 32k noise 
         static public const LOG_TABLE_RESOLUTION:int = 256;  // log table resolution    = LOG_TABLE_RESOLUTION for every 1/2 scaling.
         static public const LOG_VOLUME_BITS     :int = 13;   // _logTable[0] = 2^13 at maximum
         static public const LOG_TABLE_MAX_BITS  :int = 16;   // _logTable entries
@@ -74,7 +74,7 @@ package org.si.sion.module {
         static public const PG_TRIANGLE_FC:int = 3;     // triangle wave quantized by 4bit
         static public const PG_TRIANGLE   :int = 4;     // triangle wave
         static public const PG_SQUARE     :int = 5;     // square wave
-        static public const PG_NOISE      :int = 6;     // 16k white noise
+        static public const PG_NOISE      :int = 6;     // 32k white noise
         static public const PG_KNMBSMM    :int = 7;     // knmbsmm wave
         static public const PG_SYNC_LOW   :int = 8;     // pseudo sync (low freq.)
         static public const PG_SYNC_HIGH  :int = 9;     // pseudo sync (high freq.)

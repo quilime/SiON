@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.sequencer.SiMMLTrack;

@@ -1,18 +1,18 @@
-// Sampler Synthesizer
+// Physical Modeling Guitar Synthesizer 
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.SoundObject;
     
     
-    /** Sampler Synthesizer
+    /** Physical Modeling Guitar Synthesizer 
      */
-    public class SamplerSynth extends BasicSynth
+    public class PMGuitarSynth extends BasicSynth
     {
     // namespace
     //----------------------------------------
@@ -33,10 +33,11 @@ package org.si.sound.synthesizer {
         
         
         
+        
     // constructor
     //----------------------------------------
         /** constructor */
-        function SamplerSynth()
+        function PMGuitarSynth()
         {
         }
         

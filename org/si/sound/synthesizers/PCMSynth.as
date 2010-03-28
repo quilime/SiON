@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import flash.media.Sound;
     import org.si.sion.*;
     import org.si.sion.module.*;

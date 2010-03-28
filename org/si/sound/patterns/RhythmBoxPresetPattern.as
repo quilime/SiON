@@ -5,14 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
-    import org.si.sion.*;
-    import org.si.sound.base.*;
-    import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sion.sequencer.SiMMLSequencer;
-    import org.si.sion.sequencer.base.MMLSequence;
-    
-    
+package org.si.sound.patterns {
     /** Preset patterns for RhythmBox */
     public dynamic class RhythmBoxPresetPattern 
     {

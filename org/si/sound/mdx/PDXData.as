@@ -70,7 +70,7 @@ package org.si.sound.mdx {
                     adpcmData[i] = new ByteArray();
                     bytes.position = offset;
                     bytes.readBytes(adpcmData[i], 0, length);
-                    if (extractAll) pcmData[i] = SiONUtil.extractADPCM(adpcmData[i]);
+                    if (extractAll) pcmData[i] = SiONUtil.extractYM2151ADPCM(adpcmData[i]);
                 }
             }
             
@@ -86,7 +86,7 @@ package org.si.sound.mdx {
         {
             if (pcmData[noteNumber] != null) return pcmData[noteNumber];
             if (adpcmData[noteNumber] == null) return null;
-            pcmData[noteNumber] = SiONUtil.extractADPCM(adpcmData[noteNumber]);
+            pcmData[noteNumber] = SiONUtil.extractYM2151ADPCM(adpcmData[noteNumber]);
             return pcmData[noteNumber];
         }
     }

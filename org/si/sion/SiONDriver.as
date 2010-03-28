@@ -1138,6 +1138,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     effector.parseMML(cmd.number, cmd.content, cmd.postfix);
                     break;
                 case "#WAVCOLOR":
+                case "#WAVC":
                     wcol = parseInt(cmd.content, 16);
                     setWaveTable(cmd.number, SiONUtil.waveColor(wcol));
                     break;

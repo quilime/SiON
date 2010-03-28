@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.sequencer.SiMMLTrack;
@@ -38,7 +38,7 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** cutoff(0-1) */
+        /** low-pass filter cutoff(0-1). */
         public function get cutoff() : Number { return _voice.channelParam.cutoff * 0.0078125; }
         public function set cutoff(c:Number) : void {
             var i:int, imax:int = _tracks.length, p:SiOPMChannelParam = _voice.channelParam;
@@ -49,7 +49,7 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** resonance(0-1) */
+        /** low-pass filter resonance(0-1). */
         public function get resonance() : Number { return _voice.channelParam.resonance * 0.1111111111111111; }
         public function set resonance(r:Number) : void {
             var i:int, imax:int = _tracks.length, p:SiOPMChannelParam = _voice.channelParam;
@@ -60,7 +60,24 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** amplitude modulation */
+        /** modulation (low-frequency oscillator) wave shape, 0=saw, 1=square, 2=triangle, 3=random. */
+        public function get lfoWaveShape() : int { return _voice.channelParam.lfoWaveShape; }
+        public function set lfoWaveShape(type:int) : void {
+            _voice.channelParam.lfoWaveShape = type;
+            _requireVoiceUpdate = true;
+        }
+        
+        /** modulation (low-frequency oscillator) cycle frames. */
+        public function get lfoCycleFrames() : int { return _voice.channelParam.lfoFrame; }
+        public function set lfoCycleFrames(frame:int) : void {
+            _voice.channelParam.lfoFrame = frame;
+            var i:int, imax:int = _tracks.length, ms:Number = frame*1000/60;
+            for (i=0; i<imax; i++) {
+                _tracks[i].channel.setLFOCycleTime(ms);
+            }
+        }
+        
+        /** amplitude modulation. */
         public function get amplitudeModulation() : int { return _voice.amDepth; }
         public function set amplitudeModulation(m:int) : void {
             _voice.channelParam.amd = _voice.amDepth = m;
@@ -71,7 +88,7 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** pitch modulation */
+        /** pitch modulation. */
         public function get pitchModulation() : int { return _voice.pmDepth; }
         public function set pitchModulation(m:int) : void {
             _voice.channelParam.pmd = _voice.pmDepth = m;
@@ -86,10 +103,16 @@ package org.si.sound.synthesizer {
         
     // constructor
     //----------------------------------------
-        /** constructor */
-        function BasicSynth()
+        /** constructor.
+         *  @param moduleType Module type. 1st argument of '%'.
+         *  @param channelNum Channel number. 2nd argument of '%'.
+         *  @param ar Attack rate (0-63).
+         *  @param rr Release rate (0-63).
+         *  @param dt pitchShift (64=1halftone).
+         */
+        function BasicSynth(moduleType:int=5, channelNum:int=0, ar:int=63, rr:int=63, dt:int=0)
         {
-            _voice = new SiONVoice();
+            _voice = new SiONVoice(moduleType, channelNum, ar, rr, dt);
             _tracks = new Vector.<SiMMLTrack>();
         }
         
@@ -98,7 +121,7 @@ package org.si.sound.synthesizer {
         
     // operations
     //----------------------------------------
-        /** set low-pass filter envelop.
+        /** set low-pass filter envelop (same as '@f' command in MML).
          *  @param cutoff LP filter cutoff (0-128)
          *  @param resonance LP filter resonance (0-9)
          *  @param far LP filter attack rate (0-63)
@@ -117,7 +140,7 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** Set amplitude modulation parameters (same as "ma" command of MML).
+        /** Set amplitude modulation parameters (same as "ma" command in MML).
          *  @param depth start modulation depth (same as 1st argument)
          *  @param end_depth end modulation depth (same as 2nd argument)
          *  @param delay changing delay (same as 3rd argument)
@@ -131,7 +154,7 @@ package org.si.sound.synthesizer {
         }
         
         
-        /** Set amplitude modulation parameters (same as "mp" command of MML).
+        /** Set amplitude modulation parameters (same as "mp" command in MML).
          *  @param depth start modulation depth (same as 1st argument)
          *  @param end_depth end modulation depth (same as 2nd argument)
          *  @param delay changing delay (same as 3rd argument)

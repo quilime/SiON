@@ -5,7 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound {
+package org.si.sound.patterns {
     /** Note object used in PatternSequencer. */
     public class Note
     {

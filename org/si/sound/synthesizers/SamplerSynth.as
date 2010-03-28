@@ -1,18 +1,18 @@
-// Wave Table Synthesizer 
+// Sampler Synthesizer
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.synthesizer {
+package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.SoundObject;
     
     
-    /** Wave Table Synthesizer 
+    /** Sampler Synthesizer
      */
-    public class WaveTableSynth extends BasicSynth
+    public class SamplerSynth extends BasicSynth
     {
     // namespace
     //----------------------------------------
@@ -36,7 +36,7 @@ package org.si.sound.synthesizer {
     // constructor
     //----------------------------------------
         /** constructor */
-        function WaveTableSynth()
+        function SamplerSynth()
         {
         }
         

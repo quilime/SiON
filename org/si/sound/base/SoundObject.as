@@ -14,9 +14,9 @@ package org.si.sound.base {
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.effector.SiEffectBase;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.synthesizer.VoiceReference;
-    import org.si.sound.synthesizer.BasicSynth;
-    import org.si.sound.synthesizer._synthesizer_internal;
+    import org.si.sound.synthesizers.VoiceReference;
+    import org.si.sound.synthesizers.BasicSynth;
+    import org.si.sound.synthesizers._synthesizer_internal;
     
     
     /** The SoundObject class is the base class for all objects that can be played sounds on the SiONDriver. 
@@ -418,7 +418,7 @@ package org.si.sound.base {
         {
             stop();
             _track = _noteOn(_note, false);
-            if (_track) _synthesizer._synthesizer_internal::_registerTrack(_track);
+            if (_track) _synthesizer._registerTrack(_track);
         }
         
         
@@ -426,7 +426,7 @@ package org.si.sound.base {
         public function stop() : void
         {
             if (_track) {
-                _synthesizer._synthesizer_internal::_unregisterTracks(_track);
+                _synthesizer._unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
                 _noteOff(-1, false);

@@ -114,13 +114,73 @@ package org.si.sion.utils {
         }
         
         
-        /** extract ADPCM data
+        /** extract ADPCM data (YM2151). this algorism is from x68ksound.dll's source code.
          *  @param src The ADPCM ByteArray data extracting from. 
          *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
          *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
          *  @return extracted data.
          */
-        static public function extractADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
+        static public function extractYM2151ADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
+        {
+            
+            var data:int, r:int, i:int, imax:int, pcm:int=0, sample:Number, 
+                InpPcm:int=0, InpPcm_prev:int=0, scale:int=0, output:int=0;
+        
+            // chaging ratio table
+            var crTable:Vector.<int> = Vector.<int>([1,3,5,7,9,11,13,15,-1,-3,-5,-7,-9,-11,-13,-15]);
+            // from x68ksound.dll source
+            var dltLTBL:Vector.<int> = Vector.<int>([ 16, 17, 19, 21, 23, 25, 28, 31,  34, 37, 41, 45, 50, 55, 60, 66,
+                                                      73, 80, 88, 97,107,118,130,143, 157,173,190,209,230,253,279,307, 
+                                                     337,371,408,449,494,544,598,658, 724,796,876,963,1060,1166,1282,1411,1552]);
+            var DCT:Vector.<int> = Vector.<int>([-1,-1,-1,-1,2,4,6,8,-1,-1,-1,-1,2,4,6,8]);
+
+            imax = src.length * 4;
+            if (dst == null) dst = new Vector.<Number>();
+            dst.length = imax;
+            
+            for (i=0; i<imax;) {
+                data = src.readUnsignedByte();
+
+                r = data & 0x0f;
+                pcm += (dltLTBL[scale] * crTable[r]) >> 3;
+                scale += DCT[r];
+                if (pcm < -2048) pcm = -2048;
+                else if (pcm > 2047) pcm = 2047;
+                if (scale < 0) scale = 0;
+                else if (scale  > 48) scale = 48;
+                InpPcm = (pcm & 0xfffffffc) << 8;
+                output = ((InpPcm<<9) - (InpPcm_prev<<9) + 459*output) >> 9;
+                InpPcm_prev = InpPcm;
+                sample = output * 0.0000019073486328125;
+                dst[i] = sample; i++;
+                dst[i] = sample; i++;
+                
+                r = (data >> 4) & 0x0f;
+                pcm += (dltLTBL[scale] * crTable[r]) >> 3;
+                scale += DCT[r];
+                if (pcm < -2048) pcm = -2048;
+                else if (pcm > 2047) pcm = 2047;
+                if (scale < 0) scale = 0;
+                else if (scale  > 48) scale = 48;
+                InpPcm = (pcm & 0xfffffffc) << 8;
+                output = ((InpPcm<<9) - (InpPcm_prev<<9) + 459*output) >> 9;
+                InpPcm_prev = InpPcm;
+                sample = output * 0.0000019073486328125;
+                dst[i] = sample; i++;
+                dst[i] = sample; i++;
+            }
+            
+            return dst;
+        }
+        
+        
+        /** extract ADPCM data (YM2608)
+         *  @param src The ADPCM ByteArray data extracting from. 
+         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
+         *  @return extracted data.
+         */
+        static public function extractYM2608ADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
         {
             var data:int, r0:int, r1:int, i:int, imax:int, 
                 predRate:int = 127, output:int = 0;

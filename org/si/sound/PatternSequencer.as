@@ -10,7 +10,8 @@ package org.si.sound {
     import org.si.sion.sequencer.base.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.*;
-    import org.si.sound.synthesizer._synthesizer_internal;
+    import org.si.sound.patterns.Note;
+    import org.si.sound.synthesizers._synthesizer_internal;
     
     
     /** Pattern sequencer */
@@ -211,7 +212,7 @@ package org.si.sound {
                     _track.setPortament(_portament);
                     _pointer = 0;
                     _currentNote = pattern[0];
-                    _synthesizer._synthesizer_internal::_registerTrack(_track);
+                    _synthesizer._registerTrack(_track);
                 }
             }
         }
@@ -221,7 +222,7 @@ package org.si.sound {
         override public function stop() : void
         {
             if (_track) {
-                _synthesizer._synthesizer_internal::_unregisterTracks(_track);
+                _synthesizer._unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
                 _sequenceOff(false);

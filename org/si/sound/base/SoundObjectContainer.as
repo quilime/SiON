@@ -7,7 +7,7 @@
 
 package org.si.sound.base {
     import org.si.sion.*;
-    import org.si.sound.synthesizer.*;
+    import org.si.sound.synthesizers.*;
     
     
     /** The SoundObjectContainer class is the base class for all objects that can serve as sound object containers on the sound list. 
@@ -122,6 +122,15 @@ package org.si.sound.base {
         override public function set pitchBend(p:Number) : void {
             _pitchBend = p;
             for each (var sound:SoundObject in _soundList) sound.pitchBend = p;
+        }
+        
+        
+        /** In current version, SoundContainer's effectors property is not available. */
+        override public function get effectors() : * {
+            return _effectChain.effectList;
+        }
+        override public function set effectors(obj:*) :void {
+            throw new Error("SoundContainer; In current version, SoundContainer's effectors property is not available");
         }
         
         
