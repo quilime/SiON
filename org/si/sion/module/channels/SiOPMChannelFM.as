@@ -460,7 +460,6 @@ package org.si.sion.module.channels {
             case 5:  _analog(alg);     break;
             default: _algorism1(alg);  break;
             }
-        
         }
         
         
@@ -528,14 +527,6 @@ package org.si.sion.module.channels {
             for (i=0; i<_operatorCount; i++) {
                 ope = operator[i];
                 if (ope._final) ope.rr = rr;
-            }
-        }
-        
-        
-        /** Pitch bend (uses SiOPMOperator.detune) */
-        override public function set pitchBend(pb:int) : void {
-            for (var i:int=0; i<_operatorCount; i++) {
-                operator[i].detune = pb;
             }
         }
         
@@ -1409,6 +1400,7 @@ package org.si.sion.module.channels {
                         if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                     }
                     ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope1._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope1._eg_total_level)<<3;
                     ope0._eg_counter = (ope0._eg_counter+1)&7;
                     ope0._eg_timer += _eg_timer_initial;
                 }
@@ -1426,7 +1418,7 @@ package org.si.sion.module.channels {
                 ope1._phase += ope1._phase_step;
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
-                l += ope0._eg_out + (_am_out>>ope0._ams);
+                l += ope1._eg_out + (_am_out>>ope0._ams);
                 out1 = _table.logTable[l];
 
                 // output and increment pointers
@@ -1484,6 +1476,7 @@ package org.si.sion.module.channels {
                         if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                     }
                     ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope1._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope1._eg_total_level)<<3;
                     ope0._eg_counter = (ope0._eg_counter+1)&7;
                     ope0._eg_timer += _eg_timer_initial;
                 }
@@ -1499,7 +1492,7 @@ package org.si.sion.module.channels {
                 ope1._phase += ope1._phase_step;
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l += ope1._waveTable[t];
-                l += ope0._eg_out + (_am_out>>ope0._ams);
+                l += ope1._eg_out + (_am_out>>ope0._ams);
                 out0 = _table.logTable[l];
 
                 // output and increment pointers
@@ -1558,6 +1551,7 @@ package org.si.sion.module.channels {
                         if (ope0._eg_level >= ope0._eg_stateShiftLevel) ope0._eg_shiftState(ope0._eg_nextState[ope0._eg_state]);
                     }
                     ope0._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope0._eg_total_level)<<3;
+                    ope1._eg_out = (ope0._eg_levelTable[ope0._eg_level] + ope1._eg_total_level)<<3;
                     ope0._eg_counter = (ope0._eg_counter+1)&7;
                     ope0._eg_timer += _eg_timer_initial;
                 }
@@ -1573,7 +1567,7 @@ package org.si.sion.module.channels {
                 ope1._phase += ope1._phase_step;
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
-                l += ope0._eg_out + (_am_out>>ope0._ams);
+                l += ope1._eg_out + (_am_out>>ope0._ams);
                 out0 = _table.logTable[l];
 
                 // output and increment pointers

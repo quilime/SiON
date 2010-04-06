@@ -24,10 +24,10 @@ package org.si.sound.patterns {
         {
             _categoly("bass");
             _pattern("bass1", "0---0---0---0---");
-            _pattern("bass2", "0---0---0---0-1-");
-            _pattern("bass3", "0---0---0---0--1");
-            _pattern("bass4", "0---0---0---0---0---0---0---0-1-");
-            _pattern("bass5", "0---0---0---0---0---0---0-0-1111");
+            _pattern("bass2", "0---0---01--0---");
+            _pattern("bass3", "0---0---0---0-1-");
+            _pattern("bass4", "0---0---0---0--1");
+            _pattern("bass5", "0---0---0---1111");
             _pattern("bass6", "0--10---0--10-1-");
             _pattern("bass7", "0-----0---------");
             _pattern("bass8", "0---1-0---------");
@@ -64,15 +64,18 @@ package org.si.sound.patterns {
             _pattern("snare5", "----0-----1-0---");
             _pattern("snare6", "----0-------0-1-");
             _pattern("snare7", "----0------10---");
-            _pattern("snare8", "----0-------0-------0-------0-1-");
-            _pattern("snare9", "----0-------0-------0-------0--1");
-            _pattern("snare10", "----0--1----0-0-");
-            _pattern("snare11", "----0--1-1--0---");
-            _pattern("snare12", "----0--1-1--0-0-");
-            _pattern("snare13", "-1--0--1----0---");
-            _pattern("snare14", "-1--0--1----0-0-");
-            _pattern("snare15", "-1--0--1-1--0---");
-            _pattern("snare16", "-1--0--1-1--0-0-");
+            _pattern("snare8", "----0--1----0-0-");
+            _pattern("snare9", "----0--1-1--0---");
+            _pattern("snare10", "----0--1-1--0-0-");
+            _pattern("snare11", "-1--0--1----0---");
+            _pattern("snare12", "-1--0--1----0-0-");
+            _pattern("snare13", "-1--0--1-1--0---");
+            _pattern("snare14", "-1--0--1-1--0-0-");
+            _pattern("snare15", "----0----0000000");
+            _pattern("snare16", "----0--1-0000000");
+            _pattern("snare17", "-1--0--1-0000000");
+            _pattern("snare18", "-11-0-11-0000000");
+            _pattern("snare19", "-000000000000000");
             
             _categoly("hihat");
             _pattern("hihat1", "0-1-0-1-0-1-0-1-");

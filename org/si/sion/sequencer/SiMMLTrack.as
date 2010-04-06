@@ -135,6 +135,7 @@ package org.si.sion.sequencer {
         private var _channelModuleSetting:SiMMLChannelSetting;  // selected module's setting
         private var _velocity:int;      // velocity
         private var _expression:int;    // expression
+        private var _pitchIndex:int;    // current pitch index
         private var _pitchBend:int;     // pitch bend
         private var _tone:int;          // tone number
         private var _note:int;          // note number
@@ -182,8 +183,8 @@ package org.si.sion.sequencer {
         private var _env_mp:SLLint;
         private var _env_ma:SLLint;
         private var _sweep_step:int;
-        private var _sweep_end :int;
-        private var _env_pitch_offset:int;
+        private var _sweep_end:int;
+        private var _sweep_pitch:int;
         private var _env_exp_offset:int;
         private var _env_pitch_active:Boolean;
         
@@ -284,7 +285,7 @@ package org.si.sion.sequencer {
         public function get pitchBend() : int { return _pitchBend; }
         public function set pitchBend(p:int) : void {
             _pitchBend = p;
-            channel.pitchBend = p;
+            channel.pitch = _pitchIndex + _pitchBend;
         }
         
         /** callback function when update register event appears. */
@@ -442,7 +443,7 @@ package org.si.sion.sequencer {
             
             _sweep_step = ((endPitch - startPitch) << FIXED_BITS) * _env_internval / term;
             _sweep_end  = endPitch << FIXED_BITS;
-            _env_pitch_offset = startPitch << FIXED_BITS;
+            _sweep_pitch = startPitch << FIXED_BITS;
             _env_pitch_active = true;
             _env_note  = _set_env_note[1];
             _env_pitch = _set_env_pitch[1];
@@ -769,7 +770,8 @@ package org.si.sion.sequencer {
             quantCount = 0;
             eventMask = NO_MASK;
             _env_pitch_active = false;
-            _env_pitch_offset = 0;
+            _pitchIndex = 0;
+            _sweep_pitch = 0;
             _env_exp_offset = 0;
             setEnvelopFPS(_defaultFPS);
             _callbackBeforeNoteOn = null;
@@ -921,7 +923,7 @@ package org.si.sion.sequencer {
                 
                 // change pitch/note
                 if (_env_pitch_active) {
-                    channel.pitch = _env_pitch.i + (_env_note.i<<6) + (_env_pitch_offset>>FIXED_BITS);
+                    channel.pitch = _env_pitch.i + (_env_note.i<<6) + (_sweep_pitch>>FIXED_BITS);
                     // pitch envelop
                     if (--_cnt_pitch == 0) {
                         _env_pitch = _env_pitch.next;
@@ -933,15 +935,15 @@ package org.si.sion.sequencer {
                         _cnt_note = _max_cnt_note;
                     }
                     // sweep
-                    _env_pitch_offset += _sweep_step;
+                    _sweep_pitch += _sweep_step;
                     if (_sweep_step>0) {
-                        if (_env_pitch_offset > _sweep_end) {
-                            _env_pitch_offset = _sweep_end;
+                        if (_sweep_pitch > _sweep_end) {
+                            _sweep_pitch = _sweep_end;
                             _sweep_step = 0;
                         }
                     } else {
-                        if (_env_pitch_offset < _sweep_end) {
-                            _env_pitch_offset = _sweep_end;
+                        if (_sweep_pitch < _sweep_end) {
+                            _sweep_pitch = _sweep_end;
                             _sweep_step = 0;
                         }
                     }
@@ -1005,10 +1007,9 @@ package org.si.sion.sequencer {
             }
             
             // change pitch
-            var newPitch:int = ((_note + noteShift)<<6) + pitchShift;
             var oldPitch:int = channel.pitch;
-            channel.pitch = newPitch;
-            _pitchBend = 0;
+            _pitchIndex = ((_note + noteShift)<<6) + pitchShift;
+            channel.pitch = _pitchIndex + _pitchBend;
 
             // note on
             if (!_flagNoKeyOn) {
@@ -1032,9 +1033,9 @@ package org.si.sion.sequencer {
                 // portament
                 if (_set_sweep_step[1]>0) {
                     channel.pitch = oldPitch;
-                    _sweep_step = ((newPitch - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
-                    _sweep_end  = newPitch << FIXED_BITS;
-                    _env_pitch_offset = oldPitch << FIXED_BITS;
+                    _sweep_step  = ((_pitchIndex - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
+                    _sweep_end   = _pitchIndex << FIXED_BITS;
+                    _sweep_pitch = oldPitch << FIXED_BITS;
                 }
                 // try to set envelop off
                 _envelopOff(1);
@@ -1096,7 +1097,7 @@ package org.si.sion.sequencer {
                 _sweep_step = (keyOn) ? 0 : _set_sweep_step[keyOn];
                 _sweep_end  = (keyOn) ? 0 : _set_sweep_end[keyOn];
                 // set pitch values
-                _env_pitch_offset = channel.pitch << FIXED_BITS;
+                _sweep_pitch = channel.pitch << FIXED_BITS;
                 _env_exp_offset   = (_set_exp_offset[keyOn]) ? _expression : 0;
                 _env_pitch_active = _pns_or[keyOn];
                 // activate filter

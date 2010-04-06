@@ -7,6 +7,8 @@
 package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMTable;
+    import org.si.sion.module.SiOPMOperatorParam
+    import org.si.sion.module.channels.SiOPMChannelFM;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.base.SoundObject;
     
@@ -45,24 +47,28 @@ package org.si.sound.synthesizers {
         /** PSG channel mode (0=mute, 1=PSG, 2=noise, 3=PSG+noise). */
         public function get channelMode() : int { return _channelMode; }
         public function set channelMode(mode:int) : void {
-            _opp0.mute = (mode & 1);
-            _opp1.mute = (mode & 2);
-            var i:int, imax:int = _tracks.length;
+            _opp0.mute = ((mode & 1) == 1);
+            _opp1.mute = ((mode & 2) == 2);
+            var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
-                _tracks[i].channel.operator[0].mute = _opp0.mute;
-                _tracks[i].channel.operator[1].mute = _opp1.mute;
+                ch = _tracks[i].channel as SiOPMChannelFM;
+                if (ch != null) {
+                    ch.operator[0].mute = _opp0.mute;
+                    ch.operator[1].mute = _opp1.mute;
+                }
             }
         }
         
         
         /** noise frequency */
         public function get noiseFreq() : int { return _opp1.fixedPitch >> 6; }
-        public function set noiseFreq(nf:int) {
+        public function set noiseFreq(nf:int) : void {
             _opp1.fixedPitch = (nf << 6) + 1;
             if (!_opp1.mute) {
-                var i:int, imax:int = _tracks.length;
+                var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
                 for (i=0; i<imax; i++) {
-                    _tracks[i].channel.operator[1].fixedPitchIndex = _opp1.fixedPitch;
+                    ch = _tracks[i].channel as SiOPMChannelFM;
+                    if (ch != null) ch.operator[1].fixedPitchIndex = _opp1.fixedPitch;
                 }
             }
         }
@@ -74,10 +80,13 @@ package org.si.sound.synthesizers {
             _channelTL = (g>=15) ? 127 : int(g * 2.6666666666666667 + 0.5);
             _opp1.tl = _opp0.tl = _channelTL;
             if (_opp0.ssgec == 0) {
-                var i:int, imax:int = _tracks.length;
+                var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
                 for (i=0; i<imax; i++) {
-                    _tracks[i].channel.operator[0].tl = _opp0.tl;
-                    _tracks[i].channel.operator[1].tl = _opp1.tl;
+                    ch = _tracks[i].channel as SiOPMChannelFM;
+                    if (ch != null) {
+                        ch.operator[0].tl = _opp0.tl;
+                        ch.operator[1].tl = _opp0.tl;
+                    }
                 }
             }
         }
@@ -101,7 +110,7 @@ package org.si.sound.synthesizers {
         
         /** envelop frequency ... currently dishonesty. */
         public function get envelopFreq() : int { return _evelopRate << 2; }
-        public function get envelopFreq(ef:int) : void {
+        public function set envelopFreq(ef:int) : void {
             _evelopRate = ef >> 2;
             if (_opp0.ssgec != 0) {
                 _opp1.dr = _opp0.dr = _evelopRate;

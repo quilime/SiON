@@ -119,6 +119,13 @@ package org.si.sion.utils {
          */
         public function get scaleName() : String { return _scaleName; }
         public function set scaleName(name:String) : void {
+            if (name == null || name == "") {
+                _scaleName = "C";
+                _scaleTable = ST_MAJOR;
+                this.baseNote = 60;
+                return;
+            }
+            
             var rex:RegExp = /(o[0-9])?([A-Ga-g])([+#\-b])?([a-z0-9]+)?/;
             var mat:* = rex.exec(name);
             var i:int;
@@ -168,9 +175,7 @@ package org.si.sion.utils {
                 }
                 this.baseNote = note;
             } else {
-                _scaleName = "C";
-                _scaleTable = ST_MAJOR;
-                this.baseNote = 60;
+                throw _errorInvalidScaleName(name);
             }
         }
         
@@ -228,7 +233,8 @@ package org.si.sion.utils {
          *  @param note MIDI note number (0-127).
          *  @return Returns true if the note is on this scale.
          */
-        public function check(note:int) : Boolean {
+        public function check(note:int) : Boolean
+        {
             note = note % 12;
             return Boolean(_noteCheckTable & (1<<note));
         }
@@ -238,7 +244,8 @@ package org.si.sion.utils {
          *  @param note MIDI note number (0-127).
          *  @return Returns shifted note. if the note is on this scale, no shift.
          */
-        public function shift(note:int) : int {
+        public function shift(note:int) : int
+        {
             var n:int, down:int, up:int;
             for (n=note%12, up=0;   (_noteCheckTable & (1<<n)) == 0; up++)   { if (++n == 12) n = 0; }
             for (n=note%12, down=0; (_noteCheckTable & (1<<n)) == 0; down++) { if (--n == -1) n = 11; }
@@ -247,7 +254,8 @@ package org.si.sion.utils {
         
         
         /** get scale index from note. */
-        public function getScaleIndex(note:int) : int {
+        public function getScaleIndex(note:int) : int
+        {
             var base:int = baseNote, top:int = base+12, octaveShift:int = 0;
             while (note < base) {
                 note += 12;
@@ -268,7 +276,8 @@ package org.si.sion.utils {
          *  @param centerOctave The octave of index = 0.
          *  @return MIDI note number on this scale.
          */
-        public function getNote(index:int) : int {
+        public function getNote(index:int) : int
+        {
             var imax:int = _scaleNotes.length, octaveShift:int = 0;
             while (index < 0) {
                 index += imax;
@@ -279,6 +288,17 @@ package org.si.sion.utils {
                 octaveShift++;
             }
             return _scaleNotes[index] + octaveShift*12;
+        }
+        
+        
+        
+        
+    // errors
+    //--------------------------------------------------
+        /** Invalid scale name error */
+        protected function _errorInvalidScaleName(name:String) : Error
+        {
+            return new Error("Scale; Invalid scale name. '" + name +"'");
         }
     }
 }

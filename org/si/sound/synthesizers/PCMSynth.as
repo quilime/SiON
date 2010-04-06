@@ -9,7 +9,6 @@ package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.*;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
     
     
     /** Pulse Code Modulation Synthesizer 
@@ -77,7 +76,7 @@ package org.si.sound.synthesizers {
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
          *  @return assigned SiOPMWavePCMData.
          */
-        public function setPCMData(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        public function setSamplerData(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
         {
             var pcmData:SiOPMWavePCMData;
             if (keyRangeFrom==0 && keyRangeTo==127) {

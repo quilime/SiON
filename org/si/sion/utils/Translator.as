@@ -5,8 +5,8 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.utils {
+    import org.si.sion.namespaces._sion_internal;
     import org.si.sion.module.*;
-    import org.si.sion.sequencer.SiMMLData;
     import org.si.sion.sequencer.SiMMLTable;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
@@ -1011,21 +1011,6 @@ package org.si.sion.utils {
                 mml += String(opp.ams);                             // ams
             }
             mml += "}" + _initSequence(param);
-            
-            return mml;
-        }
-        
-        
-        
-        
-    // reconstruct MML string from SiMMLData
-    //--------------------------------------------------
-        /** reconstruct MML string from SiMMLData */
-        public function reconstructMML(data:SiMMLData) : String 
-        {
-            var mml:String = "";
-            
-            
             
             return mml;
         }

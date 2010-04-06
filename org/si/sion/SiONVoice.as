@@ -194,11 +194,11 @@ package org.si.sion {
          *  @param tension sustain rate of the tone
          *  @return this SiONVoice instance
          */
-        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=0, ws:int=20, tension:int=8) : SiONVoice {
+        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=68, ws:int=20, tension:int=8) : SiONVoice {
             moduleType = 11;
             channelNum = 1;
             param = [1, 0, 0, ws, ar, dr, 0, 63, 15, tl, 0, 0, 1, 0, 0, 0, 0, fixedPitch];
-            psmTension = tension;
+            pmsTension = tension;
             chipType = "PMSGuitar";
             return this;
         }
@@ -212,7 +212,7 @@ package org.si.sion {
          *  @param vco2pitch pitch difference in osc1 and 2. 64 for 1 halftone.
          *  @return this SiONVoice instance
          */
-        public function setAnalogLike(connectionType:int, ws1:int=0, ws2:int=0, balance:int=0, vco2pitch:int=0) : SiONVoice {
+        public function setAnalogLike(connectionType:int, ws1:int=1, ws2:int=1, balance:int=0, vco2pitch:int=0) : SiONVoice {
             channelParam.opeCount = 5;
             channelParam.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
             channelParam.operatorParam[0].pgType = ws1;
@@ -220,8 +220,8 @@ package org.si.sion {
 
             if (balance > 64) balance = 64;
             else if (balance < -64) balance = -64;
-            channelParam.operatorParam[0].tl = SiOPMTable.instance.eg_tlTable[balance+64] >> SiOPMTable.ENV_LSHIFT;
-            channelParam.operatorParam[1].tl = SiOPMTable.instance.eg_tlTable[64-balance] >> SiOPMTable.ENV_LSHIFT;
+            channelParam.operatorParam[0].tl = SiOPMTable.instance.eg_tlTable[64-balance] >> SiOPMTable.ENV_LSHIFT;
+            channelParam.operatorParam[1].tl = SiOPMTable.instance.eg_tlTable[balance+64] >> SiOPMTable.ENV_LSHIFT;
             
             channelParam.operatorParam[0].detune = 0;
             channelParam.operatorParam[1].detune = vco2pitch;

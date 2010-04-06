@@ -85,6 +85,8 @@ package org.si.sound.base {
         
         /** parent container */
         protected var _parent:SoundObjectContainer;
+        /** the depth of parent-child chain */
+        protected var _childDepth:int;
         /** volume of this sound object */
         protected var _thisVolume:Number;
         /** panning of this sound object */
@@ -236,33 +238,18 @@ package org.si.sound.base {
         public function get pitchBend() : Number { return _pitchBend; }
         public function set pitchBend(p:Number) : void {
             _pitchBend = p;
-            if (_track) _track.channel.pitchBend = p * 64;
+            if (_track) _track.pitchBend = p * 64;
         }
         
         
-        /** Effectors to process this sound object's output. You can set effectors by SiEffectBase, Array of SiEffectBase, EffecChain or effector MML String.
-         */
-        public function get effectors() : * {
-            return _effectChain.effectList;
+        /** Array of SiEffectBase to modify this sound object's output. */
+        public function get effectors() : Array {
+            return (_effectChain) ? _effectChain.effectList : null;
         }
-        public function set effectors(obj:*) :void {
+        public function set effectors(effectList:Array) :void {
             if (_effectChain) _effectChain.free();
-            if (obj == null) {
-                _effectChain = null;
-            } else 
-            if (obj is SiEffectBase) {
-                _effectChain = EffectChain.alloc([obj]);
-            } else 
-            if (obj is Array) {
-                _effectChain = EffectChain.alloc(obj as Array);
-            } else 
-            if (obj is String) {
-                var list:Array = Translator.parseEffectorMML(obj as String);
-                _effectChain = EffectChain.alloc(list);
-            } else 
-            if (obj is EffectChain) {
-                _effectChain = obj as EffectChain;
-            }
+            _effectChain = null;
+            if (effectList && effectList.length>0) _effectChain = EffectChain.alloc(effectList);
         }
         
         
@@ -279,6 +266,7 @@ package org.si.sound.base {
         {
             this.name = name || "";
             _parent = null;
+            _childDepth = 0;
             _voiceReference = new VoiceReference();
             _synthesizer = synth || _voiceReference;
             _effectChain = null;
@@ -447,24 +435,27 @@ package org.si.sound.base {
         {
             if (!driver) return null;
             _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
-            var v:SiONVoice = _synthesizer._synthesizer_internal::_voice,
-                t:SiMMLTrack = driver.noteOn(note, v, _length, _delay, _quantize, _trackID, isDisposable);
-            if (_effectChain && _effectChain.effectList.length > 0) {
-                _effectChain._activateLocalEffect();
+            var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
+                bottomEC:EffectChain = _bottomEffectChain(),
+                track:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposable);
+            if (_effectChain) {
+                _effectChain._activateLocalEffect(_childDepth);
                 _effectChain.setAllStreamSendLevels(_volumes);
-                t.channel.masterVolume = 128;
-                t.channel.setStreamBuffer(0, _effectChain.streamingBuffer);
-            } else {
-                t.channel.setAllStreamSendLevels(_volumes);
             }
-            t.channel.pan       = _pan;
-            t.channel.mute      = _mute;
-            t.channel.pitchBend = _pitchBend * 64;
-            t.noteShift  = _noteShift;
-            t.pitchShift = _pitchShift * 64;
-            t.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
-            if (isNaN(v.gateTime)) t.quantRatio = _gateTime;
-            return t;
+            if (bottomEC) {
+                track.channel.masterVolume = 128;
+                track.channel.setStreamBuffer(0, bottomEC.streamingBuffer);
+            } else {
+                track.channel.setAllStreamSendLevels(_volumes);
+            }
+            track.channel.pan  = _pan;
+            track.channel.mute = _mute;
+            track.pitchBend  = _pitchBend * 64;
+            track.noteShift  = _noteShift;
+            track.pitchShift = _pitchShift * 64;
+            track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+            if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
+            return track;
         }
         
         
@@ -491,28 +482,28 @@ package org.si.sound.base {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
             _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
-            var v:SiONVoice = _synthesizer._synthesizer_internal::_voice, effectActive:Boolean = false,
-                list:Vector.<SiMMLTrack> = driver.sequenceOn(data, v, len, _delay, _quantize, _trackID, isDisposable),
-                t:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
-            if (_effectChain && _effectChain.effectList.length > 0) {
-                _effectChain._activateLocalEffect();
+            var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
+                bottomEC:EffectChain = _bottomEffectChain(),
+                list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, len, _delay, _quantize, _trackID, isDisposable),
+                track:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
+            if (_effectChain) {
+                _effectChain._activateLocalEffect(_childDepth);
                 _effectChain.setAllStreamSendLevels(_volumes);
-                effectActive = true;
             }
-            for each (t in list) {
-                if (effectActive) {
-                    t.channel.masterVolume = 128;
-                    t.channel.setStreamBuffer(0, _effectChain.streamingBuffer);
+            for each (track in list) {
+                if (bottomEC) {
+                    track.channel.masterVolume = 128;
+                    track.channel.setStreamBuffer(0, bottomEC.streamingBuffer);
                 } else {
-                    t.channel.setAllStreamSendLevels(_volumes);
+                    track.channel.setAllStreamSendLevels(_volumes);
                 }
-                t.channel.pan       = _pan;
-                t.channel.mute      = _mute;
-                t.channel.pitchBend = pb;
-                t.noteShift  = _noteShift;
-                t.pitchShift = ps;
-                t.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
-                if (v && isNaN(v.gateTime)) t.quantRatio = _gateTime;
+                track.channel.pan  = _pan;
+                track.channel.mute = _mute;
+                track.pitchBend  = pb;
+                track.noteShift  = _noteShift;
+                track.pitchShift = ps;
+                track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+                if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
             }
             return list;
         }
@@ -535,16 +526,31 @@ package org.si.sound.base {
         
     // oprate ancestor
     //----------------------------------------
+        // bottom effect chain
+        private function _bottomEffectChain() : EffectChain
+        {
+            return _effectChain || ((_parent) ? _parent._bottomEffectChain() : null);
+        }
+        
+        
         /** @private [internal use] */
         internal function _setParent(parent:SoundObjectContainer) : void
         {
             if (_parent != null) _parent.removeChild(this);
             _parent = parent;
+            _updateChildDepth();
             _updateMute();
             _updateVolume();
             _limitVolume();
             _updatePan();
             _limitPan();
+        }
+        
+        
+        /** @private [internal use] */
+        internal function _updateChildDepth() : void
+        {
+            _childDepth = (parent) ? (parent._childDepth + 1) : 0;
         }
         
         

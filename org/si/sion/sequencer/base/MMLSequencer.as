@@ -69,6 +69,7 @@ package org.si.sion.sequencer.base {
         
         private var _newUserDefinedEventID:int = MMLEvent.USER_DEFINE;  // id value of new user-defined event.
         private var _userDefinedEventID:Object = {};                    // id map of user-defined event letter set by newMMLEventListener().
+        _sion_internal var _eventCommandLetter:Array = [];              // event commands
         private var _eventHandlers:Vector.<Function>   = new Vector.<Function>(MMLEvent.COMMAND_MAX, true); // list of event handler functions set by setMMLEventListener().
         private var _eventGlobalFlags:Vector.<Boolean> = new Vector.<Boolean> (MMLEvent.COMMAND_MAX, true); // global event flag
         
@@ -122,6 +123,7 @@ package org.si.sion.sequencer.base {
             _changableBPM = new BeatPerMinutes(120, 44100);
             _bpm = _changableBPM;
             globalExecutor = new MMLExecutor();
+            MMLParser._getCommandLetters(_sion_internal::_eventCommandLetter);
             
             // 3 : callback every 4 beat
             _onBeatCallbackFilter = 3;
@@ -152,6 +154,7 @@ package org.si.sion.sequencer.base {
         {
             var id:int = _newUserDefinedEventID++;
             _userDefinedEventID[letter] = id;
+            _sion_internal::_eventCommandLetter[id] = letter;
             _eventHandlers[id] = func;
             _eventGlobalFlags[id] = isGlobal;
             return id;
@@ -168,6 +171,16 @@ package org.si.sion.sequencer.base {
             if (id != 0) return id;
             if (mmlCommand in _userDefinedEventID) return _userDefinedEventID[mmlCommand];
             return 0;
+        }
+        
+        
+        /** Get MML command letters by event id.
+         *  @param eventID Event id.
+         *  @return letter of MML command. Returns null if not found.
+         */
+        public function getEventLetter(eventID:int) : String
+        {
+            return _sion_internal::_eventCommandLetter[eventID];
         }
         
         

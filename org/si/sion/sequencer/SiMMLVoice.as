@@ -5,6 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer {
+    import org.si.sion.module.channels.*;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMWaveBase;
     import org.si.sion.module.SiOPMWavePCMTable;
@@ -38,8 +39,8 @@ package org.si.sion.sequencer {
         public var channelParam:SiOPMChannelParam;
         /** wave data. @default null */
         public var waveData:SiOPMWaveBase;
-        /** PSM guitar tension @default 8 */
-        public var psmTension:int;
+        /** PMS guitar tension @default 8 */
+        public var pmsTension:int;
         
         /** gate time (same as "q" command * 0.125), set Number.NaN to ignore. @default Number.NaN */
         public var gateTime:Number;
@@ -183,7 +184,7 @@ package org.si.sion.sequencer {
                 case 11: // PMS Guitar (%11)
                     track.setChannelModuleType(11, 1);
                     track.channel.setSiOPMChannelParam(channelParam, false);
-                    track.channel.setAllReleaseRate(psmTension);
+                    track.channel.setAllReleaseRate(pmsTension);
                     if (isPCMVoice) track.channel.setWaveData(waveData);
                     break;
                 default: // other sound modules
@@ -231,7 +232,7 @@ package org.si.sion.sequencer {
             
             channelParam = new SiOPMChannelParam();
             waveData = null;
-            psmTension = 8;
+            pmsTension = 8;
             
             gateTime = Number.NaN;
             pitchShift = 0;
@@ -281,7 +282,7 @@ package org.si.sion.sequencer {
             channelParam.copyFrom(src.channelParam);
             
             waveData = src.waveData;
-            psmTension = src.psmTension;
+            pmsTension = src.pmsTension;
             
             gateTime = src.gateTime;
             pitchShift = src.pitchShift;

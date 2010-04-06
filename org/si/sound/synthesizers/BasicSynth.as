@@ -23,8 +23,8 @@ package org.si.sound.synthesizers {
         
     // variables
     //----------------------------------------
-        // tracks to control
-        private var _tracks:Vector.<SiMMLTrack>;
+        /** tracks to control */
+        protected var _tracks:Vector.<SiMMLTrack>;
         
         
         

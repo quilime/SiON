@@ -19,6 +19,9 @@ package org.si.sound.base {
         /** the list of child sound objects. */
         protected var _soundList:Vector.<SoundObject>;
         
+        /** playing flag of this container */
+        protected var _isPlaying:Boolean;
+        
         
         
         
@@ -35,10 +38,7 @@ package org.si.sound.base {
     // properties
     //----------------------------------------
         /** @private */
-        override public function get isPlaying() : Boolean {
-            for each (var sound:SoundObject in _soundList) if (sound.isPlaying) return true;
-            return false;
-        }
+        override public function get isPlaying() : Boolean { return _isPlaying; }
         
         
         /** @private */
@@ -125,15 +125,6 @@ package org.si.sound.base {
         }
         
         
-        /** In current version, SoundContainer's effectors property is not available. */
-        override public function get effectors() : * {
-            return _effectChain.effectList;
-        }
-        override public function set effectors(obj:*) :void {
-            throw new Error("SoundContainer; In current version, SoundContainer's effectors property is not available");
-        }
-        
-        
         
         
     // constructor
@@ -144,6 +135,7 @@ package org.si.sound.base {
             super(name);
             _soundList = new Vector.<SoundObject>();
             _thisVolume = 1;
+            _isPlaying = false;
         }
         
         
@@ -186,6 +178,11 @@ package org.si.sound.base {
         /** Play all children sound. */
         override public function play() : void
         {
+            _isPlaying = true;
+            if (_effectChain && _effectChain.effectList.length > 0) {
+                _effectChain._activateLocalEffect(_childDepth);
+                _effectChain.setAllStreamSendLevels(_volumes);
+            }
             for each (var sound:SoundObject in _soundList) sound.play();
         }
         
@@ -193,7 +190,9 @@ package org.si.sound.base {
         /** Stop all children sound. */
         override public function stop() : void
         {
+            _isPlaying = false;
             for each (var sound:SoundObject in _soundList) sound.stop();
+            if (_effectChain) _effectChain._inactivateLocalEffect();
         }
         
         
@@ -201,7 +200,7 @@ package org.si.sound.base {
         
     // operations for children
     //----------------------------------------
-        /** Adds a child SoundObject instance to this SoundObjectContainer instance. 
+        /** Adds a child SoundObject instance to this SoundObjectContainer instance. The added sound object will play sound during this container is playing.
          *  The child is added to the end of all other children in this SoundObjectContainer instance. (To add a child to a specific index position, use the addChildAt() method.)
          *  If you add a child object that already has a different sound object container as a parent, the object is removed from the child list of the other sound object container. 
          *  @param sound The SoundObject instance to add as a child of this SoundObjectContainer instance.
@@ -209,13 +208,15 @@ package org.si.sound.base {
          */
         public function addChild(sound:SoundObject) : SoundObject
         {
+            sound.stop();
             sound._setParent(this);
             _soundList.push(sound);
+            if (_isPlaying) sound.play();
             return sound;
         }
         
         
-        /** Adds a child SoundObject instance to this SoundObjectContainer instance. 
+        /** Adds a child SoundObject instance to this SoundObjectContainer instance. The added sound object will play sound during this container is playing.
          *  The child is added at the index position specified. An index of 0 represents the head of the sound list for this SoundObjectContainer object. 
          *  @param sound The SoundObject instance to add as a child of this SoundObjectContainer instance.
          *  @param index The index position to which the child is added. If you specify a currently occupied index position, the child object that exists at that position and all higher positions are moved up one position in the child list.
@@ -223,14 +224,16 @@ package org.si.sound.base {
          */
         public function addChildAt(sound:SoundObject, index:int) : SoundObject
         {
+            sound.stop();
             sound._setParent(this);
             if (index < _soundList.length) _soundList.splice(index, 0, sound);
             else _soundList.push(sound);
+            if (_isPlaying) sound.play();
             return sound;
         }
         
         
-        /** Removes the specified child SoundObject instance from the child list of the SoundObjectContainer instance.
+        /** Removes the specified child SoundObject instance from the child list of the SoundObjectContainer instance. The removed sound object always stops.
          *  The parent property of the removed child is set to null, and the object is garbage collected if no other references to the child exist.
          *  The index positions of any sound objects after the child in the SoundObjectContainer are decreased by 1.
          *  @param sound The DisplayObject instance to remove
@@ -240,13 +243,14 @@ package org.si.sound.base {
         {
             var index:int = _soundList.indexOf(sound);
             if (index == -1) throw Error("SoundObjectContainer Error; Specifyed children is not in the children list.");
-            sound._setParent(null);
             _soundList.splice(index, 1);
+            sound.stop();
+            sound._setParent(null);
             return sound;
         }
         
         
-        /** Removes a child SoundObject from the specified index position in the child list of the SoundObjectContainer. 
+        /** Removes a child SoundObject from the specified index position in the child list of the SoundObjectContainer. The removed sound object always stops.
          *  The parent property of the removed child is set to null, and the object is garbage collected if no other references to the child exist. 
          *  The index positions of any display objects above the child in the DisplayObjectContainer are decreased by 1. 
          *  @param The child index of the SoundObject to remove. 
@@ -256,6 +260,7 @@ package org.si.sound.base {
         {
             if (index >= _soundList.length) throw Error("SoundObjectContainer Error; Specifyed index is not in the children list.");
             var sound:SoundObject = _soundList.splice(index, 1)[0];
+            sound.stop();
             sound._setParent(null);
             return sound;
         }
@@ -311,6 +316,14 @@ package org.si.sound.base {
         
     // oprate ancestor
     //----------------------------------------
+        /** @private [internal use] */
+        override internal function _updateChildDepth() : void
+        {
+            _childDepth = (parent) ? (parent._childDepth + 1) : 0;
+            for each (var sound:SoundObject in _soundList) sound._updateChildDepth();
+        }
+        
+        
         /** @private [internal use] */
         override internal function _updateMute() : void
         {

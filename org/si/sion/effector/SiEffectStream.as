@@ -19,6 +19,8 @@ package org.si.sion.effector {
         
         /** @private [internal] streaming buffer */
         internal var _stream:SiOPMStream;
+        /** @private [internal] depth. deeper stream execute first. */
+        internal var _depth:int;
         
         // module
         private var _module:SiOPMModule;
@@ -44,9 +46,11 @@ package org.si.sion.effector {
         
     // constructor
     //--------------------------------------------------------------------------------
-        /** Constructor. */
+        /** Constructor, you should not create new EffectStream, you may call SiEffectModule.newLocalEffect() for these purpose. */
+        // the 2nd argument is for MasterEffect to operate master output.
         function SiEffectStream(module:SiOPMModule, stream:SiOPMStream = null) 
         {
+            _depth = 0;
             _module = module;
             _stream = stream || new SiOPMStream();
         }
@@ -105,13 +109,15 @@ package org.si.sion.effector {
     // operations
     //--------------------------------------------------------------------------------
         /** initialize, called when allocated */
-        public function initialize() : void
+        public function initialize(depth:int) : void
         {
+            free();
             reset();
+            _depth = depth;
         }
         
         
-        /** reset, called when effector module is initialized */
+        /** reset all parameters except for effector chain, called when effector module is initialized */
         public function reset() : void
         {
             var i:int;
@@ -128,11 +134,20 @@ package org.si.sion.effector {
         }
         
         
-        /** free */
+        /** free all of effector chain, called when effector module is initialized */
         public function free() : void
         {
             for each (var e:SiEffectBase in chain) e._isFree = true;
             chain.length = 0;
+        }
+        
+        
+        /** connect to another stream
+         *  @param output stream connect to.
+         */
+        public function connectTo(output:SiOPMStream = null) : void
+        {
+            _outputStreams[0] = output;
         }
         
         
@@ -167,7 +182,7 @@ package org.si.sion.effector {
                     }
                 } else {
                     stream = _outputStreams[0] || _module.outputStream;
-                    stream.writeVectorNumber(buffer, startIndex, startIndex, length, _volumes[i], _pan, 2);
+                    stream.writeVectorNumber(buffer, startIndex, startIndex, length, _volumes[0], _pan, 2);
                 }
             }
             
@@ -189,7 +204,7 @@ package org.si.sion.effector {
                 cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true);
             
             // clear
-            initialize();
+            initialize(0);
             _clearArgs();
             
             // parse mml

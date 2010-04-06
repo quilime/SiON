@@ -181,7 +181,7 @@ package org.si.sound.base {
             if (_tracks) {
                 var i:int, f:uint, pb:int = p*64, imax:int = _tracks.length;
                 for (i=0, f=_trackFilter; i<imax; i++, f>>=1) {
-                    if (f&1) _tracks[i].channel.pitchBend = pb;
+                    if (f&1) _tracks[i].pitchBend = pb;
                 }
             }
         }
@@ -214,7 +214,7 @@ package org.si.sound.base {
         
         /** Play sound. */
         override public function play() : void { 
-            if (!_compiled) _compile();
+            _compile();
             stop();
             _tracks = _sequenceOn(_data, false);
             if (_tracks) _synthesizer._registerTracks(_tracks);
@@ -238,7 +238,7 @@ package org.si.sound.base {
     //----------------------------------------
         /** call this after the update mml */
         protected function _compile() : void {
-            if (!driver) return;
+            if (!driver || _compiled) return;
             if (_mml != "") {
                 driver.compile(_mml, _data);
                 name = _data.title;

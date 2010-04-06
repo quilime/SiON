@@ -11,15 +11,22 @@ package org.si.sound {
     import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.base.MMLSequence;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.ScaledSoundObject;
+    import org.si.sound.base.SoundObject;
     import org.si.sound.synthesizers._synthesizer_internal;
     
     
     /** Arpeggiator */
-    public class Arpeggiator extends ScaledSoundObject
+    public class Arpeggiator extends SoundObject
     {
     // variables
     //----------------------------------------
+        /** default scale */
+        static private var _defaultScale:Scale = new Scale("C");
+        /** Table of notes on scale */
+        protected var _scale:Scale;
+        /** scale index */
+        protected var _scaleIndex:int;
+
         /** portament */
         protected var _portament:int;
         /** arepggio pattern */
@@ -42,6 +49,33 @@ package org.si.sound {
         
     // properties
     //----------------------------------------
+        /** change base note of the scale */
+        override public function get note() : int {
+            return _scale.baseNote;
+        }
+        override public function set note(n:int) : void {
+            _scale.baseNote = n;
+            _scaleIndexUpdated();
+        }
+        
+        
+        /** scale instance */
+        public function get scale() : Scale { return _scale; }
+        public function set scale(s:Scale) : void {
+            _scale = s || _defaultScale;
+            _scaleIndexUpdated();
+        }
+        
+        
+        /** index on scale */
+        public function get scaleIndex() : int { return _scaleIndex; }
+        public function set scaleIndex(i:int) : void {
+            _scaleIndex = i;
+            _note = _scale.getNote(i);
+            _scaleIndexUpdated();
+        }
+        
+        
         /** portament */
         public function get portament() : int { return _portament; }
         public function set portament(p:int) : void {
@@ -51,26 +85,6 @@ package org.si.sound {
                 _track.setPortament(_portament);
                 _track.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
             }
-        }
-        
-        /** @private */
-        override public function set note(n:int) : void {
-            super.note = n;
-            _scaleIndexUpdated();
-        }
-        
-        
-        /** @private */
-        override public function set scaleIndex(index:int) : void {
-            super.scaleIndex = index;
-            _scaleIndexUpdated();
-        }
-        
-        
-        /** @private */
-        override public function set scale(s:Scale) : void {
-            super.scale = s;
-            _scaleIndexUpdated();
         }
         
         
@@ -108,7 +122,11 @@ package org.si.sound {
          */
         function Arpeggiator(scaleInstance:Scale=null, noteLength:Number=2, pattern:Array=null) 
         {
-            super(scaleInstance);
+            super((scaleInstance) ? scaleInstance.scaleName : "");
+            
+            _scale = scaleInstance || _defaultScale;
+            _scaleIndex = 0;
+            
             _data = new SiONData();
             _sequence = _data.appendNewSequence();
             _noteEvents = new Vector.<MMLEvent>();
@@ -142,11 +160,19 @@ package org.si.sound {
         override public function stop() : void
         {
             if (_track) {
-                _synthesizer._uregisterTracks(_track);
+                _synthesizer._unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
                 _sequenceOff(true);
             }
+        }
+        
+        
+        /** @private */
+        override public function reset() : void
+        {
+            super.reset();
+            _scaleIndex = 0;
         }
         
         
@@ -158,7 +184,9 @@ package org.si.sound {
         protected function _scaleIndexUpdated() : void {
             var i:int, imax:int = _noteEvents.length;
             for (i=0; i<imax; i++) {
-                _noteEvents[i].data = _scale.getNote(_arpeggio[i] + _scaleIndex);
+                if (_noteEvents[i] != null) {
+                    _noteEvents[i].data = _scale.getNote(_arpeggio[i] + _scaleIndex);
+                }
             }
         }
         
@@ -169,6 +197,10 @@ package org.si.sound {
                 _setArpeggioPattern(_nextPattern);
                 _nextPattern = null;
             }
+            if (_synthesizer._synthesizer_internal::_requireVoiceUpdate && _track) {
+                _synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
+                _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
+            } 
             return _sequence.headEvent.next;
         }
         
@@ -183,9 +215,14 @@ package org.si.sound {
                 _slurEvents.length = imax;
                 for (i=0; i<imax; i++) {
                     var newNote:int = _scale.getNote(pat[i]);
-                    if (newNote>=0 && newNote<128) note = newNote;
-                    _noteEvents[i] = _sequence.appendNewEvent(MMLEvent.NOTE, note, 0);
-                    _slurEvents[i] = _sequence.appendNewEvent(MMLEvent.SLUR, 0, _step);
+                    if (newNote>=0 && newNote<128) {
+                        note = newNote;
+                        _noteEvents[i] = _sequence.appendNewEvent(MMLEvent.NOTE, note, 0);
+                        _slurEvents[i] = _sequence.appendNewEvent(MMLEvent.SLUR, 0, _step);
+                    } else {
+                        _noteEvents[i] = null;
+                        _slurEvents[i] = _sequence.appendNewEvent(MMLEvent.REST, 0, _step);
+                    }
                 }
                 _sequence.appendNewCallback(_callbackAtTail, 0);
             }

@@ -51,37 +51,37 @@ package org.si.sound {
         /** Preset patterns */
         public function get presetPattern() : RhythmBoxPresetPattern { return _presetPattern; }
         
-        /** maximum value of basePatternIndex */  public function get bassPatternIndexMax()  : int { return bassPatternList.length; }
-        /** maximum value of snarePatternIndex */ public function get snarePatternIndexMax() : int { return snarePatternList.length; }
-        /** maximum value of hihatPatternIndex */ public function get hihatPatternIndexMax() : int { return hihatPatternList.length; }
-        /** maximum value of baseVoiceIndex */    public function get bassVoiceIndexMax()  : int { return bassVoiceList.length>>1; }
-        /** maximum value of snareVoiceIndex */   public function get snareVoiceIndexMax() : int { return snareVoiceList.length>>1; }
-        /** maximum value of hihatVoiceIndex */   public function get hihatVoiceIndexMax() : int { return hihatVoiceList.length>>1; }
+        /** maximum value of basePatternNumber */  public function get bassPatternNumberMax()  : int { return bassPatternList.length; }
+        /** maximum value of snarePatternNumber */ public function get snarePatternNumberMax() : int { return snarePatternList.length; }
+        /** maximum value of hihatPatternNumber */ public function get hihatPatternNumberMax() : int { return hihatPatternList.length; }
+        /** maximum value of baseVoiceNumber */    public function get bassVoiceNumberMax()  : int { return bassVoiceList.length>>1; }
+        /** maximum value of snareVoiceNumber */   public function get snareVoiceNumberMax() : int { return snareVoiceList.length>>1; }
+        /** maximum value of hihatVoiceNumber */   public function get hihatVoiceNumberMax() : int { return hihatVoiceList.length>>1; }
         
         
         /** bass drum pattern number, -1 sets no patterns. */
-        public function set bassPatternIndex(index:int) : void {
+        public function set bassPatternNumber(index:int) : void {
             if (index < -1 || index >= bassPatternList.length) return;
             bass.pattern = (index != -1) ? bassPatternList[index] : null;
         }
         
         
         /** snare drum pattern number, -1 sets no patterns. */
-        public function set snarePatternIndex(index:int) : void {
+        public function set snarePatternNumber(index:int) : void {
             if (index < -1 || index >= snarePatternList.length) return;
             snare.pattern = (index != -1) ? snarePatternList[index] : null;
         }
         
         
         /** hi-hat cymbal pattern number, -1 sets no patterns. */
-        public function set hihatPatternIndex(index:int) : void {
+        public function set hihatPatternNumber(index:int) : void {
             if (index < -1 || index >= hihatPatternList.length) return;
             hihat.pattern = (index != -1) ? hihatPatternList[index] : null;
         }
         
         
         /** bass drum pattern number. */
-        public function set bassVoiceIndex(index:int) : void {
+        public function set bassVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= bassVoiceList.length) return;
             bass.voiceList = [bassVoiceList[index], bassVoiceList[index+1]];
@@ -89,7 +89,7 @@ package org.si.sound {
         
         
         /** snare drum pattern number. */
-        public function set snareVoiceIndex(index:int) : void {
+        public function set snareVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= snareVoiceList.length) return;
             snare.voiceList = [snareVoiceList[index], snareVoiceList[index+1]];
@@ -97,7 +97,7 @@ package org.si.sound {
         
         
         /** hi-hat cymbal pattern number. */
-        public function set hihatVoiceIndex(index:int) : void {
+        public function set hihatVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= hihatVoiceList.length) return;
             hihat.voiceList = [hihatVoiceList[index], hihatVoiceList[index+1]];
@@ -109,11 +109,14 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** constructor 
-         *  @param bassPatternIndex bass drum pattern index
-         *  @param snarePatternIndex snare drum pattern index
-         *  @param hihatPatternIndex hihat symbal pattern index
+         *  @param bassPatternNumber bass drum pattern number
+         *  @param snarePatternNumber snare drum pattern number
+         *  @param hihatPatternNumber hihat symbal pattern number
+         *  @param bassVoiceNumber bass drum voice number
+         *  @param snareVoiceNumber snare drum voice number
+         *  @param hihatVoiceNumber hihat symbal voice number
          */
-        function RhythmBox(bassPatternIndex:int=0, snarePatternIndex:int=8, hihatPatternIndex:int=0)
+        function RhythmBox(bassPatternNumber:int=0, snarePatternNumber:int=8, hihatPatternNumber:int=0, bassVoiceNumber:int=0, snareVoiceNumber:int=0, hihatVoiceNumber:int=0)
         {
             if (_presetVoice == null) {
                 _presetVoice = new RhythmBoxPresetVoice();
@@ -133,14 +136,18 @@ package org.si.sound {
             addChild(bass   = new PatternSequencer(16, 36, 255, 1));
             addChild(snare  = new PatternSequencer(16, 68, 128, 1));
             addChild(hihat  = new PatternSequencer(16, 68, 64,  1));
-            bassVoiceIndex = 0;
-            snareVoiceIndex = 0;
-            hihatVoiceIndex = 0;
+            this.bassVoiceNumber = bassVoiceNumber;
+            this.snareVoiceNumber = snareVoiceNumber;
+            this.hihatVoiceNumber = hihatVoiceNumber;
+            bass.volume = 0.71;
+            snare.volume = 0.71;
+            hihat.volume = 0.71;
+            volume = 0.71;
             bass.velocity = 192;
             snare.velocity = 128;
             hihat.velocity = 64;
             
-            setPatternIndex(bassPatternIndex, snarePatternIndex, hihatPatternIndex);
+            setPatternNumbers(bassPatternNumber, snarePatternNumber, hihatPatternNumber);
         }
         
         
@@ -149,15 +156,15 @@ package org.si.sound {
     // configure
     //----------------------------------------
         /** Set all pattern indeces 
-         *  @param bassPatternIndex bass drum pattern index
-         *  @param snarePatternIndex snare drum pattern index
-         *  @param hihatPatternIndex hihat symbal pattern index
+         *  @param bassPatternNumber bass drum pattern index
+         *  @param snarePatternNumber snare drum pattern index
+         *  @param hihatPatternNumber hihat symbal pattern index
          */
-        public function setPatternIndex(bassPatternIndex:int, snarePatternIndex:int, hihatPatternIndex:int) : RhythmBox
+        public function setPatternNumbers(bassPatternNumber:int, snarePatternNumber:int, hihatPatternNumber:int) : RhythmBox
         {
-            this.bassPatternIndex  = bassPatternIndex;
-            this.snarePatternIndex = snarePatternIndex;
-            this.hihatPatternIndex = hihatPatternIndex;
+            this.bassPatternNumber  = bassPatternNumber;
+            this.snarePatternNumber = snarePatternNumber;
+            this.hihatPatternNumber = hihatPatternNumber;
             return this;
         }
     }

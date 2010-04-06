@@ -274,6 +274,32 @@ package org.si.sion.sequencer.base {
         }
         
         
+        /** @private [internal] get command letters. */
+        static internal function _getCommandLetters(list:Array) : void
+        {
+            list[MMLEvent.NOTE] = 'c'
+            list[MMLEvent.REST] = 'r';
+            list[MMLEvent.QUANT_RATIO] = 'q';
+            list[MMLEvent.QUANT_COUNT] = '@q';
+            list[MMLEvent.VOLUME] = 'v';
+            list[MMLEvent.FINE_VOLUME] = '@v';
+            list[MMLEvent.MOD_TYPE] = '%';
+            list[MMLEvent.MOD_PARAM] = '@';
+            list[MMLEvent.INPUT_PIPE] = '@i';
+            list[MMLEvent.OUTPUT_PIPE] = '@o';
+            list[MMLEvent.VOLUME_SHIFT] = '(';
+            list[MMLEvent.SLUR] = '&';
+            list[MMLEvent.SLUR_WEAK] = '&&';
+            list[MMLEvent.PITCHBEND] = '*';
+            list[MMLEvent.PARAMETER] = ',';
+            list[MMLEvent.REPEAT_ALL] = '$';
+            list[MMLEvent.REPEAT_BEGIN] = '[';
+            list[MMLEvent.REPEAT_END] = ']';
+            list[MMLEvent.REPEAT_BREAK] = '|';
+            list[MMLEvent.TEMPO] = 't';
+        }
+        
+        
         /** @private [internal] get system event string */
         static internal function _getSystemEventString(e:MMLEvent) : String
         {

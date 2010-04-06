@@ -49,6 +49,12 @@ package org.si.sound {
         protected var _velocity:int;
         /** Current note */
         protected var _currentNote:Note;
+        /** Grid step in ticks */
+        protected var _gridStep:int;
+        /** Grid shift pattern */
+        protected var _gridShiftPattern:Vector.<int>;
+        /** Grid shift vectors */
+        protected var _currentGridShift:int;
         
         /** default pattern, this pattern is used when notes or velocities propertiy is called */
         protected var _defaultPattern:Vector.<Note>;
@@ -143,6 +149,14 @@ package org.si.sound {
             pattern = _defaultPattern;
         }
         
+        /** Array of grid shift pattern. */
+        public function set gridShiftPattern(list:Array) : void {
+            var i:int, pi:int, li:int;
+            for (i=0; i<16; i++) {
+                li = i % list.length;
+                _gridShiftPattern[i] = list[li];
+            }
+        }
         
         /** length in 16th beat counts. */
         override public function get length() : Number {
@@ -186,10 +200,15 @@ package org.si.sound {
             _velocity = defaultVelocity;
             _length   = defaultLength;
             _currentNote = null;
+            _currentGridShift = 0;
             quantize = 16;
 
             _defaultPattern = new Vector.<Note>(16);
-            for (var i:int=0; i<16; i++) _defaultPattern[i] = new Note();
+            _gridShiftPattern = new Vector.<int>(16);
+            for (var i:int=0; i<16; i++) {
+                _defaultPattern[i] = new Note();
+                _gridShiftPattern[i] = 0;
+            }
             
             this.division = division;
             _onEnterSegument();
@@ -212,6 +231,7 @@ package org.si.sound {
                     _track.setPortament(_portament);
                     _pointer = 0;
                     _currentNote = pattern[0];
+                    _currentGridShift = 0;
                     _synthesizer._registerTrack(_track);
                 }
             }
@@ -239,7 +259,7 @@ package org.si.sound {
         {
             if (_frameCount == 0) _onEnterSegument();
             if (pattern && pattern.length>0) {
-                if (_pointer >= pattern.length) _pointer = 0;
+                if (_pointer >= pattern.length) _pointer %= pattern.length;
                 _currentNote = pattern[_pointer];
                 var vel:int = velocity;
                 if (vel > 0) {
@@ -257,6 +277,9 @@ package org.si.sound {
                     _track.setNote(note, sampleLength, (_portament>0));
                 }
                 _pointer++;
+                var diff:int = _gridShiftPattern[_pointer&15] - _currentGridShift;
+                _restEvent.length = _gridStep + diff;
+                _currentGridShift += diff;
             }
             if (++_frameCount == _division) _frameCount = 0;
             return null;
@@ -269,7 +292,8 @@ package org.si.sound {
             if (onEnterSegument != null) onEnterSegument();
             if (_nextSegumentDivision != _division) {
                 _division = _nextSegumentDivision;
-                _restEvent.length = 1920/_division;
+                _gridStep = 1920/_division;
+                _restEvent.length = _gridStep;
             }
         }
     }

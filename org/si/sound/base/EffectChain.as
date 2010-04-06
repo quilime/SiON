@@ -23,7 +23,6 @@ package org.si.sound.base {
         
         
         
-        
     // properties
     //--------------------------------------------------
         /** effector list */
@@ -59,15 +58,12 @@ package org.si.sound.base {
         
     // operations
     //--------------------------------------------------
-        /** @private [internal] activate local effect */
-        internal function _activateLocalEffect() : void
+        /** @private [internal] activate local effect. deeper effectors executes first. */
+        internal function _activateLocalEffect(depth:int) : void
         {
             var driver:SiONDriver = SiONDriver.mutex;
             if (driver) {
-                _effectStream = driver.effector.newLocalEffect();
-                if (_effectStream) {
-                    _effectStream.chain = Vector.<SiEffectBase>(_effectList);
-                }
+                _effectStream = driver.effector.newLocalEffect(depth, Vector.<SiEffectBase>(_effectList));
             }
         }
         
@@ -83,51 +79,39 @@ package org.si.sound.base {
         }
         
         
-        /** @private [internal] compare chain list */
-        internal function _isEqualWith(list:Array) : Boolean
-        {
-            if (_effectList.length != list.length) return false;
-            var i:int, imax:int = list.length;
-            for (i=0; i<imax; i++) {
-                if (_effectList[i] !== list[i]) return false;
-            }
-            return true;
-        }
-        
-        
+        /** set all stream levels by Vector.<int>(8) */
         public function setAllStreamSendLevels(volumes:Vector.<int>) : void
         {
             _effectStream.setAllStreamSendLevels(volumes);
         }
 
         
+        /** connect to another chain */
+        public function connectTo(ec:EffectChain) : void
+        {
+            _effectStream.connectTo(ec.streamingBuffer);
+        }
+        
         
         
     // factory
     //--------------------------------------------------
         static private var _freeList:Vector.<EffectChain> = new Vector.<EffectChain>();
-        static private var _activeList:Vector.<EffectChain> = new Vector.<EffectChain>();
         
-        
+        /** allocate new EffectChain */
         static public function alloc(effectList:Array) : EffectChain
         {
             if (effectList == null || effectList.length == 0) return null;
-            var ec:EffectChain;
-            for each (ec in _activeList) {
-                if (ec._isEqualWith(effectList)) return ec;
-            }
-            ec = _freeList.pop() || new EffectChain();
+            var ec:EffectChain = _freeList.pop() || new EffectChain();
             ec.effectList = effectList;
-            _activeList.push(ec);
             return ec;
         }
         
         
+        /** delete this EffectChain */
         public function free() : void
         {
             effectList = [];
-            var i:int = _activeList.indexOf(this);
-            if (i != -1) _activeList.splice(i, 1);
             _freeList.push(this);
         }
     }

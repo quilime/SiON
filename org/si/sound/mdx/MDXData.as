@@ -6,17 +6,20 @@
 
 
 package org.si.sound.mdx {
+    import flash.events.*;
+    import flash.utils.ByteArray;
+    import flash.net.URLRequest;
     import org.si.sion.*;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.sequencer.base.MMLEvent;
     import org.si.sion.sequencer.base.MMLSequence;
-    import flash.utils.ByteArray;
+    import org.si.utils.AbstructLoader;
     
     
     /** MDX data class */
-    public class MDXData
+    public class MDXData extends AbstructLoader
     {
     // variables
     //--------------------------------------------------------------------------------
@@ -27,22 +30,37 @@ package org.si.sound.mdx {
         public var voices:Vector.<SiONVoice> = new Vector.<SiONVoice>(256, true);
         public var tracks:Vector.<MDXTrack> = new Vector.<MDXTrack>(16, true);
         public var executors:Vector.<MDXExecutor> = new Vector.<MDXExecutor>(16, true);
+        
         private var _noiseVoice:SiONVoice;
         private var _noiseVoiceNumber:int;
         private var _currentBPM:Number;
         private var _globalSequence:MMLSequence;
         private var _globalPrevClock:uint;
         
+        static private var _loadPDXDataAutomaticaly:Boolean = false;
+        static private var _pdxDataStorage:PDXDataStorage;
+        
+        
         
         
     // properties
     //--------------------------------------------------------------------------------
+        /** load PDXData automaticaly, if this flag is true, new PDXDataStorage instance is create internaly. */
+        static public function get loadPDXDataAutomaticaly() : Boolean {
+            return _loadPDXDataAutomaticaly;
+        }
+        static public function set loadPDXDataAutomaticaly(b:Boolean) : void {
+            if (b && _pdxDataStorage == null) _pdxDataStorage = new PDXDataStorage();
+            _loadPDXDataAutomaticaly = b;
+        }
+        
+        
         /** Is avaiblable ? */
         public function isAvailable() : Boolean { return false; }
         
         
         /** to string. */
-        public function toString():String
+        override public function toString() : String
         {
             var text:String = "";
             return text;
@@ -53,11 +71,13 @@ package org.si.sound.mdx {
         
     // constructor
     //--------------------------------------------------------------------------------
-        function MDXData()
+        /** constructor */
+        function MDXData(url:URLRequest=null)
         {
             for (var i:int=0; i<16; i++) executors[i] = new MDXExecutor();
             _noiseVoice = new SiONVoice(2, 1);
             _noiseVoice.channelParam.operatorParam[0].ptType = SiOPMTable.PT_OPM_NOISE;
+            if (url != null) load(url);
         }
         
         
@@ -103,7 +123,7 @@ package org.si.sound.mdx {
             if (pdxData) {
                 imax = 96;
                 for (i=0; i<imax; i++) {
-                    if (pdxData.pcmData[i]) data.setPCMData(i, pdxData.pcmData[i]);
+                    if (pdxData.extract(i)) data.setPCMData(i, pdxData.pcmData[i]);
                 }
             }
             
@@ -139,6 +159,35 @@ package org.si.sound.mdx {
         
         /** Load MDX data from byteArray. */
         public function loadBytes(bytes:ByteArray) : MDXData
+        {
+            _loadBytes(bytes);
+            dispatchEvent(new Event(Event.COMPLETE));
+            return this;
+        }
+        
+        
+        
+        
+    // handlers
+    //--------------------------------------------------------------------------------
+        /** @private */
+        override protected function onComplete() : void
+        {
+            if (_loader.dataFormat == "binary") {
+                _loadBytes(_loader.data as ByteArray);
+                if (pdxFileName != null && _loadPDXDataAutomaticaly) {
+                    addChild(_pdxDataStorage.load(new URLRequest(pdxFileName)));
+                }
+            }
+        }
+        
+        
+        
+        
+    // privates
+    //--------------------------------------------------------------------------------
+        // load from byte array
+        private function _loadBytes(bytes:ByteArray) : void
         {
             var titleLength:int, pdxLength:int, dataPointer:int, voiceOffset:int, voiceLength:int,
                 voiceCount:int, i:int, mmlOffsets:Array = new Array(16);
@@ -180,8 +229,6 @@ package org.si.sound.mdx {
             
             // load tracks
             _loadTracks(bytes, mmlOffsets);
-            
-            return this;
         }
         
         
@@ -236,6 +283,7 @@ package org.si.sound.mdx {
                 if (voices[i] == null) {
                     _noiseVoiceNumber = i;
                     voices[i] = _noiseVoice;
+                    break;
                 }
             }
         }

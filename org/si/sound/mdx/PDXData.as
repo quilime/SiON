@@ -6,12 +6,14 @@
 
 
 package org.si.sound.mdx {
+    import flash.events.*;
     import flash.utils.ByteArray;
     import org.si.sion.utils.SiONUtil;
+    import org.si.utils.AbstructLoader;
     
     
     /** PDX data class */
-    public class PDXData
+    public class PDXData extends AbstructLoader
     {
     // variables
     //--------------------------------------------------------------------------------

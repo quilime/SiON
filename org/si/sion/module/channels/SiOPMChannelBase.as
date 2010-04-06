@@ -132,8 +132,6 @@ package org.si.sion.module.channels {
         public function setAllAttackRate(ar:int) : void {}
         /** Release rate (s) */
         public function setAllReleaseRate(rr:int) : void {}
-        /** Pitch bend */
-        public function set pitchBend(pb:int) : void {}
         
         /** Master volume (0-128) */
         public function get masterVolume() : int { return _volumes[0]*128; }

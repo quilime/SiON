@@ -18,10 +18,11 @@ package org.si.sion.effector {
         
         
         
+        
     // valiables
     //--------------------------------------------------------------------------------
         private var _module:SiOPMModule;
-        private var _freeEffects:Vector.<SiEffectStream>;
+        private var _freeEffectStreams:Vector.<SiEffectStream>;
         private var _localEffects:Vector.<SiEffectStream>;
         private var _globalEffects:Vector.<SiEffectStream>;
         private var _masterEffect:SiEffectStream;
@@ -37,7 +38,7 @@ package org.si.sion.effector {
         function SiEffectModule(module:SiOPMModule) 
         {
             _module = module;
-            _freeEffects   = new Vector.<SiEffectStream>();
+            _freeEffectStreams = new Vector.<SiEffectStream>();
             _localEffects  = new Vector.<SiEffectStream>();
             _globalEffects = new Vector.<SiEffectStream>(SiOPMModule.STREAM_SEND_SIZE, true);
             _masterEffect  = new SiEffectStream(_module, _module.outputStream);
@@ -77,12 +78,28 @@ package org.si.sion.effector {
          */
         public function initialize() : void
         {
-            var effect:SiEffectStream, i:int;
-            for each (effect in _localEffects) _freeEffects.push(effect);
+            var es:SiEffectStream, i:int;
+            
+            // local effects
+            for each (es in _localEffects) {
+                es.free();
+                _freeEffectStreams.push(es);
+            }
             _localEffects.length = 0;
-            _globalEffects[0] = _masterEffect;
-            for (i=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) _globalEffects[i] = null;
+            
+            // global effects
+            for (i=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                if (_globalEffects[i] != null) {
+                    _globalEffects[i].free();
+                    _freeEffectStreams.push(_globalEffects[i]);
+                    _globalEffects[i] = null;
+                }
+            }
             _globalEffectCount = 0;
+            
+            // master effect
+            _masterEffect.initialize(0);
+            _globalEffects[0] = _masterEffect;
         }
         
         
@@ -94,13 +111,10 @@ package org.si.sion.effector {
         /** @private [sion internal] prepare for processing. */
         _sion_internal function _prepareProcess() : void
         {
-            var slot:int, channelCount:int;
+            var slot:int, channelCount:int, slotMax:int = _localEffects.length;
             
-            // local effect
-            for (slot=0; slot<_localEffects.length; slot++) {
-                _localEffects[slot].prepareProcess();
-            }
-            
+            // do nothing on local effect
+           
             // global effect (slot1-slot7)
             _globalEffectCount = 0;
             for (slot=1; slot<SiOPMModule.STREAM_SEND_SIZE; slot++) {
@@ -122,10 +136,10 @@ package org.si.sion.effector {
         /** @private [sion internal] Clear output buffer. */
         _sion_internal function _beginProcess() : void
         {
-            var slot:int;
+            var slot:int, slotMax:int=_localEffects.length;
             
             // local effect
-            for (slot=0; slot<_localEffects.length; slot++) {
+            for (slot=0; slot<slotMax; slot++) {
                 _localEffects[slot]._stream.clear();
             }
             
@@ -141,13 +155,14 @@ package org.si.sion.effector {
         /** @private [sion internal] processing. */
         _sion_internal function _endProcess() : void
         {
-            var i:int, slot:int, buffer:Vector.<Number>, effect:SiEffectStream, 
+            var i:int, slot:int, slotMax:int=_localEffects.length,
+                buffer:Vector.<Number>, effect:SiEffectStream, 
                 bufferLength:int = _module.bufferLength,
                 output:Vector.<Number> = _module.output,
                 imax:int = output.length;
             
             // local effect
-            for (slot=0; slot<_localEffects.length; slot++) {
+            for (slot=0; slot<slotMax; slot++) {
                 _localEffects[slot].process(0, bufferLength);
             }
             
@@ -215,33 +230,33 @@ package org.si.sion.effector {
         public function clear(slot:int) : void
         {
             if (slot == 0) {
-                _masterEffect.initialize();
+                _masterEffect.initialize(0);
             } else {
-                if (_globalEffects[slot] != null) _freeEffects.push(_globalEffects[slot]);
+                if (_globalEffects[slot] != null) _freeEffectStreams.push(_globalEffects[slot]);
                 _globalEffects[slot] = null;
             }
         }
         
         
-        /** Connect effector to the slot.
+        /** Connect effector to the global/master slot.
          *  @param slot Effector slot number.
          *  @param effector Effector instance.
          */
         public function connect(slot:int, effector:SiEffectBase) : void
         {
-            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream();
+            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream(0);
             _globalEffects[slot].chain.push(effector);
         }
         
         
-        /** Parse MML for effector 
+        /** Parse MML for global/master effectors
          *  @param slot Effector slot number.
          *  @param mml MML string.
          *  @param postfix Postfix string.
          */
         public function parseMML(slot:int, mml:String, postfix:String) : void
         {
-            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream();
+            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream(0);
             _globalEffects[slot].parseMML(mml, postfix);
         }
         
@@ -259,11 +274,24 @@ package org.si.sion.effector {
         }
         
         
-        /** Create new local effector connector */
-        public function newLocalEffect() : SiEffectStream
+        /** Create new local effector connector. deeper effectors executes first. */
+        public function newLocalEffect(depth:int, list:Vector.<SiEffectBase>) : SiEffectStream
         {
-            var inst:SiEffectStream = _allocStream();
-            _localEffects.push(inst);
+            var inst:SiEffectStream = _allocStream(depth);
+            inst.chain = list;
+            inst.prepareProcess();
+            if (depth == 0) {
+                _localEffects.push(inst);
+                return inst;
+            } else {
+                for (var slot:int=_localEffects.length-1; slot>=0; --slot) {
+                    if (_localEffects[slot]._depth >= depth) {
+                        _localEffects.splice(slot, 0, inst);
+                        return inst;
+                    }
+                }
+            }
+            _localEffects.unshift(inst);
             return inst;
         }
         
@@ -272,8 +300,8 @@ package org.si.sion.effector {
         public function deleteLocalEffect(inst:SiEffectStream) : void
         {
             var i:int = _localEffects.indexOf(inst);
-            if (i != -1) _localEffects.splice(i, 0);
-            _freeEffects.push(inst);
+            if (i != -1) _localEffects.splice(i, 1);
+            _freeEffectStreams.push(inst);
         }
         
         
@@ -281,10 +309,10 @@ package org.si.sion.effector {
         
     // functory
     //--------------------------------------------------------------------------------
-        private function _allocStream() : SiEffectStream
+        private function _allocStream(depth:int) : SiEffectStream
         {
-            var inst:SiEffectStream = _freeEffects.pop() || new SiEffectStream(_module);
-            inst.initialize();
+            var inst:SiEffectStream = _freeEffectStreams.pop() || new SiEffectStream(_module);
+            inst.initialize(depth);
             return inst;
         }
     }
