@@ -66,7 +66,7 @@ package org.si.sound.synthesizers {
         public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
             _defaultSamplerData.slice(startPoint, endPoint, loopPoint);
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -87,7 +87,7 @@ package org.si.sound.synthesizers {
             } else {
                 sample = new SiOPMWaveSamplerData(data, ignoreNoteOff, channelCount);
             }
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
             return _samplerTable.setSample(sample, keyRangeFrom, keyRangeTo);
         }
     }

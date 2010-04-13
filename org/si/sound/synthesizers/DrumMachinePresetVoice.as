@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------
-// Preset voices for RhythmBox
+// Preset voices for DrumMachine
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
@@ -9,8 +9,8 @@ package org.si.sound.synthesizers {
     import org.si.sion.SiONVoice;
     
     
-    /** Preset voices for RhythmBox, this class can also be synthesizer. */
-    public dynamic class RhythmBoxPresetVoice extends VoiceReference
+    /** Preset voices for DrumMachine, this class can also be synthesizer. */
+    public dynamic class DrumMachinePresetVoice extends VoiceReference
     {
     // namespace
     //----------------------------------------
@@ -64,7 +64,7 @@ package org.si.sound.synthesizers {
     // constructor
     //----------------------------------------
         /** constructor */
-        function RhythmBoxPresetVoice()
+        function DrumMachinePresetVoice()
         {
             // bass drums
             _categoly("bass");

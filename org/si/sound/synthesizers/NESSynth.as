@@ -8,7 +8,7 @@ package org.si.sound.synthesizers {
     import org.si.utils.SLLint;
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLEnvelopTable;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Nintendo Entertainment System (Family Computer) Synthesizer 
@@ -58,7 +58,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOnAmplitudeEnvelop = _constructEnvelopTable(_voice.noteOnAmplitudeEnvelop, table, loopPoint);
             _voice.noteOnAmplitudeEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -71,7 +71,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOnPitchEnvelop = _constructEnvelopTable(_voice.noteOnPitchEnvelop, table, loopPoint);
             _voice.noteOnPitchEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -84,7 +84,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOnNoteEnvelop = _constructEnvelopTable(_voice.noteOnNoteEnvelop, table, loopPoint);
             _voice.noteOnNoteEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -97,7 +97,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOnToneEnvelop = _constructEnvelopTable(_voice.noteOnToneEnvelop, table, loopPoint);
             _voice.noteOnToneEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -110,7 +110,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOffAmplitudeEnvelop = _constructEnvelopTable(_voice.noteOffAmplitudeEnvelop, table, loopPoint);
             _voice.noteOffAmplitudeEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -123,7 +123,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOffPitchEnvelop = _constructEnvelopTable(_voice.noteOffPitchEnvelop, table, loopPoint);
             _voice.noteOffPitchEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -136,7 +136,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOffNoteEnvelop = _constructEnvelopTable(_voice.noteOffNoteEnvelop, table, loopPoint);
             _voice.noteOffNoteEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -149,7 +149,7 @@ package org.si.sound.synthesizers {
         {
             _voice.noteOffToneEnvelop = _constructEnvelopTable(_voice.noteOffToneEnvelop, table, loopPoint);
             _voice.noteOffToneEnvelopStep = step;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         

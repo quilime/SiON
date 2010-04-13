@@ -31,6 +31,7 @@ package org.si.sion {
     import org.si.sion.module.SiOPMWaveSamplerTable;
     import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.effector.SiEffectModule;
+    import org.si.sion.effector.SiEffectBase;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
     import org.si.sion.namespaces._sion_internal;
@@ -256,6 +257,23 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             if (_soundChannel) _soundChannel.soundTransform = _soundTransform;
         }
         
+
+        /** SiEffectBase array connected to Effector slot 0 */
+        public function set effectorSlot0(list:Array) : void { effector.setEffectorList(0, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 1 */
+        public function set effectorSlot1(list:Array) : void { effector.setEffectorList(1, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 2 */
+        public function set effectorSlot2(list:Array) : void { effector.setEffectorList(2, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 3 */
+        public function set effectorSlot3(list:Array) : void { effector.setEffectorList(3, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 4 */
+        public function set effectorSlot4(list:Array) : void { effector.setEffectorList(4, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 5 */
+        public function set effectorSlot5(list:Array) : void { effector.setEffectorList(5, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 6 */
+        public function set effectorSlot6(list:Array) : void { effector.setEffectorList(6, Vector.<SiEffectBase>(list)); }
+        /** SiEffectBase array connected to Effector slot 7 */
+        public function set effectorSlot7(list:Array) : void { effector.setEffectorList(7, Vector.<SiEffectBase>(list)); }
         
         // measured times
         /** previous compiling time [ms]. */

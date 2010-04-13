@@ -7,7 +7,7 @@
 package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
    
     
     /** Voice reference, basic class of all synthesizers. */
@@ -25,8 +25,8 @@ package org.si.sound.synthesizers {
         /** @private [synthesizer internal] Instance of voice setting */
         _synthesizer_internal var _voice:SiONVoice = null;
         
-        /** @private [synthesizer internal] Flag to require voice update */
-        _synthesizer_internal var _requireVoiceUpdate:Boolean;
+        /** @private [synthesizer internal] require voice update number */
+        _synthesizer_internal var _voiceUpdateNumber:uint;
         
         
         
@@ -36,7 +36,7 @@ package org.si.sound.synthesizers {
         /** voice setting */
         public function get voice() : SiONVoice { return _voice; }
         public function set voice(v:SiONVoice) : void {
-            _requireVoiceUpdate = (_voice !== v);
+            if (_voice !== v) _voiceUpdateNumber++;
             _voice = v;
         }
             
@@ -48,7 +48,7 @@ package org.si.sound.synthesizers {
         /** constructor */
         function VoiceReference()
         {
-            _requireVoiceUpdate = false;
+            _voiceUpdateNumber = 0;
         }
         
         

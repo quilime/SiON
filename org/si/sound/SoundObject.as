@@ -5,27 +5,32 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.base {
+package org.si.sound {
+    import flash.events.EventDispatcher;
     import org.si.sion.*;
     import org.si.sion.utils.Translator;
     import org.si.sion.utils.Fader;
     import org.si.sion.namespaces._sion_internal;
     import org.si.sion.events.SiONEvent;
-    import org.si.sion.module.SiOPMModule;
+    import org.si.sion.events.SiONTrackEvent;
     import org.si.sion.effector.SiEffectBase;
+    import org.si.sion.module.SiOPMModule;
     import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sound.namespaces._sound_object_internal;
+    import org.si.sound.core.EffectChain;
     import org.si.sound.synthesizers.VoiceReference;
     import org.si.sound.synthesizers.BasicSynth;
     import org.si.sound.synthesizers._synthesizer_internal;
     
     
-    /** The SoundObject class is the base class for all objects that can be played sounds on the SiONDriver. 
+    /** The SoundObject class is the base class for all objects that can play sounds by operating SiONDriver. 
      */
-    public class SoundObject
+    public class SoundObject extends EventDispatcher
     {
     // namespace
     //----------------------------------------
         use namespace _synthesizer_internal;
+        use namespace _sound_object_internal;
         
         
         
@@ -39,6 +44,8 @@ package org.si.sound.base {
         protected var _note:int;
         /** Synthesizer instance */
         protected var _synthesizer:VoiceReference;
+        /** Synthesizer updating number */
+        protected var _synthesizer_updateNumber:uint;
         /** Synthesizer instance to use SiONVoice  */
         protected var _voiceReference:VoiceReference;
         /** Effect chain instance */
@@ -159,7 +166,7 @@ package org.si.sound.base {
             _pitchShift = p;
             if (_track) _track.pitchShift = _pitchShift * 64;
         }
-        /** Track gate time (0-1). (value of 'q' command * 0.125) */
+        /** Track gate time (0:Minimum - 1:Maximum). (value of 'q' command * 0.125) */
         public function get gateTime() : Number { return _gateTime; }
         public function set gateTime(g:Number) : void {
             _gateTime = (g<0) ? 0 : (g>1) ? 1 : g;
@@ -234,7 +241,7 @@ package org.si.sound.base {
             _volumes[4] = v * 128;
             if (_track) _track.channel.setStreamSend(4, v);
         }
-        /** Channel pitch bend, in halftone unit, this property can control track after play(). */
+        /** Channel pitch bend, 1 for halftone, this property can control track after play(). */
         public function get pitchBend() : Number { return _pitchBend; }
         public function set pitchBend(p:Number) : void {
             _pitchBend = p;
@@ -434,7 +441,7 @@ package org.si.sound.base {
         protected function _noteOn(note:int, isDisposable:Boolean) : SiMMLTrack
         {
             if (!driver) return null;
-            _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
+            _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
                 bottomEC:EffectChain = _bottomEffectChain(),
                 track:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposable);
@@ -481,7 +488,7 @@ package org.si.sound.base {
         {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
-            _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
+            _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
                 bottomEC:EffectChain = _bottomEffectChain(),
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, len, _delay, _quantize, _trackID, isDisposable),
@@ -551,6 +558,16 @@ package org.si.sound.base {
         internal function _updateChildDepth() : void
         {
             _childDepth = (parent) ? (parent._childDepth + 1) : 0;
+        }
+        
+        
+        /** @private [internal use] update track voice when synthsizer was updated. */
+        protected function _updateTrackVoice() : void
+        {
+            if (_track && _synthesizer_updateNumber != _synthesizer._synthesizer_internal::_voiceUpdateNumber) {
+                _synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
+                _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
+            } 
         }
         
         

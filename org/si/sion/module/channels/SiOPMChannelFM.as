@@ -327,8 +327,10 @@ package org.si.sion.module.channels {
             if (waveData is SiOPMWaveTable) {
                 var waveTable:SiOPMWaveTable = waveData as SiOPMWaveTable;
                 if (waveTable.wavelet) {
-                    _updateOperatorCount(1);
-                    activeOperator.setWaveTable(waveTable);
+                    operator[0].setWaveTable(waveTable);
+                    if (operator[1]) operator[1].setWaveTable(waveTable);
+                    if (operator[2]) operator[2].setWaveTable(waveTable);
+                    if (operator[3]) operator[3].setWaveTable(waveTable);
                 }
             }
         }

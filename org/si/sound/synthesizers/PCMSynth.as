@@ -65,7 +65,7 @@ package org.si.sound.synthesizers {
         public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
             _defaultPCMData.slice(startPoint, endPoint, loopPoint);
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -85,7 +85,7 @@ package org.si.sound.synthesizers {
             } else {
                 pcmData = new SiOPMWavePCMData(data, samplingOctave);
             }
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
             return _pcmTable.setSample(pcmData, keyRangeFrom, keyRangeTo);
         }
     }

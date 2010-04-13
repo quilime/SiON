@@ -81,9 +81,6 @@ package org.si.sion.effector {
         /** @private */
         override public function initialize() : void
         {
-            _lfoPhase = 0;
-            _lfoResidueStep = 0;
-            _pointerRead = 0;
             setParameters();
         }
         
@@ -102,6 +99,9 @@ package org.si.sion.effector {
         /** @private */
         override public function prepareProcess() : int
         {
+            _lfoPhase = 0;
+            _lfoResidueStep = 0;
+            _pointerRead = 0;
             var i:int, imax:int = 1<<DELAY_BUFFER_BITS;
             for (i=0; i<imax; i++) _delayBufferL[i] = _delayBufferR[i] = 0;
             return 2;

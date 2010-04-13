@@ -7,10 +7,11 @@
 package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.channels.SiOPMChannelFM;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Analog "LIKE" Synthesizer 
@@ -32,6 +33,7 @@ package org.si.sound.synthesizers {
         static public const CONNECT_RING:int = 0;
         /** sync connection */
         static public const CONNECT_SYNC:int = 0;
+        
         /** wave shape number of saw wave */
         static public const SAW:int = SiOPMTable.PG_SAW_UP;
         /** wave shape number of square wave */
@@ -53,7 +55,7 @@ package org.si.sound.synthesizers {
         /** operator parameter for op1 */
         protected var _opp1:SiOPMOperatorParam;
         /** mixing balance of 2 oscillators.*/
-        protected var _balance:int;
+        protected var _intBalance:int;
         
         
         
@@ -63,7 +65,7 @@ package org.si.sound.synthesizers {
         public function get con() : int { return _voice.channelParam.alg; }
         public function set con(c:int) : void {
             _voice.channelParam.alg = (c<0 || c>2) ? 0 : c;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -99,14 +101,14 @@ package org.si.sound.synthesizers {
         }
         
         
-        /** mixing balance of 2 oscillators (-64<->64), -64=1st only, 64=2nd only. */
-        public function get balance() : int { return _opp1.pgType; }
-        public function set balance(b:int) : void {
-            _balance = b;
-            if (_balance > 64) _balance = 64;
-            else if (_balance < -64) _balance = -64;
-            _opp0.tl = SiOPMTable.instance.eg_tlTable[64-_balance] >> SiOPMTable.ENV_LSHIFT;
-            _opp1.tl = SiOPMTable.instance.eg_tlTable[_balance+64] >> SiOPMTable.ENV_LSHIFT;
+        /** mixing balance of 2 oscillators (0<->1), 0=1st only, 0.5=same volume, 1=2nd only. */
+        public function get balance() : Number { return (_intBalance+64) * 0.0078125; }
+        public function set balance(b:Number) : void {
+            _intBalance = int(balance * 128) - 64;
+            if (_intBalance > 64) _intBalance = 64;
+            else if (_intBalance < -64) _intBalance = -64;
+            _opp0.tl = SiOPMTable.instance.eg_tlTable[64-_intBalance] >> SiOPMTable.ENV_LSHIFT;
+            _opp1.tl = SiOPMTable.instance.eg_tlTable[_intBalance+64] >> SiOPMTable.ENV_LSHIFT;
             var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
                 ch = _tracks[i].channel as SiOPMChannelFM;
@@ -118,10 +120,10 @@ package org.si.sound.synthesizers {
         }
         
         
-        /** pitch difference in osc1 and 2. 64 for 1 halftone. */
-        public function get vco2pitch() : int { return _opp1.detune - _opp0.detune; }
-        public function set vco2pitch(p:int) : void {
-            _opp1.detune = _opp0.detune + p;
+        /** pitch difference in osc1 and 2. 1 = halftone. */
+        public function get vco2pitch() : Number { return (_opp1.detune - _opp0.detune) * 0.015625; }
+        public function set vco2pitch(p:Number) : void {
+            _opp1.detune = _opp0.detune + int(p * 64);
             var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
                 ch = _tracks[i].channel as SiOPMChannelFM;
@@ -129,6 +131,35 @@ package org.si.sound.synthesizers {
                     ch.operator[1].detune = _opp1.detune;
                 }
             }
+        }
+        
+        
+        /** VCA attack time [0-1], This value is not linear. */
+        public function get attackTime() : Number { return (_opp0.ar > 48) ? 0 : (1 - _opp0.ar * 0.020833333333333332); }
+        public function set attackTime(n:Number) : void {
+            _opp0.ar = (n == 0) ? 63 : ((1 - n) * 48);
+            _voiceUpdateNumber++;
+        }
+        
+        /** VCA decay time [0-1], This value is not linear. */
+        public function get decayTime() : Number { return (_opp0.dr > 48) ? 0 : (1 - _opp0.dr * 0.020833333333333332); }
+        public function set decayTime(n:Number) : void {
+            _opp0.dr = (n == 0) ? 63 : ((1 - n) * 48);
+            _voiceUpdateNumber++;
+        }
+        
+        /** VCA sustain level [0-1], This value is not linear. */
+        public function get sustainLevel() : Number { return (_opp0.sl==15) ? 0 : (1 - _opp0.sl * 0.06666666666666666); }
+        public function set sustainLevel(n:Number) : void {
+            _opp0.sl = (n == 0) ? 15 : ((1 - n) * 15);
+            _voiceUpdateNumber++;
+        }
+        
+        /** VCA release time [0-1], This value is not linear. */
+        public function get releaseTime() : Number { return (_opp0.rr > 48) ? 0 : (1 - _opp0.rr * 0.020833333333333332); }
+        public function set releaseTime(n:Number) : void {
+            _opp0.rr = (n == 0) ? 63 : ((1 - n) * 48);
+            _voiceUpdateNumber++;
         }
         
         
@@ -141,16 +172,16 @@ package org.si.sound.synthesizers {
          *  @param connectionType Connection type, 0=normal, 1=ring, 2=sync.
          *  @param ws1 Wave shape for osc1.
          *  @param ws2 Wave shape for osc2.
-         *  @param balance mixing balance of 2 osccilators (-64<->64), -64=1st only, 64=2nd only.
-         *  @param vco2pitch pitch difference in osc1 and 2. 64 for 1 halftone.
+         *  @param balance mixing balance of 2 osccilators (0<->1), 0=1st only, 0.5=same volume, 1=2nd only.
+         *  @param vco2pitch pitch difference in osc1 and 2. 1 for halftone.
          */
-        function AnalogSynth(connectionType:int, ws1:int=0, ws2:int=0, balance:int=0, vco2pitch:int=0)
+        function AnalogSynth(connectionType:int, ws1:int=0, ws2:int=0, balance:Number=0.5, vco2pitch:Number=0.1)
         {
             super();
-            _balance = balance;
-            if (_balance > 64) _balance = 64;
-            else if (_balance < -64) _balance = -64;
-            _voice.setAnalogLike(connectionType, ws1, ws2, _balance, vco2pitch);
+            _intBalance = int(balance * 128) - 64;
+            if (_intBalance > 64) _intBalance = 64;
+            else if (_intBalance < -64) _intBalance = -64;
+            _voice.setAnalogLike(connectionType, ws1, ws2, _intBalance, vco2pitch*64);
             _opp0 = _voice.channelParam.operatorParam[0];
             _opp1 = _voice.channelParam.operatorParam[1];
         }
@@ -160,6 +191,41 @@ package org.si.sound.synthesizers {
         
     // operation
     //----------------------------------------
+        /** set VCA envelope. This provide basic ADSR envelop.
+         *  @param attackTime attack time [0-1]. This value is not linear.
+         *  @param decayTime decay time [0-1]. This value is not linear.
+         *  @param sustainLevel sustain level [0-1]. This value is not linear.
+         *  @param releaseTime release time [0-1]. This value is not linear.
+         *  @return this instance
+         */
+        public function setVCAEnvelop(attackTime:Number, decayTime:Number, sustainLevel:Number, releaseTime:Number) : AnalogSynth
+        {
+            _opp0.ar = (attackTime == 0) ? 63 : ((1 - attackTime) * 48);
+            _opp0.dr = (decayTime == 0) ? 63 : ((1 - decayTime) * 48);
+            _opp0.sr = 0;
+            _opp0.rr = (releaseTime == 0) ? 63 : ((1 - releaseTime) * 48);
+            _opp0.sl = (1 - sustainLevel) * 15;
+            _voiceUpdateNumber++;
+            return this;
+        }
+        
+        
+        /** set VCF envelope, This is a simplification of BasicSynth.setLPFEnvelop().
+         *  @param cutoff cutoff frequency[0-1].
+         *  @param resonanse resonanse[0-1].
+         *  @param attackTime attack time [0-1]. This value is not linear.
+         *  @param startCutoff starting cutoff of attack[0-1].
+         *  @return this instance
+         */
+        public function setVCFEnvelop(cutoff:Number=1, resonanse:Number=0, attackTime:Number=0, startCutoff:Number=0) : AnalogSynth
+        {
+            if (attackTime == 0 || cutoff == startCutoff) {
+                setLPFEnvelop(cutoff, resonance, 63);
+            } else {
+                setLPFEnvelop(startCutoff, resonance, ((1 - attackTime) * 63), 0, 0, 0, cutoff, cutoff, cutoff, cutoff);
+            }
+            return this;
+        }
     }
 }
 

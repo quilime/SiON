@@ -7,7 +7,7 @@
 package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Frequency Modulation Synthesizer
@@ -36,7 +36,7 @@ package org.si.sound.synthesizers {
         public function set alg(i:int) : void {
             if ( _voice.channelParam.alg == i || i<0 || i>15) return;
              _voice.channelParam.alg = i;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         /** FB; feedback [0-7]. */
@@ -44,7 +44,7 @@ package org.si.sound.synthesizers {
         public function set fb(i:int) : void {
             if ( _voice.channelParam.fb == i || i<0 || i>7) return;
              _voice.channelParam.fb = i;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         /** FBC; feedback connection [0-3]. */
@@ -52,14 +52,14 @@ package org.si.sound.synthesizers {
         public function set fbc(i:int) : void {
             if ( _voice.channelParam.fbc == i || i<0 || i>3) return;
              _voice.channelParam.fbc = i;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
         /** @private */
         override public function set voice(v:SiONVoice) : void {
             _voice.copyFrom(v); // copy from passed voice
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         

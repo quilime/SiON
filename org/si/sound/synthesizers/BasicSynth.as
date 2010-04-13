@@ -8,7 +8,7 @@ package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Basic Synthesizer */
@@ -34,7 +34,7 @@ package org.si.sound.synthesizers {
         /** @private */
         override public function set voice(v:SiONVoice) : void {
             _voice.copyFrom(v); // copy from passed voice
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -64,7 +64,7 @@ package org.si.sound.synthesizers {
         public function get lfoWaveShape() : int { return _voice.channelParam.lfoWaveShape; }
         public function set lfoWaveShape(type:int) : void {
             _voice.channelParam.lfoWaveShape = type;
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         /** modulation (low-frequency oscillator) cycle frames. */
@@ -122,21 +122,21 @@ package org.si.sound.synthesizers {
     // operations
     //----------------------------------------
         /** set low-pass filter envelop (same as '@f' command in MML).
-         *  @param cutoff LP filter cutoff (0-128)
-         *  @param resonance LP filter resonance (0-9)
+         *  @param cutoff LP filter cutoff (0-1)
+         *  @param resonance LP filter resonance (0-1)
          *  @param far LP filter attack rate (0-63)
          *  @param fdr1 LP filter decay rate 1 (0-63)
          *  @param fdr2 LP filter decay rate 2 (0-63)
          *  @param frr LP filter release rate (0-63)
-         *  @param fdc1 LP filter decay cutoff 1 (0-128)
-         *  @param fdc2 LP filter decay cutoff 2 (0-128)
-         *  @param fsc LP filter sustain cutoff (0-128)
-         *  @param frc LP filter release cutoff (0-128)
+         *  @param fdc1 LP filter decay cutoff 1 (0-1)
+         *  @param fdc2 LP filter decay cutoff 2 (0-1)
+         *  @param fsc LP filter sustain cutoff (0-1)
+         *  @param frc LP filter release cutoff (0-1)
          */
-        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : void
+        public function setLPFEnvelop(cutoff:Number=1, resonance:Number=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:Number=1, fdc2:Number=0.5, fsc:Number=0.25, frc:Number=1) : void
         {
-            _voice.setLPFEnvelop(cutoff, resonance, far, fdr1, fdr2, frr, fdc1, fdc2, fsc, frc);
-            _requireVoiceUpdate = true;
+            _voice.setLPFEnvelop(cutoff*128, resonance*9, far, fdr1, fdr2, frr, fdc1*128, fdc2*128, fsc*128, frc*128);
+            _voiceUpdateNumber++;
         }
         
         
@@ -150,7 +150,7 @@ package org.si.sound.synthesizers {
         public function setAmplitudeModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : void
         {
             _voice.setAmplitudeModulation(depth, end_depth, delay, term);
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -164,7 +164,7 @@ package org.si.sound.synthesizers {
         public function setPitchModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : void
         {
             _voice.setPitchModulation(depth, end_depth, delay, term);
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         

@@ -8,7 +8,7 @@ package org.si.sound.synthesizers {
     import org.si.sion.*;
     import org.si.sion.module.SiOPMOperatorParam;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Operator instance of FMSynth */
@@ -37,7 +37,7 @@ package org.si.sound.synthesizers {
         public function set ws(i:int) : void {
             if (_param.pgType == i || i<0 || i>511) return;
             _param.setPGType(i);
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -46,7 +46,7 @@ package org.si.sound.synthesizers {
         public function set ar(i:int) : void {
             if (_param.ar == i || i<0 || i>63) return;
             _param.ar = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -55,7 +55,7 @@ package org.si.sound.synthesizers {
         public function set dr(i:int) : void {
             if (_param.dr == i || i<0 || i>63) return;
             _param.dr = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -64,7 +64,7 @@ package org.si.sound.synthesizers {
         public function set sr(i:int) : void {
             if (_param.sr == i || i<0 || i>63) return;
             _param.sr = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -73,7 +73,7 @@ package org.si.sound.synthesizers {
         public function set rr(i:int) : void {
             if (_param.rr == i || i<0 || i>63) return;
             _param.rr = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -82,7 +82,7 @@ package org.si.sound.synthesizers {
         public function set sl(i:int) : void {
             if (_param.sl == i || i<0 || i>15) return;
             _param.sl = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -91,7 +91,7 @@ package org.si.sound.synthesizers {
         public function set tl(i:int) : void {
             if (_param.tl == i || i<0 || i>127) return;
             _param.tl = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -100,7 +100,7 @@ package org.si.sound.synthesizers {
         public function set ksr(i:int) : void {
             if (_param.ksr == i || i<0 || i>3) return;
             _param.ksr = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -109,7 +109,7 @@ package org.si.sound.synthesizers {
         public function set ksl(i:int) : void {
             if (_param.ksl == i || i<0 || i>3) return;
             _param.ksl = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -118,7 +118,7 @@ package org.si.sound.synthesizers {
         public function set mul(i:int) : void {
             if (_param.mul == i || i<0 || i>15) return;
             _param.mul = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -127,7 +127,7 @@ package org.si.sound.synthesizers {
         public function set dt1(i:int) : void {
             if (_param.dt1 == i || i<0 || i>7) return;
             _param.dt1 = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -142,7 +142,7 @@ package org.si.sound.synthesizers {
             var dt2table:Array = [0, 384, 500, 608];
             if (_param.detune == i || i<0 || i>3) return;
             _param.detune = dt2table[i];
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -151,7 +151,7 @@ package org.si.sound.synthesizers {
         public function set det(i:int) : void {
             if (_param.detune == i) return;
             _param.detune = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -160,7 +160,7 @@ package org.si.sound.synthesizers {
         public function set ams(i:int) : void {
             if (_param.ams == i || i<0 || i>3) return;
             _param.ams = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -169,7 +169,7 @@ package org.si.sound.synthesizers {
         public function set ph(i:int) : void {
             if (_param.phase == i || i<0 || i>255) return;
             _param.phase = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -179,7 +179,7 @@ package org.si.sound.synthesizers {
             var fp:int = i<<6;
             if (_param.fixedPitch == fp || i<0 || i>127) return;
             _param.fixedPitch = fp;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -188,7 +188,7 @@ package org.si.sound.synthesizers {
         public function set mute(b:Boolean) : void {
             if (_param.mute == b) return;
             _param.mute = b;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -197,7 +197,7 @@ package org.si.sound.synthesizers {
         public function set ssgec(i:int) : void {
             if (_param.ssgec == i || i<0 || i>17) return;
             _param.ssgec = i;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -206,7 +206,7 @@ package org.si.sound.synthesizers {
         public function set erst(b:Boolean) : void {
             if (_param.erst == b) return;
             _param.erst = b;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
         
         
@@ -260,7 +260,7 @@ package org.si.sound.synthesizers {
             if (ams     != int.MIN_VALUE) _param.ams = ams&3;
             if (phase   != int.MIN_VALUE) _param.phase = phase&255;
             if (fixNote != int.MIN_VALUE) _param.fixedPitch = (fixNote&127)<<6;
-            _owner._requireVoiceUpdate = true;
+            _owner._voiceUpdateNumber++;
         }
     }
 }

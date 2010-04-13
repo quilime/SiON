@@ -33,6 +33,28 @@ package org.si.sion.effector {
         
         
         
+    // properties
+    //------------------------------------------------------------
+        /** cutoff */
+        public function get cutoff() : Number { return _cutIndex * 0.0078125; }
+        public function set cutoff(n:Number) : void {
+            _cutIndex = cutoff*128;
+            if (_cutIndex > 128) _cutIndex = 128;
+            else if (_cutIndex<0) _cutIndex = 0;
+        }
+        
+        
+        /** resonance */
+        public function get resonance() : Number { return _res; }
+        public function set resonance(n:Number) : void {
+            _res = resonance;
+            if (_res > 1) _res = 1;
+            else if (_res < 0) _res = 0;
+        }
+        
+        
+        
+        
     // constructor
     //------------------------------------------------------------
         /** constructor */
@@ -100,8 +122,6 @@ package org.si.sion.effector {
         /** @private */
         override public function initialize() : void
         {
-            _lfoResidueStep = 0;
-            _p0r = _p1r = _p0l = _p1l = 0;
             setParameters();
         }
         
@@ -118,6 +138,8 @@ package org.si.sion.effector {
         /** @private */
         override public function prepareProcess() : int
         {
+            _lfoResidueStep = 0;
+            _p0r = _p1r = _p0l = _p1l = 0;
             return 2;
         }
         

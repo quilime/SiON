@@ -50,10 +50,19 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
         
         
         
+    // properties
+    //--------------------------------------------------
+        /** mutex object */
+        static public function get mutex():SiONPresetVoice { return _mutex; }
+        
+        
+        
     // valiables
     //--------------------------------------------------
         /** categoly list. */
         public var categolies:Array;
+        
+        static private var _mutex:SiONPresetVoice = null;
         
         
         
@@ -592,6 +601,8 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
 
                 // 60 voices from GM drum
             }
+            
+            _mutex = this;
         }
         
         

@@ -8,53 +8,43 @@
 package org.si.sound {
     import org.si.sion.*;
     import org.si.sion.utils.Scale;
-    import org.si.sion.sequencer.base.MMLEvent;
-    import org.si.sion.sequencer.base.MMLSequence;
-    import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
-    import org.si.sound.synthesizers._synthesizer_internal;
+    import org.si.sound.patterns.Note;
+    import org.si.sound.namespaces._sound_object_internal;
     
     
-    /** Arpeggiator */
-    public class Arpeggiator extends SoundObject
+    /** Arpeggiator provides monophonic arpeggio pattern sound. */
+    public class Arpeggiator extends PatternSequencer
     {
+    // namespace
+    //----------------------------------------
+        use namespace _sound_object_internal;
+        
+        
+        
+        
     // variables
     //----------------------------------------
-        /** default scale */
-        static private var _defaultScale:Scale = new Scale("C");
         /** Table of notes on scale */
         protected var _scale:Scale;
         /** scale index */
         protected var _scaleIndex:int;
 
-        /** portament */
-        protected var _portament:int;
-        /** arepggio pattern */
-        protected var _arpeggio:Vector.<int>;
-        /** Note events in the sequence with portament */
-        protected var _noteEvents:Vector.<MMLEvent>;
-        /** Slur events in the sequence with portament */
-        protected var _slurEvents:Vector.<MMLEvent>;
-        /** Note length */
-        protected var _step:int;
-        /** Sequence data. */
-        protected var _data:SiONData;
-        /** Sequence for arppegio pattern. */
-        protected var _sequence:MMLSequence;
+        /** Current arpeggio pattern. */
+        protected var _currentPattern:Array;
         /** Next arpeggio pattern to change while playing. */
         protected var _nextPattern:Array;
         
-        
+                
         
         
     // properties
     //----------------------------------------
-        /** change base note of the scale */
+        /** change root note of the scale */
         override public function get note() : int {
-            return _scale.baseNote;
+            return _scale.rootNote;
         }
         override public function set note(n:int) : void {
-            _scale.baseNote = n;
+            _scale.rootNote = n;
             _scaleIndexUpdated();
         }
         
@@ -62,7 +52,15 @@ package org.si.sound {
         /** scale instance */
         public function get scale() : Scale { return _scale; }
         public function set scale(s:Scale) : void {
-            _scale = s || _defaultScale;
+            _scale.copyFrom(s);
+            _scaleIndexUpdated();
+        }
+        
+        
+        /** specify scale by name */
+        public function get scaleName() : String { return _scale.name; }
+        public function set scaleName(str:String) : void {
+            _scale.name = str;
             _scaleIndexUpdated();
         }
         
@@ -76,36 +74,22 @@ package org.si.sound {
         }
         
         
-        /** portament */
-        public function get portament() : int { return _portament; }
-        public function set portament(p:int) : void {
-            _portament = p;
-            if (_portament < 0) _portament = 0;
-            if (_track) {
-                _track.setPortament(_portament);
-                _track.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
-            }
-        }
-        
-        
         /** note length in 16th beat. */
-        public function get noteLength() : Number { return _step / 120; }
+        public function get noteLength() : Number { return _sequencer.defaultLength; }
         public function set noteLength(l:Number) : void {
-            _step = l * 120;
-            var i:int, imax:int = _slurEvents.length;
-            for (i=0; i<imax; i++) _slurEvents[i].length = _step;
+            _sequencer.defaultLength = l;
+            _sequencer.gridStep = l * 120;
         }
         
         
         /** Note index array of the arpeggio pattern. If the index is out of range, insert rest instead. */
-        public function set pattern(pat:Array) : void
-        {
-            if (!isPlaying) _setArpeggioPattern(pat);
+        public function set pattern(pat:Array) : void {
+            if (!isPlaying) _updateArpeggioPattern(pat);
             else _nextPattern = pat;
         }
         
         
-        /** @internal This property is only for the compatibility before version 0.58. */
+        /** [NOT RECOMENDED] Only for the compatibility before version 0.58, the getTime property can be used instead of this property. */
         public function get noteQuantize() : int { return gateTime * 8; }
         public function set noteQuantize(q:int) : void { gateTime = q * 0.125; }
         
@@ -115,26 +99,25 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** constructor 
-         *  @param scaleInstance Scale instance.
+         *  @param scale Arpaggio scale, org.si.sion.utils.Scale instance, scale name String or null is suitable.
          *  @param noteLength length for each note
-         *  @param pattern arpegio pattern 
+         *  @param pattern Note index array of the arpeggio pattern. If the index is out of range, insert rest instead.
          *  @see org.si.sion.utils.Scale
          */
-        function Arpeggiator(scaleInstance:Scale=null, noteLength:Number=2, pattern:Array=null) 
+        function Arpeggiator(scale:*=null, noteLength:Number=2, pattern:Array=null) 
         {
-            super((scaleInstance) ? scaleInstance.scaleName : "");
+            super();
+            name = "Arpeggiator";
             
-            _scale = scaleInstance || _defaultScale;
-            _scaleIndex = 0;
+            _scale = new Scale();
+            if (scale is Scale) _scale.copyFrom(scale as Scale);
+            else if (scale is String) _scale.name = scale as String;
             
-            _data = new SiONData();
-            _sequence = _data.appendNewSequence();
-            _noteEvents = new Vector.<MMLEvent>();
-            _slurEvents = new Vector.<MMLEvent>();
-            _portament = 0;
             _nextPattern = null;
-            _step = noteLength * 120;
-            _setArpeggioPattern(pattern);
+            _sequencer.pattern = new Vector.<Note>();
+            _sequencer.onEnterSegment = _onEnterSegment;
+            
+            _updateArpeggioPattern(pattern);
         }
         
         
@@ -142,32 +125,6 @@ package org.si.sound {
         
     // operations
     //----------------------------------------
-        /** Play sound. */
-        override public function play() : void
-        {
-            stop();
-            var list:Vector.<SiMMLTrack> = _sequenceOn(_data, false);
-            if (list.length >= 1) {
-                _track = list[0];
-                _track.setPortament(_portament);
-                _track.eventMask = (_portament) ? 0 : SiMMLTrack.MASK_SLUR;
-                _synthesizer._registerTrack(_track);
-            }
-        }
-        
-        
-        /** Stop sound. */
-        override public function stop() : void
-        {
-            if (_track) {
-                _synthesizer._unregisterTracks(_track);
-                _track.setDisposable();
-                _track = null;
-                _sequenceOff(true);
-            }
-        }
-        
-        
         /** @private */
         override public function reset() : void
         {
@@ -182,49 +139,46 @@ package org.si.sound {
     //----------------------------------------
         /** call this after the update of note or scale index */
         protected function _scaleIndexUpdated() : void {
-            var i:int, imax:int = _noteEvents.length;
+            var i:int, imax:int = _sequencer.pattern.length;
             for (i=0; i<imax; i++) {
-                if (_noteEvents[i] != null) {
-                    _noteEvents[i].data = _scale.getNote(_arpeggio[i] + _scaleIndex);
-                }
+                _sequencer.pattern[i].note = _scale.getNote(_currentPattern[i] + _scaleIndex);
             }
-        }
-        
-        
-        // callback on patterns tail
-        private function _callbackAtTail(data:int) : MMLEvent {
-            if (_nextPattern != null) {
-                _setArpeggioPattern(_nextPattern);
-                _nextPattern = null;
-            }
-            if (_synthesizer._synthesizer_internal::_requireVoiceUpdate && _track) {
-                _synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
-                _synthesizer._synthesizer_internal::_requireVoiceUpdate = false;
-            } 
-            return _sequence.headEvent.next;
         }
         
         
         // set arpeggio pattern
-        private function _setArpeggioPattern(pat:Array) : void {
-            _sequence.initialize();
-            if (pat) {
-                _arpeggio = Vector.<int>(pat);
-                var i:int, imax:int = pat.length, note:int = 60;
-                _noteEvents.length = imax;
-                _slurEvents.length = imax;
+        private function _updateArpeggioPattern(indexPattern:Array) : void {
+            var i:int, imax:int, note:int, pattern:Vector.<Note>;
+            
+            _currentPattern = indexPattern;
+            if (_currentPattern) {
+                imax = _currentPattern.length;
+                _sequencer.pattern.length = imax;
+                _sequencer.segmentFrameCount = imax;
+                pattern = _sequencer.pattern;
                 for (i=0; i<imax; i++) {
-                    var newNote:int = _scale.getNote(pat[i]);
-                    if (newNote>=0 && newNote<128) {
-                        note = newNote;
-                        _noteEvents[i] = _sequence.appendNewEvent(MMLEvent.NOTE, note, 0);
-                        _slurEvents[i] = _sequence.appendNewEvent(MMLEvent.SLUR, 0, _step);
+                    if (pattern[i] == null) pattern[i] = new Note();
+                    note = _scale.getNote(_currentPattern[i] + _scaleIndex);
+                    if (note >= 0 && note < 128) {
+                        pattern[i].note = note;
+                        pattern[i].velocity = -1;
+                        pattern[i].length = Number.NaN;
                     } else {
-                        _noteEvents[i] = null;
-                        _slurEvents[i] = _sequence.appendNewEvent(MMLEvent.REST, 0, _step);
+                        pattern[i].setRest();
                     }
                 }
-                _sequence.appendNewCallback(_callbackAtTail, 0);
+            } else {
+                _sequencer.pattern.length = 0;
+                _sequencer.segmentFrameCount = 16;
+            }
+        }
+        
+        
+        // on enter segment 
+        private function _onEnterSegment() : void {
+            if (_nextPattern != null) {
+                _updateArpeggioPattern(_nextPattern);
+                _nextPattern = null;
             }
         }
     }

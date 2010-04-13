@@ -5,15 +5,24 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.base {
+package org.si.sound {
     import org.si.sion.*;
     import org.si.sound.synthesizers.*;
+    import org.si.sound.core.EffectChain;
+    import org.si.sound.namespaces._sound_object_internal;
     
     
     /** The SoundObjectContainer class is the base class for all objects that can serve as sound object containers on the sound list. 
      */
     public class SoundObjectContainer extends SoundObject
     {
+    // namespace
+    //----------------------------------------
+        use namespace _sound_object_internal;
+        
+        
+        
+        
     // valiables
     //----------------------------------------
         /** the list of child sound objects. */

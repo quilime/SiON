@@ -32,6 +32,13 @@ package org.si.sion.effector {
         
         
         
+    // properties
+    //--------------------------------------------------------------------------------
+        /** Number of global effect */
+        public function get globalEffectCount() : int { return _globalEffectCount; }
+        
+        
+        
     // constructor
     //--------------------------------------------------------------------------------
         /** Constructor. */
@@ -238,14 +245,37 @@ package org.si.sion.effector {
         }
         
         
+        /** Set effector list of specifyed slot
+         *  @param slot Effector slot number.
+         *  @param list Effector list to set
+         */
+        public function setEffectorList(slot:int, list:Vector.<SiEffectBase>) : void
+        {
+            var es:SiEffectStream = _globalEffector(slot);
+            es.chain = list;
+            es.prepareProcess();
+        }
+        
+
+        /** Get effector list of specifyed slot
+         *  @param slot Effector slot number.
+         *  @return Vector of Effector list.
+         */
+        public function getEffectorList(slot:int) : Vector.<SiEffectBase>
+        {
+            if (_globalEffects[slot] == null) return null;
+            return _globalEffects[slot].chain;
+        }
+        
+        
         /** Connect effector to the global/master slot.
          *  @param slot Effector slot number.
          *  @param effector Effector instance.
          */
         public function connect(slot:int, effector:SiEffectBase) : void
         {
-            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream(0);
-            _globalEffects[slot].chain.push(effector);
+            _globalEffector(slot).chain.push(effector);
+            effector.prepareProcess();
         }
         
         
@@ -256,21 +286,7 @@ package org.si.sion.effector {
          */
         public function parseMML(slot:int, mml:String, postfix:String) : void
         {
-            if (_globalEffects[slot] == null) _globalEffects[slot] = _allocStream(0);
-            _globalEffects[slot].parseMML(mml, postfix);
-        }
-        
-
-        /** Get connected effector
-         *  @param slot Effector slot number.
-         *  @param index The index of connected effector.
-         *  @return Effector instance.
-         */
-        public function getEffector(slot:int, index:int) : SiEffectBase 
-        {
-            if (_globalEffects[slot] == null) return null;
-            var chain:Vector.<SiEffectBase> = _globalEffects[slot].chain;
-            return (index<chain.length) ? chain[index] : null;
+            _globalEffector(slot).parseMML(mml, postfix);
         }
         
         
@@ -302,6 +318,19 @@ package org.si.sion.effector {
             var i:int = _localEffects.indexOf(inst);
             if (i != -1) _localEffects.splice(i, 1);
             _freeEffectStreams.push(inst);
+        }
+        
+        
+        // get and alloc SiEffectStream if its null
+        private function _globalEffector(slot:int) : SiEffectStream {
+            
+            if (_globalEffects[slot] == null) {
+                var es:SiEffectStream = _allocStream(0);
+                _globalEffects[slot] = es;
+                _module.streamSlot[slot] = es._stream;
+                _globalEffectCount++;
+            }
+            return _globalEffects[slot];
         }
         
         

@@ -10,7 +10,7 @@ package org.si.sound.synthesizers {
     import org.si.sion.module.SiOPMOperatorParam
     import org.si.sion.module.channels.SiOPMChannelFM;
     import org.si.sion.sequencer.SiMMLTrack;
-    import org.si.sound.base.SoundObject;
+    import org.si.sound.SoundObject;
     
     
     /** Programmable Sound Generator Synthesizer 
@@ -104,7 +104,7 @@ package org.si.sound.synthesizers {
                 _opp1.dr = _opp0.dr = _evelopRate;
                 _opp1.tl = _opp0.tl = 0;
             }
-            _requireVoiceUpdate = true;
+            _voiceUpdateNumber++;
         }
         
         
@@ -114,7 +114,7 @@ package org.si.sound.synthesizers {
             _evelopRate = ef >> 2;
             if (_opp0.ssgec != 0) {
                 _opp1.dr = _opp0.dr = _evelopRate;
-                _requireVoiceUpdate = true;
+                _voiceUpdateNumber++;
             }
         }
         

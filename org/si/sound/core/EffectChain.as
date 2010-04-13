@@ -5,13 +5,14 @@
 //----------------------------------------------------------------------------------------------------
 
 
-package org.si.sound.base {
+package org.si.sound.core {
     import org.si.sion.*;
     import org.si.sion.effector.*;
     import org.si.sion.module.SiOPMStream;
+    import org.si.sound.namespaces._sound_object_internal;
     
     
-    /** Effector chain class. */
+    /** Effector chain class. This class manages local effector chain of SoundObject. */
     public class EffectChain
     {
     // variables
@@ -45,9 +46,7 @@ package org.si.sound.base {
         
     // constructor
     //--------------------------------------------------
-        /** constructor
-         *  @param list chainning effectors.
-         */
+        /** @private constructor, you should not create new EffectChain instance. */
         function EffectChain(...list)
         {
             _effectList = list || [];
@@ -59,7 +58,7 @@ package org.si.sound.base {
     // operations
     //--------------------------------------------------
         /** @private [internal] activate local effect. deeper effectors executes first. */
-        internal function _activateLocalEffect(depth:int) : void
+        _sound_object_internal function _activateLocalEffect(depth:int) : void
         {
             var driver:SiONDriver = SiONDriver.mutex;
             if (driver) {
@@ -69,7 +68,7 @@ package org.si.sound.base {
         
         
         /** @private [internal] inactivate local effect */
-        internal function _inactivateLocalEffect() : void
+        _sound_object_internal function _inactivateLocalEffect() : void
         {
             if (!_effectStream) return;
             var driver:SiONDriver = SiONDriver.mutex;

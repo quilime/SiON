@@ -1,13 +1,13 @@
 //----------------------------------------------------------------------------------------------------
-// Preset patterns for RhythmBox
+// Preset patterns for DrumMachine
 //  Copyright (c) 2009 keim All rights reserved.
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
 
 package org.si.sound.patterns {
-    /** Preset patterns for RhythmBox */
-    public dynamic class RhythmBoxPresetPattern 
+    /** Preset patterns for DrumMachine */
+    public dynamic class DrumMachinePresetPattern 
     {
     // variables
     //----------------------------------------
@@ -20,7 +20,7 @@ package org.si.sound.patterns {
     // constructor
     //----------------------------------------
         /** constructor */
-        function RhythmBoxPresetPattern()
+        function DrumMachinePresetPattern()
         {
             _categoly("bass");
             _pattern("bass1", "0---0---0---0---");
@@ -115,14 +115,9 @@ package org.si.sound.patterns {
     // internals
     //----------------------------------------
         // set pattern
-        private var _notes:Array = [new Note(-1,-1,Number.NaN,0), new Note(-1,-1,Number.NaN,1)];
+        private var _pp:PMLParser = new PMLParser({"0":new Note(-1,-1,Number.NaN,0), "1":new Note(-1,-1,Number.NaN,1)});
         private function _pattern(key:String, pml:String) : void {
-            var imax:int = pml.length;
-            var i:int, n:Number, pattern:Vector.<Note> = new Vector.<Note>(imax);
-            for (i=0; i<imax; i++) {
-                n = Number(pml.charAt(i));
-                pattern[i] = (isNaN(n)) ? null : _notes[int(n)];
-            }
+            var pattern:Vector.<Note> = _pp.parse(pml);
             _categolyList.push(pattern);
             this[key] = pattern;
         }

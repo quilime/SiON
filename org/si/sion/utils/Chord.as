@@ -12,41 +12,65 @@ package org.si.sion.utils {
     // constants
     //--------------------------------------------------
         /** Chord table of C */
-        protected const CT_MAJOR  :int = 0x1091091;
+        static protected const CT_MAJOR  :int = 0x1091091;
         /** Chord table of Cm */
-        protected const CT_MINOR  :int = 0x1089089;
+        static protected const CT_MINOR  :int = 0x1089089;
         /** Chord table of C7 */
-        protected const CT_7TH    :int = 0x0490491;
+        static protected const CT_7TH    :int = 0x0490491;
         /** Chord table of Cm7 */
-        protected const CT_MIN7   :int = 0x0488489;
+        static protected const CT_MIN7   :int = 0x0488489;
         /** Chord table of CM7 */
-        protected const CT_MAJ7   :int = 0x0890891;
+        static protected const CT_MAJ7   :int = 0x0890891;
         /** Chord table of CmM7 */
-        protected const CT_MM7    :int = 0x0888889;
+        static protected const CT_MM7    :int = 0x0888889;
         /** Chord table of C9 */
-        protected const CT_9TH    :int = 0x0484491;
+        static protected const CT_9TH    :int = 0x0484491;
         /** Chord table of Cm9 */
-        protected const CT_MIN9   :int = 0x0484489;
+        static protected const CT_MIN9   :int = 0x0484489;
         /** Chord table of CM9 */
-        protected const CT_MAJ9   :int = 0x0884891;
+        static protected const CT_MAJ9   :int = 0x0884891;
         /** Chord table of CmM9 */
-        protected const CT_MM9    :int = 0x0884889;
+        static protected const CT_MM9    :int = 0x0884889;
         /** Chord table of Cadd9 */
-        protected const CT_ADD9   :int = 0x1084091;
+        static protected const CT_ADD9   :int = 0x1084091;
         /** Chord table of Cmadd9 */
-        protected const CT_MINADD9:int = 0x1084089;
+        static protected const CT_MINADD9:int = 0x1084089;
         /** Chord table of C69 */
-        protected const CT_69TH   :int = 0x1204211;
+        static protected const CT_69TH   :int = 0x1204211;
         /** Chord table of Cm69 */
-        protected const CT_MIN69  :int = 0x1204209;
+        static protected const CT_MIN69  :int = 0x1204209;
         /** Chord table of Csus4 */
-        protected const CT_SUS4   :int = 0x10a10a1;
+        static protected const CT_SUS4   :int = 0x10a10a1;
         /** Chord table of Csus47 */
-        protected const CT_SUS47  :int = 0x04a04a1;
+        static protected const CT_SUS47  :int = 0x04a04a1;
         /** Chord table of Cdim */
-        protected const CT_DIM    :int = 0x1489489;
+        static protected const CT_DIM    :int = 0x1489489;
         /** Chord table of Carg */
-        protected const CT_AUG    :int = 0x1111111;
+        static protected const CT_AUG    :int = 0x1111111;
+        
+        /** chord table dictionary */
+        static protected var _chordTableDictionary:* = {
+            "m":     CT_MINOR,
+            "7":     CT_7TH,
+            "m7":    CT_MIN7,
+            "M7":    CT_MAJ7,
+            "mM7":   CT_MM7,
+            "9":     CT_9TH,
+            "m9":    CT_MIN9,
+            "M9":    CT_MAJ9,
+            "mM9":   CT_MM9,
+            "add9":  CT_ADD9,
+            "madd9": CT_MINADD9,
+            "69":    CT_69TH,
+            "m69":   CT_MIN69,
+            "sus4":  CT_SUS4,
+            "sus47": CT_SUS47,
+            "dim":   CT_DIM,
+            "arg":   CT_AUG
+        }
+        
+        /** note names */
+        static protected var _noteNames:Array = ["C", "C+", "D", "D+", "E", "F", "F+", "G", "G+", "A", "A+", "B"];
         
         
         
@@ -59,6 +83,8 @@ package org.si.sion.utils {
         protected var _chordNotes:Vector.<int>;
         /** chord name */
         protected var _chordName:String;
+        /** base note offset from root */
+        protected var _baseNoteOffset:int;
         
         
         
@@ -68,7 +94,7 @@ package org.si.sion.utils {
         /** Chord name.
          *  The regular expression of name is /(o[0-9])?([A-Ga-g])([+#\-])?([a-z0-9]+)?(,[0-9]+[+#\-]?)?(,[0-9]+[+#\-]?)?/.<br/>
          *  The 1st letter means center octave. default octave = 5 (when omit).<br/>
-         *  The 2nd letter means base note.<br/>
+         *  The 2nd letter means root note.<br/>
          *  The 3nd letter (option) means note shift sign. "+" and "#" shift +1, "-" shifts -1.<br/>
          *  The 4th letters (option) means chord as follows.<br/>
          *  <table>
@@ -95,59 +121,60 @@ package org.si.sion.utils {
          *  </table>
          *  If you want to set "F sharp minor 7th", chordName = "F+m7".
          */
-        public function get chordName() : String { return _chordName; }
-        public function set chordName(name:String) : void {
-            var rex:RegExp = /(o[0-9])?([A-Ga-g])([+#\-b])?([a-z0-9]+)?(,([0-9]+[+#\-]?))?(,([0-9]+[+#\-]?))?/;
-            var mat:* = rex.exec(name);
+        public function get name() : String {
+            var rn:int = (_chordNotes[0] + 144) % 12,
+                bn:int = (_chordNotes[0] + _baseNoteOffset + 144) % 12;
+            if (bn == rn) return _noteNames[rn] + _chordName;
+            return _noteNames[rn] + _chordName + "/" + _noteNames[bn];
+        }
+        public function set name(str:String) : void {
+            if (str == null || str == "") {
+                _chordName = "";
+                _chordTable = CT_MAJOR;
+                this.rootNote = 60;
+                return;
+            }
+            
+            var rex:RegExp = /(o[0-9])?([A-Ga-g])([+#\-b])?([adgimMsru4679]+)?(,([0-9]+[+#\-]?))?(,([0-9]+[+#\-]?))?/;
+            var mat:* = rex.exec(str);
             var i:int;
             if (mat) {
-                _chordName = name;
-                var baseNote:int = [9,11,0,2,4,5,7][String(mat[2]).toLowerCase().charCodeAt() - 'a'.charCodeAt()];
+                _chordName = str;
+                var note:int = [9,11,0,2,4,5,7][String(mat[2]).toLowerCase().charCodeAt() - 'a'.charCodeAt()];
                 if (mat[3]) {
-                    if (mat[3]=='+' || mat[3]=='#') baseNote++;
-                    else if (mat[3]=='-') baseNote--;
+                    if (mat[3]=='+' || mat[3]=='#') note++;
+                    else if (mat[3]=='-') note--;
                 }
-                if (baseNote < 0) baseNote += 12;
-                else if (baseNote > 11) baseNote -= 12;
-                if (mat[1]) baseNote += int(mat[1].charAt(1)) * 12;
-                else baseNote += 60;
+                if (note < 0) note += 12;
+                else if (note > 11) note -= 12;
+                if (mat[1]) note += int(mat[1].charAt(1)) * 12;
+                else note += 60;
+                
                 if (mat[4]) {
-                    switch(mat[4]) {
-                    case "m":     _chordTable = CT_MINOR;   break;
-                    case "7":     _chordTable = CT_7TH;     break;
-                    case "m7":    _chordTable = CT_MAJ7;    break;
-                    case "M7":    _chordTable = CT_MIN7;    break;
-                    case "mM7":   _chordTable = CT_MM7;     break;
-                    case "9":     _chordTable = CT_9TH;     break;
-                    case "m9":    _chordTable = CT_MIN9;    break;
-                    case "M9":    _chordTable = CT_MAJ9;    break;
-                    case "mM9":   _chordTable = CT_MM9;     break;
-                    case "add9":  _chordTable = CT_ADD9;    break;
-                    case "madd9": _chordTable = CT_MINADD9; break;
-                    case "69":    _chordTable = CT_69TH;    break;
-                    case "m69":   _chordTable = CT_MIN69;   break;
-                    case "sus4":  _chordTable = CT_SUS4;    break;
-                    case "sus47": _chordTable = CT_SUS47;   break;
-                    case "dim":   _chordTable = CT_DIM;     break;
-                    case "arg":   _chordTable = CT_AUG;     break;
-                    default:      _chordTable = CT_MAJOR;   break;
-                    }
+                    if (!(mat[4] in _chordTableDictionary)) throw _errorInvalidChordName(str);
+                    _chordTable = _chordTableDictionary[mat[4]];
+                    _chordName = mat[4];
                 } else {
                     _chordTable = CT_MAJOR;
+                    _chordName = "";
                 }
-                _chordNotes.length = 0;
-                for (i=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + baseNote);
+                this.rootNote = note;
             } else {
-                _chordName = "C";
-                _chordTable = CT_MAJOR;
-                _chordNotes.length = 0;
-                for (i=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + 60);
+                throw _errorInvalidChordName(str);
             }
         }
         
         
-        /** base note number */
-        public function get baseNote() : int { return _chordNotes[0]; }
+        /** root note number */
+        public function get rootNote() : int { return _chordNotes[0]; }
+        public function set rootNote(note:int) : void {
+            _chordNotes.length = 0;
+            for (var i:int=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + note);
+        }
+        
+        /** base note number, lowest note of "On Chord". */
+        public function get baseNote() : int { return _chordNotes[0] + _baseNoteOffset; }
+        public function set baseNote(note:int) : void { _baseNoteOffset = note - _chordNotes[0]; }
         
         
         
@@ -161,28 +188,29 @@ package org.si.sion.utils {
         function Chord(chordName:String = "")
         {
             _chordNotes = new Vector.<int>();
-            this.chordName = chordName;
+            this.name = chordName;
+            _baseNoteOffset = 0;
         }
         
         
         /** set chord table manualy.
          *  @param name name of this chord.
-         *  @param baseNote base note of this chord.
-         *  @table Boolean table of available note on this chord. The index of 0 is base note.
+         *  @param rootNote root note of this chord.
+         *  @table Boolean table of available note on this chord. The index of 0 is root note.
 @example If you want to set "Dm11".<br/>
 <listing version="3.0">
     var table:Array = [1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1,0,1,0,0,1];  // Dm11 = d,f,a,<c,e,g,<c
     chord.setScaleTable("Dm11", 62, table);  // 62 = "D"s ntoe number.
 </listing>
          */
-        public function setScaleTable(name:String, baseNote:int, table:Array) : void
+        public function setChordTable(name:String, rootNote:int, table:Array) : void
         {
             _chordName = name;
             var i:int, imax:int = (table.length<12) ? table.length : 12;
             _chordTable = 0;
             for (i=0; i<imax; i++) if (table[i]) _chordTable |= (1<<i);
             _chordNotes.length = 0;
-            for (i=0; i<12; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + baseNote);
+            for (i=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + rootNote);
         }
         
         
@@ -222,12 +250,37 @@ package org.si.sion.utils {
         
         
         /** get note by index on this chord.
-         *  @param index index on this chord. You can specify both posi and nega values.
-         *  @param centerOctave The octave of index = 0.
+        *  @param index index on this chord. You can specify both posi and nega values.
          *  @return MIDI note number on this chord.
          */
         public function getNote(index:int) : int {
-            return _chordNotes[index];
+            return _chordNotes[index % 7];
+        }
+        
+        
+        /** copy from another chord
+         *  @param src another Chord instance copy from
+         */
+        public function copyFrom(src:Chord) : Chord {
+            _chordName = src._chordName;
+            _chordTable = src._chordTable;
+            var i:int, imax:int = src._chordNotes.length;
+            _chordNotes.length = imax;
+            for (i=0; i<imax; i++) {
+                _chordNotes[i] = src._chordNotes[i];
+            }
+            return this;
+        }
+        
+        
+        
+        
+    // errors
+    //--------------------------------------------------
+        /** Invalid chord name error */
+        protected function _errorInvalidChordName(name:String) : Error
+        {
+            return new Error("Chord; Invalid chord name. '" + name +"'");
         }
     }
 }

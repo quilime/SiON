@@ -15,7 +15,7 @@ package org.si.sound.patterns {
     // variables
     //--------------------------------------------------
         /** scale instance */
-        public var scale:Scale;
+        protected var _scale:Scale;
         /** pattern of scale indexes */
         protected var _scaleIndexPattern:Array;
         /** scale index shift */
@@ -42,18 +42,30 @@ package org.si.sound.patterns {
             }
             this.length = imax;
             for (i=0; i<imax; i++) {
-                this[i].note = scale.getNote(_scaleIndexPattern[i] + _scaleIndexShift);
+                this[i].note = _scale.getNote(_scaleIndexPattern[i] + _scaleIndexShift);
             }
         }
         
         
+        /** scale instance */
+        public function get scale() : Scale { return _scale; }
+        public function set scale(s:Scale) : void {
+            if (_scale === s) return;
+            _scale = s || new Scale();
+            var i:int, imax:int = _scaleIndexPattern.length;
+            for (i=0; i<imax; i++) {
+                this[i].note = _scale.getNote(_scaleIndexPattern[i] + _scaleIndexShift);
+            }
+        }
+        
         /** scale index shift */
         public function get scaleIndex() : int { return _scaleIndexShift; }
         public function set scaleIndex(s:int) : void {
+            if (_scaleIndexShift == s) return;
             _scaleIndexShift = s;
             var i:int, imax:int = this.length;
             for (i=0; i<imax; i++) {
-                this[i].note = scale.getNote(_scaleIndexPattern[i] + _scaleIndexShift);
+                this[i].note = _scale.getNote(_scaleIndexPattern[i] + _scaleIndexShift);
             }
         }
         
@@ -69,7 +81,7 @@ package org.si.sound.patterns {
         {
             super();
             _scaleIndexShift = 0;
-            this.scale = scale || new Scale();
+            _scale = scale || new Scale();
             this.pattern = pattern;
         }
     }
