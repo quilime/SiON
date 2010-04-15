@@ -13,7 +13,7 @@ package org.si.sound.synthesizers {
     
     /** Pulse Code Modulation Synthesizer 
      */
-    public class PCMSynth extends BasicSynth
+    public class PCMSynth extends IFlashSoundOperator
     {
     // namespace
     //----------------------------------------
@@ -62,10 +62,21 @@ package org.si.sound.synthesizers {
          *  @param endPoint slicing point to end data, The negative value calculates from the end.
          *  @param loopPoint slicing point to repeat data, -1 means no repeat
          */
-        public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
+        override public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
             _defaultPCMData.slice(startPoint, endPoint, loopPoint);
             _voiceUpdateNumber++;
+        }
+        
+        
+        /** set flash sound instance with key range (this feature is not available in currennt version). 
+         *  @param sound Sound instance to assign
+         *  @param keyRangeFrom Assigning key range starts from
+         *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
+         */
+        override public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127) : void
+        {
+            setSample(sound, 5, keyRangeFrom, keyRangeTo);
         }
         
         
@@ -76,7 +87,7 @@ package org.si.sound.synthesizers {
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
          *  @return assigned SiOPMWavePCMData.
          */
-        public function setSamplerData(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        public function setSample(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
         {
             var pcmData:SiOPMWavePCMData;
             if (keyRangeFrom==0 && keyRangeTo==127) {

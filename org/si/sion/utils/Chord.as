@@ -7,7 +7,7 @@
 
 package org.si.sion.utils {
     /** Chord class. */
-    public class Chord
+    public class Chord extends Scale
     {
     // constants
     //--------------------------------------------------
@@ -69,22 +69,13 @@ package org.si.sion.utils {
             "arg":   CT_AUG
         }
         
-        /** note names */
-        static protected var _noteNames:Array = ["C", "C+", "D", "D+", "E", "F", "F+", "G", "G+", "A", "A+", "B"];
-        
         
         
         
     // valiables
     //--------------------------------------------------
-        /** note table */
-        protected var _chordTable:int;
-        /** notes on the chord */
-        protected var _chordNotes:Vector.<int>;
-        /** chord name */
-        protected var _chordName:String;
-        /** base note offset from root */
-        protected var _baseNoteOffset:int;
+        /** bass note offset from root */
+        protected var _bassNoteOffset:int;
         
         
         
@@ -121,16 +112,15 @@ package org.si.sion.utils {
          *  </table>
          *  If you want to set "F sharp minor 7th", chordName = "F+m7".
          */
-        public function get name() : String {
-            var rn:int = (_chordNotes[0] + 144) % 12,
-                bn:int = (_chordNotes[0] + _baseNoteOffset + 144) % 12;
-            if (bn == rn) return _noteNames[rn] + _chordName;
-            return _noteNames[rn] + _chordName + "/" + _noteNames[bn];
+        override public function get name() : String {
+            var rn:int = _scaleNotes[0] % 12;
+            if (_bassNoteOffset == 0) return _noteNames[rn] + _scaleName;
+            return _noteNames[rn] + _scaleName + "/" + _noteNames[(rn + _bassNoteOffset)%12];
         }
-        public function set name(str:String) : void {
+        override public function set name(str:String) : void {
             if (str == null || str == "") {
-                _chordName = "";
-                _chordTable = CT_MAJOR;
+                _scaleName = "";
+                _scaleTable = CT_MAJOR;
                 this.rootNote = 60;
                 return;
             }
@@ -139,7 +129,7 @@ package org.si.sion.utils {
             var mat:* = rex.exec(str);
             var i:int;
             if (mat) {
-                _chordName = str;
+                _scaleName = str;
                 var note:int = [9,11,0,2,4,5,7][String(mat[2]).toLowerCase().charCodeAt() - 'a'.charCodeAt()];
                 if (mat[3]) {
                     if (mat[3]=='+' || mat[3]=='#') note++;
@@ -152,11 +142,11 @@ package org.si.sion.utils {
                 
                 if (mat[4]) {
                     if (!(mat[4] in _chordTableDictionary)) throw _errorInvalidChordName(str);
-                    _chordTable = _chordTableDictionary[mat[4]];
-                    _chordName = mat[4];
+                    _scaleTable = _chordTableDictionary[mat[4]];
+                    _scaleName = mat[4];
                 } else {
-                    _chordTable = CT_MAJOR;
-                    _chordName = "";
+                    _scaleTable = CT_MAJOR;
+                    _scaleName = "";
                 }
                 this.rootNote = note;
             } else {
@@ -165,16 +155,9 @@ package org.si.sion.utils {
         }
         
         
-        /** root note number */
-        public function get rootNote() : int { return _chordNotes[0]; }
-        public function set rootNote(note:int) : void {
-            _chordNotes.length = 0;
-            for (var i:int=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + note);
-        }
-        
-        /** base note number, lowest note of "On Chord". */
-        public function get baseNote() : int { return _chordNotes[0] + _baseNoteOffset; }
-        public function set baseNote(note:int) : void { _baseNoteOffset = note - _chordNotes[0]; }
+        /** bass note number, lowest note of "On Chord". */
+        override public function get bassNote() : int { return _scaleNotes[0] + _bassNoteOffset; }
+        override public function set bassNote(note:int) : void { _bassNoteOffset = note - _scaleNotes[0]; }
         
         
         
@@ -187,30 +170,9 @@ package org.si.sion.utils {
          */
         function Chord(chordName:String = "")
         {
-            _chordNotes = new Vector.<int>();
+            super();
             this.name = chordName;
-            _baseNoteOffset = 0;
-        }
-        
-        
-        /** set chord table manualy.
-         *  @param name name of this chord.
-         *  @param rootNote root note of this chord.
-         *  @table Boolean table of available note on this chord. The index of 0 is root note.
-@example If you want to set "Dm11".<br/>
-<listing version="3.0">
-    var table:Array = [1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1,0,1,0,0,1];  // Dm11 = d,f,a,<c,e,g,<c
-    chord.setScaleTable("Dm11", 62, table);  // 62 = "D"s ntoe number.
-</listing>
-         */
-        public function setChordTable(name:String, rootNote:int, table:Array) : void
-        {
-            _chordName = name;
-            var i:int, imax:int = (table.length<12) ? table.length : 12;
-            _chordTable = 0;
-            for (i=0; i<imax; i++) if (table[i]) _chordTable |= (1<<i);
-            _chordNotes.length = 0;
-            for (i=0; i<25; i++) if (_chordTable & (1<<i)) _chordNotes.push(i + rootNote);
+            _bassNoteOffset = 0;
         }
         
         
@@ -218,56 +180,13 @@ package org.si.sion.utils {
         
     // operations
     //--------------------------------------------------
-        /** check note availability on this chord. 
-         *  @param note MIDI note number (0-127).
-         *  @return Returns true if the note is in this chord.
-         */
-        public function check(note:int) : Boolean {
-            if (note < _chordNotes[0]) return false;
-            var i:int, imax:int = _chordNotes.length;
-            for (i=0; i<imax; i++) {
-                if (note == _chordNotes[i]) return true;
-            }
-            return false;
-        }
-        
-        
-        /** shift note to the nearest note on this chord. 
-         *  @param note MIDI note number (0-127).
-         *  @return Returns shifted note. if the note is in this chord, no shift.
-         */
-        public function shift(note:int) : int {
-            var i:int, imax:int = _chordNotes.length, octaveShift:int = 0;
-            while (note < _chordNotes[0]) {
-                note += 12;
-                octaveShift -= 12;
-            }
-            for (i=0; i<imax; i++) {
-                if (note <= _chordNotes[i]) return _chordNotes[i] + octaveShift;
-            }
-            return _chordNotes[imax-1];
-        }
-        
-        
-        /** get note by index on this chord.
-        *  @param index index on this chord. You can specify both posi and nega values.
-         *  @return MIDI note number on this chord.
-         */
-        public function getNote(index:int) : int {
-            return _chordNotes[index % 7];
-        }
-        
-        
         /** copy from another chord
          *  @param src another Chord instance copy from
          */
-        public function copyFrom(src:Chord) : Chord {
-            _chordName = src._chordName;
-            _chordTable = src._chordTable;
-            var i:int, imax:int = src._chordNotes.length;
-            _chordNotes.length = imax;
-            for (i=0; i<imax; i++) {
-                _chordNotes[i] = src._chordNotes[i];
+        override public function copyFrom(src:Scale) : Scale {
+            super.copyFrom(src);
+            if (src is Chord) {
+                _bassNoteOffset = (src as Chord)._bassNoteOffset;
             }
             return this;
         }

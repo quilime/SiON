@@ -26,6 +26,10 @@ package org.si.sound.core {
         
     // properties
     //--------------------------------------------------
+        /** Is processing effect ? */
+        public function get isActive() : Boolean { return (_effectStream != null); }
+        
+        
         /** effector list */
         public function get effectList() : Array { return _effectList; }
         public function set effectList(list:Array) : void {
@@ -49,6 +53,7 @@ package org.si.sound.core {
         /** @private constructor, you should not create new EffectChain instance. */
         function EffectChain(...list)
         {
+            _effectStream = null;
             _effectList = list || [];
         }
 
@@ -74,6 +79,7 @@ package org.si.sound.core {
             var driver:SiONDriver = SiONDriver.mutex;
             if (driver) {
                 driver.effector.deleteLocalEffect(_effectStream);
+                _effectStream = null;
             }
         }
         
@@ -81,6 +87,7 @@ package org.si.sound.core {
         /** set all stream levels by Vector.<int>(8) */
         public function setAllStreamSendLevels(volumes:Vector.<int>) : void
         {
+            if (!_effectStream) return;
             _effectStream.setAllStreamSendLevels(volumes);
         }
 
@@ -88,6 +95,7 @@ package org.si.sound.core {
         /** connect to another chain */
         public function connectTo(ec:EffectChain) : void
         {
+            if (!_effectStream) return;
             _effectStream.connectTo(ec.streamingBuffer);
         }
         

@@ -38,6 +38,7 @@ package org.si.sion.sequencer {
         internal var _channelType:int;
         internal var _isSuitableForFMVoice:Boolean;
         internal var _defaultOpeCount:int;
+        private  var _table:SiOPMTable;
         
         
         
@@ -47,11 +48,12 @@ package org.si.sion.sequencer {
         function SiMMLChannelSetting(type:int, offset:int, length:int, step:int, channelCount:int)
         {
             var i:int, idx:int;
+            _table = SiOPMTable.instance;
             _pgTypeList = new Vector.<int>(length, true);
             _ptTypeList = new Vector.<int>(length, true);
             for (i=0, idx=offset; i<length; i++, idx+=step) {
                 _pgTypeList[i] = idx;
-                _ptTypeList[i] = SiOPMTable.instance.getWaveTable(idx).defaultPTType;
+                _ptTypeList[i] = _table.getWaveTable(idx).defaultPTType;
             }
             _channelTone = new Vector.<int>(channelCount, true);
             for (i=0; i<channelCount; i++) { _channelTone[i] = i; }
@@ -122,7 +124,7 @@ package org.si.sion.sequencer {
                 break;
             case SELECT_TONE_PCM: // %7
                 if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
-                    pcmTable = SiOPMTable.instance.getPCMData(voiceIndex);
+                    pcmTable = _table.getPCMData(voiceIndex);
                     if (pcmTable) track.channel.setWaveData(pcmTable);
                 }
                 break;

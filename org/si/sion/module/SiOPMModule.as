@@ -64,9 +64,6 @@ package org.si.sion.module {
          */
         function SiOPMModule()
         {
-            // initialize table once
-            SiOPMTable.initialize(3580000, 44100);
-            
             // initial values
             initOperatorParam = new SiOPMOperatorParam();
             

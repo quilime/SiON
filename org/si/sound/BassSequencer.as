@@ -12,7 +12,7 @@ package org.si.sound {
     import org.si.sound.namespaces._sound_object_internal;
     
     
-    /** Bass sequencer provides simple monophonic bass line by pattern number. */
+    /** Bass sequencer provides simple monophonic bass line. */
     public class BassSequencer extends PatternSequencer
     {
     // namespace
@@ -32,16 +32,13 @@ package org.si.sound {
         
     // variables
     //----------------------------------------
-        /** chord instance */
+        /** @private [protected] chord instance */
         protected var _chord:Chord;
-        /** Default chord instance, this is used when the name is specifyed */
+        /** @private [protected] Default chord instance, this is used when the name is specifyed */
         protected var _defaultChord:Chord = new Chord();
 
-        /** Current bass line. */
-        protected var _currentPattern:Array;
-        /** Next bass line to change while playing. */
-        protected var _nextPatternNumber:int;
-        
+        /** @private [protected] Change bass line pattern at the head of segment. */
+        protected var _changePatternOnSegment:Boolean;
                 
         
         
@@ -54,11 +51,11 @@ package org.si.sound {
         public function get presetPattern() : BassSequencerPresetPattern { return _presetPattern; }
         
         
-        /** @private */
-        override public function get note() : int { return _chord.rootNote; }
+        /** Bass note of chord  */
+        override public function get note() : int { return _chord.bassNote; }
         override public function set note(n:int) : void {
             if (_chord !== _defaultChord) _defaultChord.copyFrom(_chord);
-            _defaultChord.rootNote = n;
+            _defaultChord.bassNote = n;
             _chord = _defaultChord;
             //_updateChordNotes();
         }
@@ -82,6 +79,13 @@ package org.si.sound {
         }
         
         
+        /* True to change bass line pattern at the head of segment. @default true */
+        public function get changePatternOnSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnSegment(b:Boolean) : void { 
+            _changePatternOnSegment = b;
+        }
+        
+        
         /** maximum limit of bass line Pattern number */
         public function get bassPatternNumberMax() : int {
             return bassPatternList.length;
@@ -91,7 +95,8 @@ package org.si.sound {
         /** bass line Pattern number */
         public function set patternNumber(n:int) : void {
             if (n < 0 || n >= bassPatternList.length) return;
-            _sequencer.pattern = bassPatternList[n];
+            if (_changePatternOnSegment) _sequencer.nextPattern = bassPatternList[n];
+            else _sequencer.pattern = bassPatternList[n];
         }
         
         
@@ -101,11 +106,10 @@ package org.si.sound {
     //----------------------------------------
         /** constructor 
          *  @param scale Arpaggio scale, org.si.sion.utils.Scale instance, scale name String or null is suitable.
-         *  @param noteLength length for each note
-         *  @param pattern arpegio pattern 
+         *  @param patternNumber bass line pattern number
          *  @see org.si.sion.utils.Scale
          */
-        function BassSequencer(chord:*=null) 
+        function BassSequencer(chord:*=null, patternNumber:int=6) 
         {
             super();
             name = "BassSequencer";
@@ -119,22 +123,7 @@ package org.si.sound {
             if (chord is Chord) _chord.copyFrom(chord as Chord);
             else if (chord is String) _chord.name = chord as String;
             
-            _nextPatternNumber = -1;
-            _sequencer.onEnterSegment = _onEnterSegment;
-        }
-        
-        
-        
-        
-        
-    // internal
-    //----------------------------------------
-        // on enter segment 
-        private function _onEnterSegment() : void {
-            if (_nextPatternNumber != -1) {
-                patternNumber = _nextPatternNumber;
-                _nextPatternNumber = -1;
-            }
+            this.patternNumber = patternNumber;
         }
     }
 }

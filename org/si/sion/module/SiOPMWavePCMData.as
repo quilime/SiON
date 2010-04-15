@@ -22,13 +22,11 @@ package org.si.sion.module {
         public var pseudoFixedBits:int;
         
         /** wave starting position in sample count. */
-        public var startPoint:int;
-        
+        private var _startPoint:int;
         /** wave end position in sample count. */
-        public var endPoint:int;
-        
+        private var _endPoint:int;
         /** wave looping position in sample count. -1 means no repeat. */
-        public var loopPoint:int;
+        private var _loopPoint:int;
         
         
         
@@ -37,6 +35,16 @@ package org.si.sion.module {
     //----------------------------------------
         /** Sampling data's octave */
         public function get samplingOctave() : int { return pseudoFixedBits - 11 + 5; }
+        
+        
+        /** wave starting position in sample count. */
+        public function get startPoint() : int { return _startPoint; }
+        
+        /** wave end position in sample count. */
+        public function get endPoint()   : int { return _endPoint; }
+        
+        /** wave looping position in sample count. -1 means no repeat. */
+        public function get loopPoint()  : int { return _loopPoint; }
         
         
         
@@ -68,11 +76,12 @@ package org.si.sion.module {
             if (data is Sound) wavelet = SiONUtil.logTrans(data as Sound);
             else if (data is Vector.<Number>) wavelet = SiONUtil.logTransVector(data as Vector.<Number>);
             else if (data is Vector.<int>) wavelet = data as Vector.<int>;
+            else if (data == null) wavelet = null;
             else throw new Error("SiOPMWavePCMData; not suitable data type");
             this.pseudoFixedBits = 11 + (samplingOctave-5);
-            this.startPoint = 0;
-            this.endPoint   = wavelet.length - 1;
-            this.loopPoint  = -1;
+            _startPoint = 0;
+            _endPoint   = wavelet.length - 1;
+            _loopPoint  = -1;
             return this;
         }
         
@@ -89,9 +98,9 @@ package org.si.sion.module {
             if (wavelet.length < endPoint) endPoint = wavelet.length - 1;
             if (endPoint < loopPoint)  loopPoint = -1;
             if (endPoint < startPoint) endPoint = wavelet.length - 1;
-            this.startPoint = startPoint;
-            this.endPoint   = endPoint;
-            this.loopPoint  = loopPoint;
+            _startPoint = startPoint;
+            _endPoint   = endPoint;
+            _loopPoint  = loopPoint;
             return this;
         }
         

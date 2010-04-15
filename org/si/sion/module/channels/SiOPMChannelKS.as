@@ -107,7 +107,7 @@ package org.si.sion.module.channels {
             setFeedBack(0, 0);
             setSiOPMParameters(ar, dr, 0, 63, 15, tl, 0, 0, 1, 0, 0, 0, 0, fixedPitch);
             activeOperator.pgType = ws;
-            activeOperator.ptType = SiOPMTable.instance.getWaveTable(activeOperator.pgType).defaultPTType;
+            activeOperator.ptType = _table.getWaveTable(activeOperator.pgType).defaultPTType;
             setAllReleaseRate(tension);
         }
         
@@ -133,7 +133,7 @@ package org.si.sion.module.channels {
                 break;
             case KS_SEED_PCM:
                 if (_ks_seedIndex>=0 && _ks_seedIndex<SiOPMTable.PCM_DATA_MAX) {
-                    var pcm:SiOPMWavePCMTable = SiOPMTable.instance.getPCMData(_ks_seedIndex);
+                    var pcm:SiOPMWavePCMTable = _table.getPCMData(_ks_seedIndex);
                     if (pcm) setWaveData(pcm);
                 }
                 break;
@@ -143,7 +143,7 @@ package org.si.sion.module.channels {
                 setFeedBack(0, 0);
                 setSiOPMParameters(param[1], param[2], 0, 63, 15, param[3], 0, 0, 1, 0, 0, 0, 0, param[4]);
                 activeOperator.pgType = (param[5] == int.MIN_VALUE) ? SiOPMTable.PG_NOISE_PINK : param[5];
-                activeOperator.ptType = SiOPMTable.instance.getWaveTable(activeOperator.pgType).defaultPTType;
+                activeOperator.ptType = _table.getWaveTable(activeOperator.pgType).defaultPTType;
                 break;
             }
         }

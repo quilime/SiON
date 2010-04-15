@@ -10,7 +10,7 @@ package org.si.sound.synthesizers {
     
     
     /** synthsizer with SiONPresetVoice */
-    public class PresetVoiceReference extends VoiceReference
+    public class PresetVoiceLoader extends VoiceReference
     {
     // namespace
     //----------------------------------------
@@ -55,7 +55,7 @@ package org.si.sound.synthesizers {
     // constructor
     //----------------------------------------
         /** constructor, set categoly key to use. */
-        function PresetVoiceReference(categoly:String) {
+        function PresetVoiceLoader(categoly:String) {
             var presetVoiceList:SiONPresetVoice = SiONPresetVoice.mutex || new SiONPresetVoice();
             if (!(categoly in presetVoiceList)) throw new Error("PresetVoiceReference; no '" + categoly + "' categolies in SiONPresetVoice.");
             _voiceList = presetVoiceList[categoly];

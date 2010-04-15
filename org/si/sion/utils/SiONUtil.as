@@ -341,6 +341,7 @@ package org.si.sion.utils {
 
             imax = SiOPMTable.PHASE_MAX;
             nmax = 0;
+            
             for (i=0; i<imax; i+=step) {
                 j = i>>bits;
                 dst[j] = 0;

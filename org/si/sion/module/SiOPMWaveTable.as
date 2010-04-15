@@ -25,6 +25,23 @@ package org.si.sion.module {
         }
         
         
+        /** initialize 
+         *  @param wavelet wave table in log scale.
+         *  @param defaultPTType default pitch table type.
+         */
+        public function initialize(wavelet:Vector.<int>, defaultPTType:int=0) : SiOPMWaveTable
+        {
+            var len:int, bits:int=0;
+            for (len=wavelet.length>>1; len!=0; len>>=1) bits++;
+            
+            this.wavelet = wavelet;
+            this.fixedBits = SiOPMTable.PHASE_BITS - bits;
+            this.defaultPTType = defaultPTType;
+            
+            return this;
+        }
+        
+        
         /** free. */
         public function free() : void
         {
@@ -38,15 +55,8 @@ package org.si.sion.module {
         /** allocate. */
         static public function alloc(wavelet:Vector.<int>, defaultPTType:int=0) : SiOPMWaveTable
         {
-            var len:int, bits:int=0;
-            for (len=wavelet.length>>1; len!=0; len>>=1) bits++;
-            
             var newInstance:SiOPMWaveTable = _freeList.pop() || new SiOPMWaveTable();
-            newInstance.wavelet = wavelet;
-            newInstance.fixedBits = SiOPMTable.PHASE_BITS - bits;
-            newInstance.defaultPTType = defaultPTType;
-            
-            return newInstance;
+            return newInstance.initialize(wavelet, defaultPTType);
         }
     }
 }

@@ -40,68 +40,66 @@ package org.si.sound {
         /** Name. */
         public var name:String;
         
-        /** Base note of this sound */
+        /** @private [protected] Base note of this sound */
         protected var _note:int;
-        /** Synthesizer instance */
+        /** @private [protected] Synthesizer instance */
         protected var _synthesizer:VoiceReference;
-        /** Synthesizer updating number */
-        protected var _synthesizer_updateNumber:uint;
-        /** Synthesizer instance to use SiONVoice  */
+        /** @private [protected] Synthesizer instance to use SiONVoice  */
         protected var _voiceReference:VoiceReference;
-        /** Effect chain instance */
+        /** @private [protected] Effect chain instance */
         protected var _effectChain:EffectChain;
-        /** track for noteOn() */
+        /** @private [protected] track for noteOn() */
         protected var _track:SiMMLTrack;
-        /** tracks for sequenceOn() */
+        /** @private [protected] tracks for sequenceOn() */
         protected var _tracks:Vector.<SiMMLTrack>;
-        /** Auto-fader to fade in/out. */
+        /** @private [protected] Auto-fader to fade in/out. */
         protected var _fader:Fader;
-        /** Fader volume. */
+        /** @private [protected] Fader volume. */
         protected var _faderVolume:Number;
         
-        /** Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
+        /** @private [protected] Sound length uint in 16th beat, 0 sets inifinity length. @default 0. */
         protected var _length:Number;
-        /** Sound delay uint in 16th beat. @default 0. */
+        /** @private [protected] Sound delay uint in 16th beat. @default 0. */
         protected var _delay:Number;
-        /** Synchronizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
+        /** @private [protected] Synchronizing uint in 16th beat. (0:No synchronization, 1:sync.with 16th, 4:sync.with 4th). @default 0. */
         protected var _quantize:Number;
         
-        /** Note shift in half-tone unit. */
+        /** @private [protected] Note shift in half-tone unit. */
         protected var _noteShift:int;
-        /** Pitch shift in half-tone unit. */
+        /** @private [protected] Pitch shift in half-tone unit. */
         protected var _pitchShift:Number;
-        /** gate ratio (value of 'q' command * 0.125) */
+        /** @private [protected] gate ratio (value of 'q' command * 0.125) */
         protected var _gateTime:Number;
-        /** Event mask (value of '@mask' command) */
+        /** @private [protected] Event mask (value of '@mask' command) */
         protected var _eventMask:Number;
-        /** Event trigger ID */
+        /** @private [protected] Event trigger ID */
         protected var _eventTriggerID:int;
-        /** note on trigger type */
+        /** @private [protected] note on trigger type */
         protected var _noteOnTrigger:int;
-        /** note off trigger type */
+        /** @private [protected] note off trigger type */
         protected var _noteOffTrigger:int;
         
-        /** volumes for all streams */
+        /** @private [protected] volumes for all streams */
         protected var _volumes:Vector.<int>;
-        /** total panning of all ancestors */
+        /** @private [protected] total panning of all ancestors */
         protected var _pan:Number;
-        /** total mute flag of all ancestors */
+        /** @private [protected] total mute flag of all ancestors */
         protected var _mute:Boolean;
-        /** Pitch bend in half-tone unit. */
+        /** @private [protected] Pitch bend in half-tone unit. */
         protected var _pitchBend:Number;
         
-        /** parent container */
+        /** @private [protected] parent container */
         protected var _parent:SoundObjectContainer;
-        /** the depth of parent-child chain */
+        /** @private [protected] the depth of parent-child chain */
         protected var _childDepth:int;
-        /** volume of this sound object */
+        /** @private [protected] volume of this sound object */
         protected var _thisVolume:Number;
-        /** panning of this sound object */
+        /** @private [protected] panning of this sound object */
         protected var _thisPan:Number;
-        /** mute flag of this sound object */
+        /** @private [protected] mute flag of this sound object */
         protected var _thisMute:Boolean;
         
-        /** track id. This value is asigned when its created. */
+        /** @private [protected] track id. This value is asigned when its created. */
         protected var _trackID:int;
         
         
@@ -154,14 +152,15 @@ package org.si.sound {
         public function set delay(d:Number) : void { _delay = d; }
         
         
+        
         /** Master coarse tuning, 1 for half-tone. */
         public function get coarseTune() : int { return _noteShift; }
         public function set coarseTune(n:int) : void {
             _noteShift = n;
             if (_track) _track.noteShift = _noteShift;
         }
-        /** Master fine tuning, 1 for half-tone. */
-        public function get fineTune() : Number { return _pitchShift; }
+        /** Master fine tuning, 1 for half-tone, you can specify fineTune<-1 or fineTune>1. */
+        public function get fineTune() : Number { return _pitchShift * 0.015625; }
         public function set fineTune(p:Number) : void {
             _pitchShift = p;
             if (_track) _track.pitchShift = _pitchShift * 64;
@@ -254,9 +253,13 @@ package org.si.sound {
             return (_effectChain) ? _effectChain.effectList : null;
         }
         public function set effectors(effectList:Array) :void {
-            if (_effectChain) _effectChain.free();
-            _effectChain = null;
-            if (effectList && effectList.length>0) _effectChain = EffectChain.alloc(effectList);
+            if (_effectChain) {
+                _effectChain.effectList = effectList;
+            } else {
+                if (effectList && effectList.length>0) {
+                    _effectChain = EffectChain.alloc(effectList);
+                }
+            }
         }
         
         
@@ -345,7 +348,7 @@ package org.si.sound {
             _thisVolume = 0.5;
             _thisPan = 0;
             _thisMute = false;
-       }
+        }
         
         
         /** Set event trigger.
@@ -426,6 +429,7 @@ package org.si.sound {
                 _track = null;
                 _noteOff(-1, false);
             }
+            _stopEffect();
         }
         
         
@@ -433,7 +437,7 @@ package org.si.sound {
         
     // operations
     //----------------------------------------
-        /** driver.noteOn.
+        /** @private [protected] driver.noteOn.
          *  @param note playing note
          *  @param isDisposable disposable flag.
          *  @return playing track
@@ -441,7 +445,6 @@ package org.si.sound {
         protected function _noteOn(note:int, isDisposable:Boolean) : SiMMLTrack
         {
             if (!driver) return null;
-            _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
                 bottomEC:EffectChain = _bottomEffectChain(),
                 track:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposable);
@@ -466,7 +469,7 @@ package org.si.sound {
         }
         
         
-        /** driver.noteOff()
+        /** @private [protected] driver.noteOff()
          *  @param stopImmediately stop sound wit resetting channels process
          *  @return stopped track list
          */
@@ -478,7 +481,7 @@ package org.si.sound {
         }
         
         
-        /** driver.sequenceOn()
+        /** @private [protected] driver.sequenceOn()
          *  @param data sequence data
          *  @param isDisposable disposable flag
          *  @param applyLength
@@ -488,7 +491,6 @@ package org.si.sound {
         {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
-            _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
                 bottomEC:EffectChain = _bottomEffectChain(),
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, len, _delay, _quantize, _trackID, isDisposable),
@@ -516,7 +518,7 @@ package org.si.sound {
         }
         
         
-        /** driver.sequenceOff()
+        /** @private [protected] driver.sequenceOff()
          *  @param stopImmediately stop sound wit resetting channels process
          *  @return stopped track list
          */
@@ -528,10 +530,19 @@ package org.si.sound {
         }
         
         
+        /** @private [protected] free effect chain if the effect list is empty */
+        protected function _stopEffect() : void
+        {
+            if (_effectChain && _effectChain.effectList.length == 0) {
+                _effectChain.free();
+                _effectChain = null;
+            }
+        }
         
         
         
-    // oprate ancestor
+        
+    // internals
     //----------------------------------------
         // bottom effect chain
         private function _bottomEffectChain() : EffectChain
@@ -558,16 +569,6 @@ package org.si.sound {
         internal function _updateChildDepth() : void
         {
             _childDepth = (parent) ? (parent._childDepth + 1) : 0;
-        }
-        
-        
-        /** @private [internal use] update track voice when synthsizer was updated. */
-        protected function _updateTrackVoice() : void
-        {
-            if (_track && _synthesizer_updateNumber != _synthesizer._synthesizer_internal::_voiceUpdateNumber) {
-                _synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
-                _synthesizer_updateNumber = _synthesizer._synthesizer_internal::_voiceUpdateNumber;
-            } 
         }
         
         
@@ -611,7 +612,7 @@ package org.si.sound {
         }
 
         
-        /** Handler for SiONEvent.STREAM */
+        /** @private [protected] Handler for SiONEvent.STREAM */
         protected function _onStream(e:SiONEvent) : void
         {
             if (!_fader.execute()) {
@@ -621,11 +622,30 @@ package org.si.sound {
         }
         
         
-        /** call from fader */
+        /** @private [protected] call from fader */
         protected function _fadeVolume(v:Number) : void
         {
             _faderVolume = v;
             _updateVolume();
+        }
+        
+        
+        
+        
+        
+    // errors
+    //----------------------------------------
+        /** @private [protected] not available */
+        protected function _errorNotAvailable(str:String) : Error
+        {
+            return new Error("SoundObject; " + str + " method is not available in this object.");
+        }
+        
+        
+        /** @private [protected] Cannot change */
+        protected function _errorCannotChange(str:String) : Error
+        {
+            return new Error("SoundObject; You can not change " + str + " property in this object.");
         }
     }
 }

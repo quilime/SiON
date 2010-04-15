@@ -201,7 +201,13 @@ package org.si.sound {
         {
             _isPlaying = false;
             for each (var sound:SoundObject in _soundList) sound.stop();
-            if (_effectChain) _effectChain._inactivateLocalEffect();
+            if (_effectChain) {
+                _effectChain._inactivateLocalEffect();
+                if (_effectChain.effectList.length == 0) {
+                    _effectChain.free();
+                    _effectChain = null;
+                }
+            }
         }
         
         

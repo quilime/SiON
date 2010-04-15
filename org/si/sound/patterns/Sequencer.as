@@ -27,17 +27,17 @@ package org.si.sound.patterns {
     // variables
     //----------------------------------------
         /** pattern note vector to play */
-        public var pattern:Vector.<Note>;
+        public var pattern:Vector.<Note> = null;
+        /** next pattern, the pattern property is replaced to this vector at the head of next segment @see pattern */
+        public var nextPattern:Vector.<Note> = null;
         /** voice list referenced by Note.voiceIndex. @see org.si.sound.Note.voiceIndex */
-        public var voiceList:Array;
+        public var voiceList:Array = null;
         
 
         /** @private [internal use] callback on every notes without any arguments. function() : void */
         _sound_object_internal var onEnterFrame:Function = null;
         /** @private [internal use] callback on first beat of every segments without any arguments. function() : void */
         _sound_object_internal var onEnterSegment:Function = null;
-        /** @private [internal use] Sequence data. */
-        _sound_object_internal var data:SiONData;
         /** @private [internal use] Frame count in one segment */
         _sound_object_internal var segmentFrameCount:int;
         /** @private [internal use] Grid step in ticks */
@@ -80,23 +80,27 @@ package org.si.sound.patterns {
         
     // properties
     //----------------------------------------
-        /** current frame count */
+        /** current frame count, -1 means waiting for start */
         public function get frameCount() : int { return _frameCounter; }
         
         
-        /** sequence pointer */
+        /** sequence pointer, -1 means waiting for start */
         public function get sequencePointer() : int { return _sequencePointer; }
         public function set sequencePointer(p:int) : void {
             if (_track) {
-                _sequencePointer = p;
+                _sequencePointer = p - 1;
                 _frameCounter = p % segmentFrameCount;
+                if (_sequencePointer >= 0) {
+                    if (_sequencePointer >= pattern.length) _sequencePointer %= pattern.length;
+                    _currentNote = pattern[_sequencePointer];
+                }
             } else {
-                _initialSequencePointer = p;
+                _initialSequencePointer = p - 1;
             }
         }
         
         
-        /** curent note */
+        /** curent note number (0-127) */
         public function get note() : int {
             if (_currentNote == null || _currentNote.note < 0) return _defaultNote;
             return _currentNote.note;
@@ -111,14 +115,14 @@ package org.si.sound.patterns {
         }
         
         
-        /** curent note's length in 16th beat counts. */
+        /** curent note's length. */
         public function get length() : Number {
             if (_currentNote == null || isNaN(_currentNote.length)) return _defaultLength;
             return _currentNote.length;
         }
         
         
-        /** default note, this value is refered when the Note's note property is under 0 (ussualy -1). */
+        /** default note (0-127), this value is refered when the Note's note property is under 0 (ussualy -1). */
         public function get defaultNote() : int { return _defaultNote; }
         public function set defaultNote(n:int) : void { _defaultNote = (n < 0) ? 0 : (n > 127) ? 127 : n; }
         
@@ -138,7 +142,7 @@ package org.si.sound.patterns {
     // constructor
     //----------------------------------------
         /** @private constructor. you should not create new PatternSequencer in your own codes. */
-        function Sequencer(owner:SoundObject, defaultNote:int=60, defaultVelocity:int=128, defaultLength:Number=0, gridShiftPattern:Vector.<int>=null)
+        function Sequencer(owner:SoundObject, data:SiONData, defaultNote:int=60, defaultVelocity:int=128, defaultLength:Number=0, gridShiftPattern:Vector.<int>=null)
         {
             _owner = owner;
             pattern = null;
@@ -150,9 +154,9 @@ package org.si.sound.patterns {
             segmentFrameCount = 16;    // 16 count in one segment
             gridStep = 120;            // 16th beat (1920/16)
             portament = 0;
-            _frameCounter = 0;
-            _sequencePointer = 0;
-            _initialSequencePointer = 0;
+            _frameCounter = -1;
+            _sequencePointer = -1;
+            _initialSequencePointer = -1;
             _defaultNote     = defaultNote;
             _defaultVelocity = defaultVelocity;
             _defaultLength   = defaultLength;
@@ -161,10 +165,7 @@ package org.si.sound.patterns {
             _gridShiftPattern = gridShiftPattern;
 
             // create internal sequence
-            var seq:MMLSequence;
-            data = new SiONData();
-            data.clear();
-            seq = data.appendNewSequence();
+            var seq:MMLSequence = data.appendNewSequence();
             seq.initialize();
             seq.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
             seq.appendNewCallback(_onEnterFrame, 0);
@@ -182,7 +183,7 @@ package org.si.sound.patterns {
             _synthesizer_updateNumber = _owner.synthesizer._synthesizer_internal::_voiceUpdateNumber;
             _track = null;
             _sequencePointer = _initialSequencePointer;
-            _frameCounter = _initialSequencePointer % segmentFrameCount;
+            _frameCounter = (_initialSequencePointer == -1) ? -1 : (_initialSequencePointer % segmentFrameCount);
             if (pattern && pattern.length>0) {
                 _track = track;
                 _track.setPortament(portament);
@@ -197,8 +198,8 @@ package org.si.sound.patterns {
         _sound_object_internal function stop() : void
         {
             _track = null;
-            _sequencePointer = 0;
-            _frameCounter = 0;
+            _sequencePointer = -1;
+            _frameCounter = -1;
         }
         
         
@@ -221,18 +222,24 @@ package org.si.sound.patterns {
         {
             var vel:int, patternLength:int;
             
-            // segment oprations
-            if (_frameCounter == 0) _onEnterSegment();
-
-            // callback on enter frame
-            if (onEnterFrame != null) onEnterFrame();
-            
             // pattern sequencer
             patternLength = (pattern) ? pattern.length : 0;
+
+            // increment frame counter
+            if (++_frameCounter == segmentFrameCount) _frameCounter = 0;
+            
+            // segment oprations
+            if (_frameCounter == 0) _onEnterSegment();
+            
             if (patternLength > 0) {
+                // increment pointer
+                if (++_sequencePointer >= patternLength) _sequencePointer %= patternLength;
+                
                 // get current Note from pattern
-                if (_sequencePointer >= patternLength) _sequencePointer %= patternLength;
                 _currentNote = pattern[_sequencePointer];
+                
+                // callback on enter frame
+                if (onEnterFrame != null) onEnterFrame();
                 
                 // get current velocity, note on when velocity > 0
                 vel = velocity;
@@ -260,13 +267,7 @@ package org.si.sound.patterns {
                     _restEvent.length = gridStep + diff;
                     _currentGridShift += diff;
                 }
-                
-                // increment pointer
-                _sequencePointer++;
             }
-
-            // increment frame counter
-            if (++_frameCounter == segmentFrameCount) _frameCounter = 0;
             
             return null;
         }
@@ -277,7 +278,13 @@ package org.si.sound.patterns {
         {
             // callback on enter segment
             if (onEnterSegment != null) onEnterSegment();
+            // replace pattern
+            if (nextPattern) {
+                pattern = nextPattern;
+                nextPattern = null;
+            }
         }
     }
 }
+
 

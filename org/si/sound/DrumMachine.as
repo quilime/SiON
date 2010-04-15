@@ -6,13 +6,24 @@
 
 
 package org.si.sound {
+    import org.si.sion.SiONData;
+    import org.si.sion.sequencer.SiMMLTrack;
+    import org.si.sound.namespaces._sound_object_internal;
     import org.si.sound.synthesizers.DrumMachinePresetVoice;
     import org.si.sound.patterns.DrumMachinePresetPattern;
+    import org.si.sound.patterns.Sequencer;
     
     
-    /** drum tracks */
-    public class DrumMachine extends SoundObjectContainer
+    /** Drum machinie provides independent bass drum, snare drum and hihat symbals tracks. */
+    public class DrumMachine extends MultiTrackSoundObject
     {
+    // namespace
+    //----------------------------------------
+        use namespace _sound_object_internal;
+        
+        
+        
+        
     // static variables
     //----------------------------------------
         static private var _presetVoice:DrumMachinePresetVoice = null;
@@ -23,12 +34,15 @@ package org.si.sound {
         
     // variables
     //----------------------------------------
-        /** bass drum pattern sequencer */
-        public var bass:PatternSequencer;
-        /** snare drum pattern sequencer */
-        public var snare:PatternSequencer;
-        /** hi-hat cymbal pattern sequencer */
-        public var hihat:PatternSequencer;
+        /** @private [protected] bass drum pattern sequencer */
+        protected var _bass:Sequencer;
+        /** @private [protected] snare drum pattern sequencer */
+        protected var _snare:Sequencer;
+        /** @private [protected] hi-hat cymbal pattern sequencer */
+        protected var _hihat:Sequencer;
+        
+        /** @private [protected] Sequence data */
+        protected var _data:SiONData;
         
         // preset pattern list
         static private var bassPatternList:Array;
@@ -58,24 +72,32 @@ package org.si.sound {
         /** maximum value of hihatVoiceNumber */   public function get hihatVoiceNumberMax() : int { return hihatVoiceList.length>>1; }
         
         
+        /** Sequencer object of bass drum */
+        public function get bass()  : Sequencer { return _bass; }
+        /** Sequencer object of snare drum */
+        public function get snare() : Sequencer { return _snare; }
+        /** Sequencer object of hihat symbal */
+        public function get hihat() : Sequencer { return _hihat; }
+        
+        
         /** bass drum pattern number, -1 sets no patterns. */
         public function set bassPatternNumber(index:int) : void {
             if (index < -1 || index >= bassPatternList.length) return;
-            bass.sequencer.pattern = (index != -1) ? bassPatternList[index] : null;
+            bass.pattern = (index != -1) ? bassPatternList[index] : null;
         }
         
         
         /** snare drum pattern number, -1 sets no patterns. */
         public function set snarePatternNumber(index:int) : void {
             if (index < -1 || index >= snarePatternList.length) return;
-            snare.sequencer.pattern = (index != -1) ? snarePatternList[index] : null;
+            snare.pattern = (index != -1) ? snarePatternList[index] : null;
         }
         
         
         /** hi-hat cymbal pattern number, -1 sets no patterns. */
         public function set hihatPatternNumber(index:int) : void {
             if (index < -1 || index >= hihatPatternList.length) return;
-            hihat.sequencer.pattern = (index != -1) ? hihatPatternList[index] : null;
+            hihat.pattern = (index != -1) ? hihatPatternList[index] : null;
         }
         
         
@@ -83,7 +105,7 @@ package org.si.sound {
         public function set bassVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= bassVoiceList.length) return;
-            bass.sequencer.voiceList = [bassVoiceList[index], bassVoiceList[index+1]];
+            bass.voiceList = [bassVoiceList[index], bassVoiceList[index+1]];
         }
         
         
@@ -91,7 +113,7 @@ package org.si.sound {
         public function set snareVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= snareVoiceList.length) return;
-            snare.sequencer.voiceList = [snareVoiceList[index], snareVoiceList[index+1]];
+            snare.voiceList = [snareVoiceList[index], snareVoiceList[index+1]];
         }
         
         
@@ -99,7 +121,7 @@ package org.si.sound {
         public function set hihatVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= hihatVoiceList.length) return;
-            hihat.sequencer.voiceList = [hihatVoiceList[index], hihatVoiceList[index+1]];
+            hihat.voiceList = [hihatVoiceList[index], hihatVoiceList[index+1]];
         }
         
         
@@ -132,18 +154,49 @@ package org.si.sound {
             
             super("DrumMachine");
             
-            addChild(bass   = new PatternSequencer(36, 192, 1));
-            addChild(snare  = new PatternSequencer(68, 128, 1));
-            addChild(hihat  = new PatternSequencer(68, 64,  1));
+            _data = new SiONData();
+            _bass   = new Sequencer(this, _data, 36, 192, 1);
+            _snare  = new Sequencer(this, _data, 68, 128, 1);
+            _hihat  = new Sequencer(this, _data, 68, 64,  1);
             this.bassVoiceNumber = bassVoiceNumber;
             this.snareVoiceNumber = snareVoiceNumber;
             this.hihatVoiceNumber = hihatVoiceNumber;
-            bass.volume = 0.8;
-            snare.volume = 0.8;
-            hihat.volume = 0.8;
-            volume = 0.8;
             
             setPatternNumbers(bassPatternNumber, snarePatternNumber, hihatPatternNumber);
+        }
+        
+        
+        
+        
+    // operation
+    //----------------------------------------
+        /** play drum sequence */
+        override public function play() : void
+        {
+            stop();
+            _tracks = _sequenceOn(_data, false, false);
+            if (_tracks && _tracks.length == 3) {
+                _synthesizer._registerTracks(_tracks);
+                _bass.play(_tracks[0]);
+                _snare.play(_tracks[1]);
+                _hihat.play(_tracks[2]);
+            }
+        }
+        
+        
+        /** stop sequence */
+        override public function stop() : void
+        {
+            if (_tracks) {
+                _bass.stop();
+                _snare.stop();
+                _hihat.stop();
+                _synthesizer._unregisterTracks(_tracks[0], _tracks.length);
+                for each (var t:SiMMLTrack in _tracks) t.setDisposable();
+                _tracks = null;
+                _sequenceOff(false);
+            }
+            _stopEffect();
         }
         
         

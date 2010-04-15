@@ -816,11 +816,11 @@ package org.si.sion.sequencer {
             // register all tables
             if (_mmlData) _mmlData._registerAllTables();
             else { // clear all stencil tables
-                SiOPMTable.instance.sampleTable.stencil = null;
-                SiOPMTable.instance._sion_internal::_stencilCustomWaveTables = null;
-                SiOPMTable.instance._sion_internal::_stencilPCMData          = null;
-                SiMMLTable.instance._stencilEnvelops = null;
-                SiMMLTable.instance._stencilVoices   = null;
+                SiOPMTable._instance.sampleTable.stencil = null;
+                SiOPMTable._instance._sion_internal::_stencilCustomWaveTables = null;
+                SiOPMTable._instance._sion_internal::_stencilPCMData          = null;
+                _table._stencilEnvelops = null;
+                _table._stencilVoices   = null;
             }
             
             // almost executing this

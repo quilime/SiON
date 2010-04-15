@@ -32,35 +32,19 @@ package org.si.sound.synthesizers {
         static public const DETUNE:String = "detune";
         /** detune layer mode with triple operators */
         static public const TRIPLE_DETUNE:String = "tripleDetune";
-        /** detune layer mode with quadraple operators */
-        static public const QUAD_DETUNE:String = "quadDetune";
+        /** layered by closed power code (2operators)*/
+        static public const POWER:String = "power";
+        /** layered by closed detuned power code (4operators)*/
+        static public const DETUNE_POWER:String = "detunePower";
         /** layered by closed sus4 code (3operators)*/
         static public const SUS4:String = "sus4";
-        /** layered by closed sus47 code (4operators)*/
-        static public const SUS47:String = "sus47";
-        /** layered by closed major code (3operators)*/
-        static public const MAJOR:String = "M";
-        /** layered by closed minor code (3operators)*/
-        static public const MINOR:String = "m";
-        /** layered by closed 7th code (4operators)*/
-        static public const SEVENTH:String = "7";
-        /** layered by closed minor 7th code (4operators)*/
-        static public const MINOR_SEVENTH:String = "m7";
-        /** layered by closed major 7th code (4operators)*/
-        static public const MAJOR_SEVENTH:String = "M7";
-        /** layered by opened 7th code (4operators)*/
-        static public const SEVENTH_OPENED:String = "7opened";
-        /** layered by opened minor 7th code (4operators)*/
-        static public const MINOR_SEVENTH_OPENED:String = "m7opened";
-        /** layered by opened major 7th code (4operators)*/
-        static public const MAJOR_SEVENTH_OPENED:String = "M7opened";
+        /** layered by closed sus2 code (3operators)*/
+        static public const SUS2:String = "sus2";
         
         /** operator settings */
         static protected var _operatorSetting:* = {
-            SINGLE:[0], DETUNE:[0,0], TRIPLE_DETUNE:[0,0,0], QUAD_DETUNE:[0,0,0,0], 
-            SUS4:[0,5,7], SUS47:[0,5,7,10], MAJOR:[0,4,7], MINOR:[0,3,7], 
-            SEVENTH:[0,4,7,10], MINOR_SEVENTH:[0,3,7,10], MAJOR_SEVENTH:[0,4,7,11], 
-            SEVENTH_OPENED:[0,7,10,16], MINOR_SEVENTH_OPENED:[0,7,10,15], MAJOR_SEVENTH_OPENED:[0,7,11,16]
+            "single":[0], "detune":[0,0], "tripleDetune":[0,0,0], 
+            "power":[0,5], "detunePower":[5,0,5,0], "sus4":[0,5,7], "sus2":[0,7,14]
         };
         
         
@@ -85,15 +69,16 @@ package org.si.sound.synthesizers {
         
     // properties
     //----------------------------------------
+        /** wave data. */
+        public function get wavelet() : Vector.<Number> { return _wavelet; }
+        
+        
         /** wave color.  */
         public function get color() : uint { return _waveColor; }
         public function set color(c:uint) : void {
-            _waveTable.wavelet = SiONUtil.logTransVector(SiONUtil.waveColor(c, 0, _wavelet), false, _waveTable.wavelet);
-            var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
-            for (i=0; i<imax; i++) {
-                ch = _tracks[i].channel as SiOPMChannelFM;
-                if (ch != null) ch.setWaveData(_waveTable);
-            }
+            _waveColor = c;
+            SiONUtil.waveColor(_waveColor, 0, _wavelet);
+            updateWavelet();
         }
         
         
@@ -139,7 +124,7 @@ package org.si.sound.synthesizers {
         /** constructor */
         function WaveTableSynth(layerType:String="single", waveColor:uint=0x1000000f)
         {
-            _wavelet = new Vector.<Number>();
+            _wavelet = new Vector.<Number>(1024);
             _waveTable = new SiOPMWaveTable();
             _voice.waveData = _waveTable;
             _layerDetune = 4;
@@ -147,6 +132,21 @@ package org.si.sound.synthesizers {
             this.color = waveColor;
         }
         
+        
+        
+        
+    // operation
+    //----------------------------------------
+        /** update wavelet */
+        public function updateWavelet() : void
+        {
+            _waveTable.initialize(SiONUtil.logTransVector(_wavelet, false, _waveTable.wavelet));
+            var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
+            for (i=0; i<imax; i++) {
+                ch = _tracks[i].channel as SiOPMChannelFM;
+                if (ch != null) ch.setWaveData(_waveTable);
+            }
+        }
         
         
         

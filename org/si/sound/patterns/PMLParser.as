@@ -7,13 +7,17 @@
 
 package org.si.sound.patterns {
     /** PML (Pattern/Primitive Macro Language) parser, this class provides quite simple pattern generator. 
-@example The PML string is translated by rule property's key to Note instance.
+@example The PML string is translated by rule property's key to Note instance. The letter "^" extends previous Note's length and the letter "[...]n" is translated as a loop. The letters not included in the rule property are translated to rest.
 <listing version="3.0">
 var pp:PMLParser = new PMLParser();
-pp.rule = {"A":new Note(60), "B":new Note(72)};  // set rule. letter "A" as Note(60) and letter "B" as Note(72).
-var pat1:Vector.<Note> = pp.parse("A B AABB");   // generate pattern. The PML "A B AABB" is simply translated by rule.
-var pat2:Vector.<Note> = pp.parse("A B A^^^");   // generate pattern. The letter "^" extends previous Note's length.
-var pat3:Vector.<Note> = pp.parse("[A B ]2");    // generate pattern. The letter "[...]n" extends as a loop.
+pp.rule = {"A":new Note(60), "B":new Note(72)}; // set rule. letter "A" as Note(60) and letter "B" as Note(72).
+var pat1:Vector.<Note> = pp.parse("A B AABB");  // generate pattern. The PML "A B AABB" is simply translated by rule.
+                                                // The whitespaces are translated to rest.
+for (var i:int=0; i<pat1.length; i++) {
+    trace(pat1[i].note);                        // output "60 -1  72 -1  60  60  72  72" (rest's note property is -1)
+}
+var pat2:Vector.<Note> = pp.parse("A B A^^^");  // generate pattern. The letter "^" extends previous Note's length.
+var pat3:Vector.<Note> = pp.parse("[A B ]2");   // generate pattern. The letter "[...]n" is translated as a loop. you cannot nest loops.
 </listing>
      */
     public class PMLParser

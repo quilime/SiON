@@ -377,6 +377,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // check mutex
             if (_mutex != null) throw errorPluralDrivers();
             
+            // check parameters
+            if (bufferLength != 2048 && bufferLength != 4096 && bufferLength != 8192) throw errorParamNotAvailable("stream buffer", bufferLength);
+            if (channelCount != 1 && channelCount != 2) throw errorParamNotAvailable("channel count", channelCount);
+            if (sampleRate != 44100) throw errorParamNotAvailable("sampling rate", sampleRate);
+            
+            // initialize tables
+            var dummy:*;
+            dummy = SiOPMTable.instance; //initialize(3580000, 1789772.5, 44100) sampleRate);
+            dummy = SiMMLTable.instance; //initialize();
+            
             // allocation
             _jobQueue = new Vector.<SiONDriverJob>();
             module = new SiOPMModule();
@@ -390,7 +400,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // initialize
             _tempData = null;
             _channelCount = channelCount;
-            _sampleRate = 44100; // sampleRate; 44100 is only in current version.
+            _sampleRate = sampleRate; // sampleRate; 44100 is only in current version.
             _bitRate = bitRate;
             _bufferLength = bufferLength;
             _listenEvent = NO_LISTEN;
@@ -756,7 +766,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             if (bits<2) return null;
             var waveTable:Vector.<int> = SiONUtil.logTransVector(table, false);
             waveTable.length = 1<<bits;
-            return SiOPMTable.registerWaveTable(index, waveTable);
+            return SiOPMTable._instance.registerWaveTable(index, waveTable);
         }
         
         
@@ -770,7 +780,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
         {
-            return SiOPMTable.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave), keyRangeFrom, keyRangeTo);
+            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave), keyRangeFrom, keyRangeTo);
         }
         
         
@@ -785,7 +795,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, sampleMax:int=1048576) : SiOPMWavePCMData
         {
             //sampleMax;
-            return SiOPMTable.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(sound, samplingOctave), keyRangeFrom, keyRangeTo);
+            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(sound, samplingOctave), keyRangeFrom, keyRangeTo);
         }
         
         
@@ -798,7 +808,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function setSamplerData(index:int, data:Vector.<Number>, ignoreNoteOff:Boolean=true, channelCount:int=1) : SiOPMWaveSamplerData
         {
-            return SiOPMTable.registerSamplerData(index, data, ignoreNoteOff, channelCount);
+            return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, channelCount);
         }
         
         
@@ -812,7 +822,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMWaveSamplerData
         {
             var data:Vector.<Number> = SiONUtil.extract(sound, null, channelCount, sampleMax);
-            return SiOPMTable.registerSamplerData(index, data, ignoreNoteOff, channelCount);
+            return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, channelCount);
         }
         
         
@@ -1516,6 +1526,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     //----------------------------------------
         private function errorPluralDrivers() : Error {
             return new Error("SiONDriver error; Cannot create pulral SiONDrivers.");
+        }
+        
+        
+        private function errorParamNotAvailable(param:String, num:Number) : Error {
+            return new Error("SiONDriver error; Parameter not available. " + param + String(num));
         }
         
         

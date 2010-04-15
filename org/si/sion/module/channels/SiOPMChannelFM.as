@@ -374,7 +374,7 @@ package org.si.sion.module.channels {
                     }
                     break;
                 case 24: // LFO FREQ:7-0 for all 8 channels
-                    v = SiOPMTable.instance.lfo_timerSteps[data];
+                    v = _table.lfo_timerSteps[data];
                     _lfo_timer = (v>0) ? 1 : 0;
                     _lfo_timer_step = v;
                     break;
@@ -501,7 +501,7 @@ package org.si.sion.module.channels {
         override public function setType(pgType:int, ptType:int) : void
         {
             if (pgType >= SiOPMTable.PG_PCM) {
-                var pcm:SiOPMWavePCMTable = SiOPMTable.instance.getPCMData(pgType-SiOPMTable.PG_PCM);
+                var pcm:SiOPMWavePCMTable = _table.getPCMData(pgType-SiOPMTable.PG_PCM);
                 if (pcm) setWaveData(pcm);
             } else {
                 activeOperator.pgType = pgType;

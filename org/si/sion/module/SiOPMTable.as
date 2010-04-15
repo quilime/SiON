@@ -232,6 +232,8 @@ package org.si.sion.module {
         public var rate:int;
         /** fm clock */
         public var clock:int;
+        /** psg clock */
+        public var psg_clock:Number;
         /** (clock/64/sampling_rate)<<CLOCK_RATIO_BITS */
         public var clock_ratio:int;
         /** 44100Hz=0, 22050Hz=1 */
@@ -242,16 +244,14 @@ package org.si.sion.module {
         
     // static public instance
     //--------------------------------------------------
-        /** static public instance */
-        static public var instance:SiOPMTable = null;
+        /** internal instance, you can access this after creating SiONDriver. */
+        static public var _instance:SiOPMTable = null;
         
         
-        /** static initializer */
-        static public function initialize(clock:int, rate:int) : void
+        /** static sigleton instance */
+        static public function get instance() : SiOPMTable
         {
-            if (instance == null || instance.clock != clock || instance.rate != rate) {
-                instance = new SiOPMTable(clock, rate);
-            }
+            return _instance || (_instance = new SiOPMTable(3580000, 1789772.5, 44100));
         }
         
         
@@ -263,9 +263,9 @@ package org.si.sion.module {
          *  @param clock FM module's clock.
          *  @param rate Sampling rate of wave data
          */
-        function SiOPMTable(clock:int, rate:int)
+        function SiOPMTable(clock:int, psg_clock:Number, rate:int)
         {
-            _setConstants(clock, rate);
+            _setConstants(clock, psg_clock, rate);
             _createEGTables();
             _createPGTables();
             _createWaveSamples();
@@ -276,9 +276,10 @@ package org.si.sion.module {
         
     // calculate constants
     //--------------------------------------------------
-        private function _setConstants(clock:int, rate:int) : void
+        private function _setConstants(clock:int, psg_clock:Number, rate:int) : void
         {
             this.clock = clock;
+            this.psg_clock = psg_clock;
             this.rate  = rate;
             sampleRatePitchShift = (rate == 44100) ? 0 : (rate == 22050) ? 1 : -1;
             if (sampleRatePitchShift == -1) throw new Error("SiOPMTable error : Sampling rate ("+ rate + ") is not supported.");
@@ -416,7 +417,7 @@ package org.si.sion.module {
             
             // sampling count table
             pitchSamplingCount = new Vector.<int>(PITCH_TABLE_SIZE, true);
-            n = 5393.968278209282;  // = 44100 / 8.175798915643707. sampling count @ MIDI note number = 0 
+            n = rate / 8.175798915643707;  // = 5393.968278209282@44.1kHz sampling count @ MIDI note number = 0 
             for (i=0, p=0; i<imax; i++, p+=dp) { 
                 v = Math.pow(2, -p) * n;
                 for (j=i; j<jmax; j+=imax) {
@@ -432,7 +433,7 @@ package org.si.sion.module {
             
             // OPM
             table = new Vector.<int>(PITCH_TABLE_SIZE, true);
-            n = 8.175798915643707 * PHASE_MAX / 44100;    // dphase @ MIDI note number = 0 
+            n = 8.175798915643707 * PHASE_MAX / rate;    // dphase @ MIDI note number = 0 
             for (i=0, p=0; i<imax; i++, p+=dp) { 
                 v = Math.pow(2, p) * n;
                 for (j=i; j<jmax; j+=imax) {
@@ -459,11 +460,11 @@ package org.si.sion.module {
             
             // PSG(table_size = 16)
             table = new Vector.<int>(PITCH_TABLE_SIZE, true);
-            n = 1789772.5 * (PHASE_MAX>>4) / 44100;
+            n = psg_clock * (PHASE_MAX>>4) / rate;
             for (i=0, p=0; i<imax; i++, p+=dp) {
                 // 8.175798915643707 = [frequency @ MIDI note number = 0]
-                // 111860.78125 = 1789772.5/16
-                v = 111860.78125/(Math.pow(2, p) * 8.175798915643707);
+                // 130.8127826502993 = 8.175798915643707 * 16
+                v = psg_clock/(Math.pow(2, p) * 130.8127826502993);
                 for (j=i; j<jmax; j+=imax) {
                     // register value
                     iv = int(v + 0.5);
@@ -496,7 +497,7 @@ package org.si.sion.module {
             // PSG noise period table.
             table = new Vector.<int>(imax, true);
             // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/(clock/16))[sec]  /  (1/44100)[sec])) >> (PHASE_BIT - waveTable.fixedBits)
-            n = PHASE_MAX * 111860.78125 / 44100;   // 111860.78125 = 1789772.5/16
+            n = PHASE_MAX * psg_clock / (rate * 16);
             for (i=0; i<32; i++) {
                 iv = n / i;
                 for (j=0; j<HALF_TONE_RESOLUTION; j++) {
@@ -511,7 +512,7 @@ package org.si.sion.module {
             imax  = 16<<HALF_TONE_BITS;
             table = new Vector.<int>(imax, true);
             // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/clock)[sec]  /  (1/44100)[sec])) >> (PHASE_BIT - waveTable.fixedBits)
-            n = PHASE_MAX * 1789772.5 / 44100;
+            n = PHASE_MAX * psg_clock / rate;
             for (i=0; i<16; i++) {
                 iv = n / fc_nf[i];
                 for (j=0; j<HALF_TONE_RESOLUTION; j++) {
@@ -1060,63 +1061,63 @@ package org.si.sion.module {
         
     // wave tables
     //--------------------------------------------------
-        /** Reset all user tables */
-        static public function resetAllUserTables() : void
+        /** @private [internal use] Reset all user tables */
+        _sion_internal function resetAllUserTables() : void
         {
             // [NOTE] We should free allocated memory area in the environment without garbege collectors.
             var i:int;
             
             // Reset wave tables
             for (i=0; i<WAVE_TABLE_MAX; i++) { 
-                if (instance._customWaveTables[i]) { 
-                    instance._customWaveTables[i].free(); 
-                    instance._customWaveTables[i] = null;
+                if (_customWaveTables[i]) { 
+                    _customWaveTables[i].free(); 
+                    _customWaveTables[i] = null;
                 }
             }
             for (i=0; i<PCM_DATA_MAX; i++) { 
-                if (instance._pcmData[i]) { 
-                    instance._pcmData[i]._siopm_module_internal::_free();
-                    instance._pcmData[i] = null;
+                if (_pcmData[i]) { 
+                    _pcmData[i]._siopm_module_internal::_free();
+                    _pcmData[i] = null;
                 }
             }
-            instance.sampleTable._siopm_module_internal::_free();
-            instance._stencilCustomWaveTables = null;
-            instance._stencilPCMData = null;
+            sampleTable._siopm_module_internal::_free();
+            _stencilCustomWaveTables = null;
+            _stencilPCMData = null;
         }
         
         
-        /** Register wave table. */
-        static public function registerWaveTable(index:int, table:Vector.<int>) : SiOPMWaveTable
+        /** @private [internal use] Register wave table. */
+        _sion_internal function registerWaveTable(index:int, table:Vector.<int>) : SiOPMWaveTable
         {
             // register wave table
             var newWaveTable:SiOPMWaveTable = SiOPMWaveTable.alloc(table);
             index &= WAVE_TABLE_MAX-1;
-            instance._customWaveTables[index] = newWaveTable;
+            _customWaveTables[index] = newWaveTable;
             
             // update PG_MA3_WAVE waveform 15,23,31.
             if (index < 3) {
                 // index=0,1,2 are same as PG_MA3 waveform 15,23,31.
-                instance.waveTables[15 + index * 8 + PG_MA3_WAVE] = newWaveTable;
+                waveTables[15 + index * 8 + PG_MA3_WAVE] = newWaveTable;
             }
             
             return newWaveTable;
         }
         
         
-        /** Register Sampler data. */
-        static public function registerSamplerData(index:int, table:*, ignoreNoteOff:Boolean, channelCount:int) : SiOPMWaveSamplerData
+        /** @private [internal use] Register Sampler data. */
+        _sion_internal function registerSamplerData(index:int, table:*, ignoreNoteOff:Boolean, channelCount:int) : SiOPMWaveSamplerData
         {
-            return instance.sampleTable.setSample(SiOPMWaveSamplerData.alloc(table, ignoreNoteOff, channelCount), index & (SAMPLER_DATA_MAX-1));
+            return sampleTable.setSample(SiOPMWaveSamplerData.alloc(table, ignoreNoteOff, channelCount), index & (SAMPLER_DATA_MAX-1));
         }
         
         
-        /** get PCM wave table. */
-        static public function getPCMWaveTable(index:int) : SiOPMWavePCMTable
+        /** @private [internal use] get PCM wave table. */
+        _sion_internal function getPCMWaveTable(index:int) : SiOPMWavePCMTable
         {
             // register PCM data
             index &= PCM_DATA_MAX-1;
-            if (instance._pcmData[index] == null) instance._pcmData[index] = new SiOPMWavePCMTable();
-            return instance._pcmData[index];
+            if (_pcmData[index] == null) _pcmData[index] = new SiOPMWavePCMTable();
+            return _pcmData[index];
         }
         
         

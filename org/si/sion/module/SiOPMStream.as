@@ -30,8 +30,9 @@ package org.si.sion.module {
         /** constructor */
         function SiOPMStream()
         {
-            _panTable = SiOPMTable.instance.panTable;
-            _i2n = SiOPMTable.instance.i2n;
+            var st:SiOPMTable = SiOPMTable.instance;
+            _panTable = st.panTable;
+            _i2n = st.i2n;
         }
         
         

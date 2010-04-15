@@ -107,8 +107,9 @@ package org.si.sound.synthesizers {
             _intBalance = int(balance * 128) - 64;
             if (_intBalance > 64) _intBalance = 64;
             else if (_intBalance < -64) _intBalance = -64;
-            _opp0.tl = SiOPMTable.instance.eg_tlTable[64-_intBalance] >> SiOPMTable.ENV_LSHIFT;
-            _opp1.tl = SiOPMTable.instance.eg_tlTable[_intBalance+64] >> SiOPMTable.ENV_LSHIFT;
+            var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable;
+            _opp0.tl = tltable[64-_intBalance] >> SiOPMTable.ENV_LSHIFT;
+            _opp1.tl = tltable[_intBalance+64] >> SiOPMTable.ENV_LSHIFT;
             var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
                 ch = _tracks[i].channel as SiOPMChannelFM;
@@ -175,7 +176,7 @@ package org.si.sound.synthesizers {
          *  @param balance mixing balance of 2 osccilators (0<->1), 0=1st only, 0.5=same volume, 1=2nd only.
          *  @param vco2pitch pitch difference in osc1 and 2. 1 for halftone.
          */
-        function AnalogSynth(connectionType:int, ws1:int=0, ws2:int=0, balance:Number=0.5, vco2pitch:Number=0.1)
+        function AnalogSynth(connectionType:int=0, ws1:int=1, ws2:int=1, balance:Number=0.5, vco2pitch:Number=0.1)
         {
             super();
             _intBalance = int(balance * 128) - 64;

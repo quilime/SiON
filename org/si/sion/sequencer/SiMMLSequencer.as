@@ -50,6 +50,8 @@ package org.si.sion.sequencer {
         /** @private [sion internal] maximum limit of track count */
         _sion_internal var _maxTrackCount:int;
         
+        private var _table:SiMMLTable;  // table instance
+        
         private var _callbackEventNoteOn:Function = null;   // callback function for event trigger "note on"
         private var _callbackEventNoteOff:Function = null;  // callback function for event trigger "note off"
         private var _callbackTempoChanged:Function = null;  // callback function for tempo change event
@@ -128,6 +130,7 @@ package org.si.sion.sequencer {
             var i:int;
             
             // initialize
+            _table = SiMMLTable.instance;
             _module = module;
             tracks = new Vector.<SiMMLTrack>();
             _freeTracks = new Vector.<SiMMLTrack>();
@@ -139,9 +142,6 @@ package org.si.sion.sequencer {
             _callbackTempoChanged = tempoChanged;
             _currentTrack = null;
             _sion_internal::_maxTrackCount = DEFAULT_MAX_TRACK_COUNT;
-            
-            // initialize table once
-            SiMMLTable.initialize();
             
             // pitch
             newMMLEventListener('k',    _onDetune);
@@ -1154,7 +1154,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setToneEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setToneEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1165,7 +1165,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setAmplitudeEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setAmplitudeEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1176,7 +1176,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setAmplitudeEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1], true);
+            _currentTrack.setAmplitudeEnvelop(1, _table.getEnvelopTable(idx), _p[1], true);
             return e.next;
         }
         
@@ -1187,7 +1187,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setPitchEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setPitchEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1198,7 +1198,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setNoteEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setNoteEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
     
@@ -1209,7 +1209,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setFilterEnvelop(1, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setFilterEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1220,7 +1220,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setToneEnvelop(0, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setToneEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1231,7 +1231,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setAmplitudeEnvelop(0, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setAmplitudeEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1242,7 +1242,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setPitchEnvelop(0, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setPitchEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
         
@@ -1253,7 +1253,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setNoteEnvelop(0, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setNoteEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
     
@@ -1264,7 +1264,7 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
             var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
-            _currentTrack.setFilterEnvelop(0, SiMMLTable.instance.getEnvelopTable(idx), _p[1]);
+            _currentTrack.setFilterEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
 
@@ -1466,7 +1466,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_OPERATOR) return e.next;      // check mask
             var cnt:int = (_p[0] != int.MIN_VALUE) ? _p[0] : 0;
-            var alg:int = (_p[1] != int.MIN_VALUE) ? _p[1] : SiMMLTable.instance.alg_init[cnt];
+            var alg:int = (_p[1] != int.MIN_VALUE) ? _p[1] : _table.alg_init[cnt];
             _currentTrack.channel.setAlgorism(cnt, alg);
             return e.next;
         }

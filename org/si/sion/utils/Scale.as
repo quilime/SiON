@@ -12,55 +12,55 @@ package org.si.sion.utils {
     // constants
     //--------------------------------------------------
         /** Scale table of C */
-        static protected const ST_MAJOR:int            = 0xab5;
+        static protected const ST_MAJOR:int            = 0x1ab5ab5;
         /** Scale table of Cm */
-        static protected const ST_MINOR:int            = 0x5ad;
+        static protected const ST_MINOR:int            = 0x15ad5ad;
         /** Scale table of Chm */
-        static protected const ST_HARMONIC_MINOR:int   = 0x9ad;
+        static protected const ST_HARMONIC_MINOR:int   = 0x19ad9ad;
         /** Scale table of Cmm */
-        static protected const ST_MELODIC_MINOR:int    = 0xaad;
+        static protected const ST_MELODIC_MINOR:int    = 0x1aadaad;
         /** Scale table of Cp */
-        static protected const ST_PENTATONIC:int       = 0x295;
+        static protected const ST_PENTATONIC:int       = 0x1295295;
         /** Scale table of Cmp */
-        static protected const ST_MINOR_PENTATONIC:int = 0x4a9;
+        static protected const ST_MINOR_PENTATONIC:int = 0x14a94a9;
         /** Scale table of Cb */
-        static protected const ST_BLUE_NOTE:int        = 0x4e9;
+        static protected const ST_BLUE_NOTE:int        = 0x14e94e9;
         /** Scale table of Cd */
-        static protected const ST_DIMINISH:int         = 0x249;
+        static protected const ST_DIMINISH:int         = 0x1249249;
         /** Scale table of Ccd */
-        static protected const ST_COMB_DIMINISH:int    = 0x6db;
+        static protected const ST_COMB_DIMINISH:int    = 0x16db6db;
         /** Scale table of Cw */
-        static protected const ST_WHOLE_TONE:int       = 0x555;
+        static protected const ST_WHOLE_TONE:int       = 0x1555555;
         /** Scale table of Cc */
-        static protected const ST_CHROMATIC:int        = 0xfff;
+        static protected const ST_CHROMATIC:int        = 0x1ffffff;
         /** Scale table of Csus4 */
-        static protected const ST_PERFECT:int          = 0x0a1;
+        static protected const ST_PERFECT:int          = 0x10a10a1;
         /** Scale table of Csus47 */
-        static protected const ST_DPERFECT:int         = 0x4a1;
+        static protected const ST_DPERFECT:int         = 0x14a14a1;
         /** Scale table of C5 */
-        static protected const ST_POWER:int            = 0x081;
+        static protected const ST_POWER:int            = 0x1081081;
         /** Scale table of Cu */
-        static protected const ST_UNISON:int           = 0x001;
+        static protected const ST_UNISON:int           = 0x1001001;
         /** Scale table of Cdor */
-        static protected const ST_DORIAN:int           = 0x6ad;
+        static protected const ST_DORIAN:int           = 0x16ad6ad;
         /** Scale table of Cphr */
-        static protected const ST_PHRIGIAN:int         = 0x5ab;
+        static protected const ST_PHRIGIAN:int         = 0x15ab5ab;
         /** Scale table of Clyd */
-        static protected const ST_LYDIAN:int           = 0xad5;
+        static protected const ST_LYDIAN:int           = 0x1ad5ad5;
         /** Scale table of Cmix */
-        static protected const ST_MIXOLYDIAN:int       = 0x6b5;
+        static protected const ST_MIXOLYDIAN:int       = 0x16b56b5;
         /** Scale table of Cloc */
-        static protected const ST_LOCRIAN:int          = 0x56b;
+        static protected const ST_LOCRIAN:int          = 0x156b56b;
         /** Scale table of Cgyp */
-        static protected const ST_GYPSY:int            = 0x9b3;
+        static protected const ST_GYPSY:int            = 0x19b39b3;
         /** Scale table of Cspa */
-        static protected const ST_SPANISH:int          = 0x5ab;
+        static protected const ST_SPANISH:int          = 0x15ab5ab;
         /** Scale table of Chan */
-        static protected const ST_HANGARIAN:int        = 0xacd;
+        static protected const ST_HANGARIAN:int        = 0x1acdacd;
         /** Scale table of Cjap */
-        static protected const ST_JAPANESE:int         = 0x4a5;
+        static protected const ST_JAPANESE:int         = 0x14a54a5;
         /** Scale table of Cryu */
-        static protected const ST_RYUKYU:int           = 0x8b1;
+        static protected const ST_RYUKYU:int           = 0x18b18b1;
         
         /** scale table dictionary */
         static protected var _scaleTableDictionary:* = {
@@ -102,12 +102,12 @@ package org.si.sion.utils {
     //--------------------------------------------------
         /** scale table */
         protected var _scaleTable:int;
-        /** note check table (table of available notes on signeture C) */
-        protected var _noteCheckTable:int;
         /** notes on the scale */
         protected var _scaleNotes:Vector.<int>;
         /** scale name */
         protected var _scaleName:String;
+        /** note check table (table of available notes on signeture C) */
+        protected var _noteCheckTable:int;
         
         
         
@@ -193,10 +193,15 @@ package org.si.sion.utils {
         public function get rootNote() : int { return _scaleNotes[0]; }
         public function set rootNote(note:int) : void {
             _scaleNotes.length = 0;
-            for (var i:int=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + note);
+            for (var i:int=0; i<25; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + note);
             note = note % 12;
-            _noteCheckTable = ((_scaleTable << note) | (_scaleTable >> (12 - note))) & 0xfff;
         }
+        
+        
+        /** bass note number */
+        public function get bassNote() : int { return _scaleNotes[0]; }
+        public function set bassNote(note:int) : void { rootNote = note; }
+        
         
         
         
@@ -227,7 +232,7 @@ package org.si.sion.utils {
         public function setScaleTable(name:String, rootNote:int, table:Array) : void
         {
             _scaleName = name;
-            var i:int, imax:int = (table.length<12) ? table.length : 12;
+            var i:int, imax:int = (table.length<25) ? table.length : 25;
             _scaleTable = 0;
             for (i=0; i<imax; i++) if (table[i]) _scaleTable |= (1<<i);
             this.rootNote = rootNote;
@@ -244,8 +249,10 @@ package org.si.sion.utils {
          */
         public function check(note:int) : Boolean
         {
-            note = note % 12;
-            return Boolean(_noteCheckTable & (1<<note));
+            note -= _scaleNotes[0];
+                 if (note < 0)  note = (note + 144) % 12;
+            else if (note > 24) note = ((note - 12) % 12) + 12;
+            return ((_scaleTable & (1<<note)) != 0);
         }
         
         
@@ -255,10 +262,14 @@ package org.si.sion.utils {
          */
         public function shift(note:int) : int
         {
-            var n:int, down:int, up:int;
-            for (n=note%12, up=0;   (_noteCheckTable & (1<<n)) == 0; up++)   { if (++n == 12) n = 0; }
-            for (n=note%12, down=0; (_noteCheckTable & (1<<n)) == 0; down++) { if (--n == -1) n = 11; }
-            return note + ((down < up) ? (-down) : up);
+            var n:int = note - _scaleNotes[0];
+                 if (n < 0)  n = (n + 144) % 12;
+            else if (n > 23) n = ((n - 12) % 12) + 12;
+            if ((_scaleTable & (1<<n)) != 0) return note;
+            var up:int, dw:int, imax:int = _scaleNotes.length;
+            for (up=n+1; up<24 && (_scaleTable & (1<<up)) == 0;) up++; 
+            for (dw=n-1; dw>=0 && (_scaleTable & (1<<dw)) == 0;) dw--; 
+            return note - n + (((n-dw)<=(up-n)) ? dw : up);
         }
         
         
@@ -287,14 +298,9 @@ package org.si.sion.utils {
         public function getNote(index:int) : int
         {
             var imax:int = _scaleNotes.length, octaveShift:int = 0;
-            while (index < 0) {
-                index += imax;
-                octaveShift--;
-            }
-            while (index >= imax) {
-                index -= imax;
-                octaveShift++;
-            }
+            octaveShift = int(index / imax);
+            if (octaveShift < 0) octaveShift--;
+            index -= octaveShift * 12;
             return _scaleNotes[index] + octaveShift*12;
         }
         
@@ -302,7 +308,8 @@ package org.si.sion.utils {
         /** copy from another scale
          *  @param src another Scale instance copy from
          */
-        public function copyFrom(src:Scale) : Scale {
+        public function copyFrom(src:Scale) : Scale
+        {
             _scaleName = src._scaleName;
             _scaleTable = src._scaleTable;
             _noteCheckTable = src._noteCheckTable;

@@ -32,13 +32,14 @@ package org.si.sion.module {
         public var channelCount:int;
         
         /** wave starting position in sample count. */
-        public var startPoint:int;
+        private var _startPoint:int;
         /** wave end position in sample count. */
-        public var endPoint:int;
+        private var _endPoint:int;
         /** wave looping position in sample count. -1 means no repeat. */
-        public var loopPoint:int;
-        /** flag to ignore note off. */
-        public var ignoreNoteOff:Boolean;
+        private var _loopPoint:int;
+        
+        // flag to ignore note off
+        private var _ignoreNoteOff:Boolean;
         
         
         
@@ -51,6 +52,23 @@ package org.si.sion.module {
             if (soundData) return (soundData.length * 44.1);
             return 0;
         }
+        
+        
+        /** flag t ignore note off */
+        public function get ignoreNoteOff() : Boolean { return _ignoreNoteOff; }
+        public function set ignoreNoteOff(b:Boolean) : void {
+            _ignoreNoteOff = (_loopPoint != -1) && b;
+        }
+        
+        
+        /** wave starting position in sample count. */
+        public function get startPoint() : int { return _startPoint; }
+        
+        /** wave end position in sample count. */
+        public function get endPoint()   : int { return _endPoint; }
+        
+        /** wave looping position in sample count. -1 means no repeat. */
+        public function get loopPoint()  : int { return _loopPoint; }
         
         
         
@@ -94,14 +112,18 @@ package org.si.sion.module {
                     this.waveData = null;
                     isExtracted = false;
                 }
+            } else if (data == null) {
+                this.soundData = null;
+                this.waveData = null;
+                isExtracted = false;
             } else {
                 throw new Error("SiOPMWaveSamplerData; not suitable data type");
             }
             this.channelCount = (channelCount == 1) ? 1 : 2;
             
-            this.startPoint = 0;
-            this.endPoint   = length;
-            this.loopPoint  = -1;
+            this._startPoint = 0;
+            this._endPoint   = length;
+            this._loopPoint  = -1;
             this.ignoreNoteOff = ignoreNoteOff;
             return this;
         }
@@ -118,10 +140,10 @@ package org.si.sion.module {
             if (endPoint < 0) endPoint = length-1;
             if (endPoint < loopPoint)  loopPoint = -1;
             if (endPoint < startPoint) endPoint = length-1;
-            this.startPoint = startPoint;
-            this.endPoint   = endPoint;
-            this.loopPoint  = loopPoint;
-            if (loopPoint != -1) ignoreNoteOff = false;
+            _startPoint = startPoint;
+            _endPoint   = endPoint;
+            _loopPoint  = loopPoint;
+            if (_loopPoint != -1) _ignoreNoteOff = false;
             return this;
         }
         

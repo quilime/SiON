@@ -9,6 +9,7 @@ package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.channels.SiOPMChannelManager;
+    import org.si.sion.namespaces._sion_internal;
     
     
     /** @private SiMML table */
@@ -94,14 +95,14 @@ package org.si.sion.sequencer {
         
     // static public instance
     //--------------------------------------------------
-        /** static public instance */
-        static public var instance:SiMMLTable = null;
+        /** internal instance, you can access this after creating SiONDriver. */
+        static public var _instance:SiMMLTable = null;
         
         
-        /** static initializer */
-        static public function initialize() : void
+        /** singleton instance */
+        static public function get instance() : SiMMLTable
         {
-            if (instance == null) instance = new SiMMLTable();
+            return _instance || (_instance = new SiMMLTable());
         }
         
         
