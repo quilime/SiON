@@ -200,7 +200,7 @@ package org.si.sound {
             _thisVolume = v;
             _updateVolume();
             _limitVolume();
-            if (_track) _track.channel.masterVolume = _volumes[0];
+            _updateStreamSend(0, _volumes[0] * 0.0078125);
         }
         /** Channel panning (-1:Left - 0:Center - +1:Right), this property can control track after play(). */
         public function get pan() : Number { return _thisPan; }
@@ -217,28 +217,28 @@ package org.si.sound {
         public function set effectSend1(v:Number) : void {
             v = (v<0) ? 0 : (v>1) ? 1 : v;
             _volumes[1] = v * 128;
-            if (_track) _track.channel.setStreamSend(1, v);
+            _updateStreamSend(1, v);
         }
         /** Channel effect send level for slot 2 (0:Minimum - 1:Maximum), this property can control track after play(). */
         public function get effectSend2() : Number { return _volumes[2] * 0.0078125; }
         public function set effectSend2(v:Number) : void {
             v = (v<0) ? 0 : (v>1) ? 1 : v;
             _volumes[2] = v * 128;
-            if (_track) _track.channel.setStreamSend(2, v);
+            _updateStreamSend(2, v);
         }
         /** Channel effect send level for slot 3 (0:Minimum - 1:Maximum), this property can control track after play(). */
         public function get effectSend3() : Number { return _volumes[3] * 0.0078125; }
         public function set effectSend3(v:Number) : void {
             v = (v<0) ? 0 : (v>1) ? 1 : v;
             _volumes[3] = v * 128;
-            if (_track) _track.channel.setStreamSend(3, v);
+            _updateStreamSend(3, v);
         }
         /** Channel effect send level for slot 4 (0:Minimum - 1:Maximum), this property can control track after play(). */
         public function get effectSend4() : Number { return _volumes[4] * 0.0078125; }
         public function set effectSend4(v:Number) : void {
             v = (v<0) ? 0 : (v>1) ? 1 : v;
             _volumes[4] = v * 128;
-            if (_track) _track.channel.setStreamSend(4, v);
+            _updateStreamSend(4, v);
         }
         /** Channel pitch bend, 1 for halftone, this property can control track after play(). */
         public function get pitchBend() : Number { return _pitchBend; }
@@ -539,6 +539,14 @@ package org.si.sound {
             }
         }
         
+        
+        /** @private [protected] update stream send level */
+        protected function _updateStreamSend(streamNum:int, level:Number) : void {
+            if (_track) {
+                if (_effectChain) _effectChain.setStreamSend(streamNum, level);
+                else _track.channel.setStreamSend(streamNum, level);
+            }
+        }
         
         
         

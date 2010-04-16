@@ -77,6 +77,8 @@ package org.si.sound {
         /** note length in 16th beat. */
         public function get noteLength() : Number { return _sequencer.defaultLength; }
         public function set noteLength(l:Number) : void {
+            if (l<0.25) l=0.25;
+            else if (l>16) l=16;
             _sequencer.defaultLength = l;
             _sequencer.gridStep = l * 120;
         }
@@ -114,6 +116,7 @@ package org.si.sound {
             else if (scale is String) _scale.name = scale as String;
             
             _nextPattern = null;
+            _sequencer.defaultLength = 1;
             _sequencer.pattern = new Vector.<Note>();
             _sequencer.onEnterSegment = _onEnterSegment;
             

@@ -84,13 +84,21 @@ package org.si.sound.core {
         }
         
         
-        /** set all stream levels by Vector.<int>(8) */
+        /** set all stream send levels by Vector.<int>(8) (0-128) */
         public function setAllStreamSendLevels(volumes:Vector.<int>) : void
         {
             if (!_effectStream) return;
             _effectStream.setAllStreamSendLevels(volumes);
         }
-
+        
+        
+        /** set stream send level by Number(0-1) */
+        public function setStreamSend(slot:int, volume:Number) : void
+        {
+            if (!_effectStream) return;
+            _effectStream.setStreamSend(slot, volume);
+        }
+        
         
         /** connect to another chain */
         public function connectTo(ec:EffectChain) : void

@@ -257,23 +257,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             if (_soundChannel) _soundChannel.soundTransform = _soundTransform;
         }
         
-
-        /** SiEffectBase array connected to Effector slot 0 */
-        public function set effectorSlot0(list:Array) : void { effector.setEffectorList(0, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 1 */
-        public function set effectorSlot1(list:Array) : void { effector.setEffectorList(1, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 2 */
-        public function set effectorSlot2(list:Array) : void { effector.setEffectorList(2, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 3 */
-        public function set effectorSlot3(list:Array) : void { effector.setEffectorList(3, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 4 */
-        public function set effectorSlot4(list:Array) : void { effector.setEffectorList(4, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 5 */
-        public function set effectorSlot5(list:Array) : void { effector.setEffectorList(5, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 6 */
-        public function set effectorSlot6(list:Array) : void { effector.setEffectorList(6, Vector.<SiEffectBase>(list)); }
-        /** SiEffectBase array connected to Effector slot 7 */
-        public function set effectorSlot7(list:Array) : void { effector.setEffectorList(7, Vector.<SiEffectBase>(list)); }
         
         // measured times
         /** previous compiling time [ms]. */
@@ -498,7 +481,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function compileQueue(mml:String, data:SiONData) : int
         {
             if (mml == null || data == null) return _jobQueue.length;
-            return _jobQueue.push(new SiONDriverJob(mml, null, data, 2));
+            return _jobQueue.push(new SiONDriverJob(mml, null, data, 2, false));
         }
         
         
@@ -521,8 +504,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 
                 // rendering immediately
                 var t:int = getTimer();
-                if (resetEffector) effector.initialize();
-                _prepareRender(data, renderBuffer, renderBufferChannelCount);
+                _prepareRender(data, renderBuffer, renderBufferChannelCount, resetEffector);
                 while(true) { if (_rendering()) break; }
                 _timeRender = getTimer() - t;
             } catch (e:Error) {
@@ -543,17 +525,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @return Queue length.
          *  @see #startQueue()
          */
-        public function renderQueue(data:*, renderBuffer:Vector.<Number>, renderBufferChannelCount:int=2) : int
+        public function renderQueue(data:*, renderBuffer:Vector.<Number>, renderBufferChannelCount:int=2, resetEffector:Boolean=false) : int
         {
             if (data == null || renderBuffer == null) return _jobQueue.length;
             
             if (data is String) {
                 var compiled:SiONData = new SiONData();
-                _jobQueue.push(new SiONDriverJob(data as String, null, compiled, 2));
-                return _jobQueue.push(new SiONDriverJob(null, renderBuffer, compiled, renderBufferChannelCount));
+                _jobQueue.push(new SiONDriverJob(data as String, null, compiled, 2, false));
+                return _jobQueue.push(new SiONDriverJob(null, renderBuffer, compiled, renderBufferChannelCount, resetEffector));
             } else 
             if (data is SiONData) {
-                return _jobQueue.push(new SiONDriverJob(null, renderBuffer, data as SiONData, renderBufferChannelCount));
+                return _jobQueue.push(new SiONDriverJob(null, renderBuffer, data as SiONData, renderBufferChannelCount, resetEffector));
             }
             
             var e:Error = errorDataIncorrect();
@@ -618,8 +600,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     stop();
                     
                     // preparation
-                    if (resetEffector) effector.initialize();
-                    _prepareProcess(data);
+                    _prepareProcess(data, resetEffector);
 
                     // initialize
                     _timeProcessTotal = 0;
@@ -1209,7 +1190,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             
             var queue:SiONDriverJob = _jobQueue.shift();
             if (queue.mml) _prepareCompile(queue.mml, queue.data);
-            else _prepareRender(queue.data, queue.buffer, queue.channelCount);
+            else _prepareRender(queue.data, queue.buffer, queue.channelCount, queue.resetEffector);
             return false;
         }
         
@@ -1278,9 +1259,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // render
     //----------------------------------------
         // prepare for rendering
-        private function _prepareRender(data:*, renderBuffer:Vector.<Number>, renderBufferChannelCount:int) : void
+        private function _prepareRender(data:*, renderBuffer:Vector.<Number>, renderBufferChannelCount:int, resetEffector:Boolean) : void
         {
-            _prepareProcess(data);
+            _prepareProcess(data, resetEffector);
             _renderBuffer = renderBuffer || new Vector.<Number>();
             _renderBufferChannelCount = (renderBufferChannelCount==2) ? 2 : 1;
             _renderBufferSizeMax = _renderBuffer.length;
@@ -1341,7 +1322,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // process
     //----------------------------------------
         // prepare for processing
-        private function _prepareProcess(data:*) : void
+        private function _prepareProcess(data:*, resetEffector:Boolean) : void
         {
             if (data is String) {
                 _tempData = _tempData || new SiONData();
@@ -1354,6 +1335,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // THESE FUNCTIONS ORDER IS VERY IMPORTANT !!
             module.initialize(_channelCount, _bitRate, _bufferLength);
             module.reset();                                                 // reset channels
+            if (resetEffector) effector.initialize();                       // reset effector
+            else effector._reset();
             sequencer._prepareProcess(_data, _sampleRate, _bufferLength);   // set track channels (this must be called after module.reset()).
             if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
             effector._prepareProcess();                                     // set stream number inside
@@ -1567,13 +1550,15 @@ class SiONDriverJob
     public var buffer:Vector.<Number>;
     public var data:SiONData;
     public var channelCount:int;
+    public var resetEffector:Boolean;
     
-    function SiONDriverJob(mml_:String, buffer_:Vector.<Number>, data_:SiONData, channelCount_:int) 
+    function SiONDriverJob(mml_:String, buffer_:Vector.<Number>, data_:SiONData, channelCount_:int, resetEffector_:Boolean) 
     {
         mml = mml_;
         buffer = buffer_;
         data = data_ || new SiONData();
         channelCount = channelCount_;
+        resetEffector = resetEffector_;
     }
 }
 

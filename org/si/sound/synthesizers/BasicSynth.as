@@ -6,6 +6,7 @@
 
 package org.si.sound.synthesizers {
     import org.si.sion.*;
+    import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.SoundObject;
@@ -100,13 +101,17 @@ package org.si.sound.synthesizers {
         
         
         /** attack rate (0-1), lower value makes attack slow. */
-        public function get attackRate() : Number { return _voice.channelParam.operatorParam[0].ar * 0.015873015873015872; }
-        public function set attackRate(ar:Number) : void { 
-            var iar:int = ar * 63;
-            _voice.channelParam.operatorParam[0].ar = iar;
-            _voice.channelParam.operatorParam[1].ar = iar;
-            _voice.channelParam.operatorParam[2].ar = iar;
-            _voice.channelParam.operatorParam[3].ar = iar;
+        public function get attackTime() : Number { 
+            var iar:int = _voice.channelParam.operatorParam[_voice.channelParam.opeCount-1].ar;
+            return  (iar > 48) ? 0 : (1 - iar * 0.020833333333333332); 
+        }
+        public function set attackTime(n:Number) : void { 
+            var flg:int = SiOPMTable.instance.final_oscilator_flags[_voice.channelParam.opeCount][_voice.channelParam.alg];
+            var iar:int = (n == 0) ? 63 : ((1 - n) * 48);
+            if (flg & 1) _voice.channelParam.operatorParam[0].ar = iar;
+            if (flg & 2) _voice.channelParam.operatorParam[1].ar = iar;
+            if (flg & 4) _voice.channelParam.operatorParam[2].ar = iar;
+            if (flg & 8) _voice.channelParam.operatorParam[3].ar = iar;
             var i:int, imax:int = _tracks.length;
             for (i=0; i<imax; i++) {
                 _tracks[i].channel.setAllAttackRate(iar);
@@ -115,13 +120,17 @@ package org.si.sound.synthesizers {
         
         
         /** release rate (0-1), lower value makes release slow. */
-        public function get releaseRate() : Number { return _voice.channelParam.operatorParam[0].rr * 0.015873015873015872; }
-        public function set releaseRate(rr:Number) : void { 
-            var irr:int = rr * 63;
-            _voice.channelParam.operatorParam[0].rr = irr;
-            _voice.channelParam.operatorParam[1].rr = irr;
-            _voice.channelParam.operatorParam[2].rr = irr;
-            _voice.channelParam.operatorParam[3].rr = irr;
+        public function get releaseTime() : Number { 
+            var irr:int = _voice.channelParam.operatorParam[_voice.channelParam.opeCount-1].rr;
+            return  (irr > 48) ? 0 : (1 - irr * 0.020833333333333332); 
+        }
+        public function set releaseTime(n:Number) : void { 
+            var flg:int = SiOPMTable.instance.final_oscilator_flags[_voice.channelParam.opeCount][_voice.channelParam.alg];
+            var irr:int = (n == 0) ? 63 : ((1 - n) * 48);
+            if (flg & 1) _voice.channelParam.operatorParam[0].rr = irr;
+            if (flg & 2) _voice.channelParam.operatorParam[1].rr = irr;
+            if (flg & 4) _voice.channelParam.operatorParam[2].rr = irr;
+            if (flg & 8) _voice.channelParam.operatorParam[3].rr = irr;
             var i:int, imax:int = _tracks.length;
             for (i=0; i<imax; i++) {
                 _tracks[i].channel.setAllReleaseRate(irr);

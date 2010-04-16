@@ -71,6 +71,8 @@ package org.si.sound.patterns {
         protected var _currentNote:Note;
         /** @private Grid shift vectors */
         protected var _currentGridShift:int;
+        /** @private Mute */
+        protected var _mute:Boolean;
         
         /** @private Grid shift pattern */
         protected var _gridShiftPattern:Vector.<int>;
@@ -100,6 +102,11 @@ package org.si.sound.patterns {
         }
         
         
+        /** mute */
+        public function get mute() : Boolean { return _mute; }
+        public function set mute(b:Boolean) : void { _mute = b; }
+        
+        
         /** curent note number (0-127) */
         public function get note() : int {
             if (_currentNote == null || _currentNote.note < 0) return _defaultNote;
@@ -109,7 +116,7 @@ package org.si.sound.patterns {
         
         /** curent note's velocity (minimum:0 - maximum:255, the value over 128 makes distotion). */
         public function get velocity() : int {
-            if (_currentNote == null) return 0;
+            if (_currentNote == null || _mute) return 0;
             if (_currentNote.velocity < 0) return _defaultVelocity;
             return _currentNote.velocity;
         }
@@ -163,6 +170,7 @@ package org.si.sound.patterns {
             _currentNote = null;
             _currentGridShift = 0;
             _gridShiftPattern = gridShiftPattern;
+            _mute = false;
 
             // create internal sequence
             var seq:MMLSequence = data.appendNewSequence();
@@ -181,15 +189,12 @@ package org.si.sound.patterns {
         _sound_object_internal function play(track:SiMMLTrack) : SiMMLTrack
         {
             _synthesizer_updateNumber = _owner.synthesizer._synthesizer_internal::_voiceUpdateNumber;
-            _track = null;
+            _track = track;
+            _track.setPortament(portament);
             _sequencePointer = _initialSequencePointer;
             _frameCounter = (_initialSequencePointer == -1) ? -1 : (_initialSequencePointer % segmentFrameCount);
-            if (pattern && pattern.length>0) {
-                _track = track;
-                _track.setPortament(portament);
-                _currentNote = pattern[0];
-                _currentGridShift = 0;
-            }
+            _currentGridShift = 0;
+            if (pattern && pattern.length>0) _currentNote = pattern[0];
             return track;
         }
         
@@ -197,9 +202,6 @@ package org.si.sound.patterns {
         /** @private [internal use] */
         _sound_object_internal function stop() : void
         {
-            _track = null;
-            _sequencePointer = -1;
-            _frameCounter = -1;
         }
         
         
@@ -222,14 +224,14 @@ package org.si.sound.patterns {
         {
             var vel:int, patternLength:int;
             
-            // pattern sequencer
-            patternLength = (pattern) ? pattern.length : 0;
-
             // increment frame counter
             if (++_frameCounter == segmentFrameCount) _frameCounter = 0;
             
             // segment oprations
             if (_frameCounter == 0) _onEnterSegment();
+            
+            // pattern sequencer
+            patternLength = (pattern) ? pattern.length : 0;
             
             if (patternLength > 0) {
                 // increment pointer
@@ -262,10 +264,12 @@ package org.si.sound.patterns {
                 }
                 
                 // set length of rest event 
-                if (_gridShiftPattern != null) {
+                if (_gridShiftPattern) {
                     var diff:int = _gridShiftPattern[_frameCounter] - _currentGridShift;
                     _restEvent.length = gridStep + diff;
                     _currentGridShift += diff;
+                } else {
+                    _restEvent.length = gridStep;
                 }
             }
             

@@ -43,6 +43,21 @@ package org.si.sound {
         
         /** @private [protected] Sequence data */
         protected var _data:SiONData;
+
+        /** @private [protected] bass drum pattern number */
+        protected var _bassPatternNumber:int;
+        /** @private [protected] snare drum pattern number */
+        protected var _snarePatternNumber:int;
+        /** @private [protected] hi-hat cymbal pattern number */
+        protected var _hihatPatternNumber:int;
+        /** @private [protected] bass drum voice number */
+        protected var _bassVoiceNumber:int;
+        /** @private [protected] snare drum voice number */
+        protected var _snareVoiceNumber:int;
+        /** @private [protected] hi-hat cymbal voice number */
+        protected var _hihatVoiceNumber:int;
+        /** @private [protected] Change bass line pattern at the head of segment. */
+        protected var _changePatternOnSegment:Boolean;
         
         // preset pattern list
         static private var bassPatternList:Array;
@@ -80,48 +95,94 @@ package org.si.sound {
         public function get hihat() : Sequencer { return _hihat; }
         
         
-        /** bass drum pattern number, -1 sets no patterns. */
+        /** bass drum pattern number. */
+        public function get bassPatternNumber() : int { return _bassPatternNumber; }
         public function set bassPatternNumber(index:int) : void {
-            if (index < -1 || index >= bassPatternList.length) return;
-            bass.pattern = (index != -1) ? bassPatternList[index] : null;
+            if (index < 0 || index >= bassPatternList.length) return;
+            _bassPatternNumber = index;
+            if (_changePatternOnSegment) bass.nextPattern = bassPatternList[index];
+            else bass.pattern = bassPatternList[index];
         }
         
         
-        /** snare drum pattern number, -1 sets no patterns. */
+        /** snare drum pattern number. */
+        public function get snarePatternNumber() : int { return _snarePatternNumber; }
         public function set snarePatternNumber(index:int) : void {
-            if (index < -1 || index >= snarePatternList.length) return;
-            snare.pattern = (index != -1) ? snarePatternList[index] : null;
+            if (index < 0 || index >= snarePatternList.length) return;
+            _snarePatternNumber = index;
+            if (_changePatternOnSegment) snare.nextPattern = snarePatternList[index];
+            else snare.pattern = snarePatternList[index];
         }
         
         
-        /** hi-hat cymbal pattern number, -1 sets no patterns. */
+        /** hi-hat cymbal pattern number. */
+        public function get hihatPatternNumber() : int { return _hihatPatternNumber; }
         public function set hihatPatternNumber(index:int) : void {
-            if (index < -1 || index >= hihatPatternList.length) return;
-            hihat.pattern = (index != -1) ? hihatPatternList[index] : null;
+            if (index < 0 || index >= hihatPatternList.length) return;
+            _hihatPatternNumber = index;
+            if (_changePatternOnSegment) hihat.nextPattern = hihatPatternList[index];
+            else hihat.pattern = hihatPatternList[index];
         }
         
         
         /** bass drum pattern number. */
+        public function get bassVoiceNumber() : int { return _bassVoiceNumber; }
         public function set bassVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= bassVoiceList.length) return;
+            _bassVoiceNumber = index;
             bass.voiceList = [bassVoiceList[index], bassVoiceList[index+1]];
         }
         
         
         /** snare drum pattern number. */
+        public function get snareVoiceNumber() : int { return _snareVoiceNumber; }
         public function set snareVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= snareVoiceList.length) return;
+            _snareVoiceNumber = index;
             snare.voiceList = [snareVoiceList[index], snareVoiceList[index+1]];
         }
         
         
         /** hi-hat cymbal pattern number. */
+        public function get hihatVoiceNumber() : int { return _hihatVoiceNumber; }
         public function set hihatVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= hihatVoiceList.length) return;
+            _hihatVoiceNumber = index;
             hihat.voiceList = [hihatVoiceList[index], hihatVoiceList[index+1]];
+        }
+        
+        /** bass drum volume (0-1) */
+        public function get bassVolume() : Number { return _bass.defaultVelocity * 0.00392156862745098; }
+        public function set bassVolume(n:Number) : void {
+            if (n < 0) n = 0;
+            else if (n > 1) n = 1;
+            _bass.defaultVelocity = n * 255;
+        }
+        
+        /** snare drum volume (0-1) */
+        public function get snareVolume() : Number { return _snare.defaultVelocity * 0.00392156862745098; }
+        public function set snareVolume(n:Number) : void {
+            if (n < 0) n = 0;
+            else if (n > 1) n = 1;
+            _snare.defaultVelocity = n * 255;
+        }
+        
+        /** hihat symbal volume (0-1) */
+        public function get hihatVolume() : Number { return _hihat.defaultVelocity * 0.00392156862745098; }
+        public function set hihatVolume(n:Number) : void {
+            if (n < 0) n = 0;
+            else if (n > 1) n = 1;
+            _hihat.defaultVelocity = n * 255;
+        }
+        
+        
+        /* True to change bass line pattern at the head of segment. @default true */
+        public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnNextSegment(b:Boolean) : void { 
+            _changePatternOnSegment = b;
         }
         
         
@@ -155,12 +216,13 @@ package org.si.sound {
             super("DrumMachine");
             
             _data = new SiONData();
-            _bass   = new Sequencer(this, _data, 36, 192, 1);
-            _snare  = new Sequencer(this, _data, 68, 128, 1);
-            _hihat  = new Sequencer(this, _data, 68, 64,  1);
+            _bass   = new Sequencer(this, _data, 36, 255, 1);
+            _snare  = new Sequencer(this, _data, 68, 160, 1);
+            _hihat  = new Sequencer(this, _data, 68, 128, 1);
             this.bassVoiceNumber = bassVoiceNumber;
             this.snareVoiceNumber = snareVoiceNumber;
             this.hihatVoiceNumber = hihatVoiceNumber;
+            _changePatternOnSegment = true;
             
             setPatternNumbers(bassPatternNumber, snarePatternNumber, hihatPatternNumber);
         }
@@ -180,6 +242,8 @@ package org.si.sound {
                 _bass.play(_tracks[0]);
                 _snare.play(_tracks[1]);
                 _hihat.play(_tracks[2]);
+            } else {
+                throw new Error("unknown error");
             }
         }
         

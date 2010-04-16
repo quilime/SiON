@@ -113,6 +113,13 @@ package org.si.sion.effector {
         {
             free();
             reset();
+            for (var i:int=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                _volumes[i] = 0;
+                _outputStreams[i] = null;
+            }
+            _volumes[0] = 128;
+            _pan = 64;
+            _hasEffectSend = false;
             _depth = depth;
         }
         
@@ -120,17 +127,8 @@ package org.si.sion.effector {
         /** reset all parameters except for effector chain, called when effector module is initialized */
         public function reset() : void
         {
-            var i:int;
             _stream.buffer.length = _module.bufferLength<<1;
             _stream.clear();
-            
-            for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
-                _volumes[i] = 0;
-                _outputStreams[i] = null;
-            }
-            _volumes[0] = 128;
-            _pan = 64;
-            _hasEffectSend = false;
         }
         
         

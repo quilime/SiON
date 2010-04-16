@@ -222,6 +222,12 @@ package org.si.sion.module {
         public var dt1Table:Array = null;
         /** Table for dt2 (from MAME's opm source). */
         public var dt2Table:Vector.<int> = Vector.<int>([0, 384, 500, 608]);
+        
+        /** Flags of final oscillator */
+        public var final_oscilator_flags:Array = [[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                                                  [2,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+                                                  [4,4,5,6,6,7,6,0,0,0,0,0,0,0,0,0], 
+                                                  [8,8,8,8,10,14,14,15,9,13,8,9,9,0,0,0]];
 
         /** int->Number ratio on pulse data */
         public var i2n:Number;

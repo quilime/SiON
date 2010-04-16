@@ -38,6 +38,32 @@ package org.si.sion.effector {
         public function get globalEffectCount() : int { return _globalEffectCount; }
         
         
+        /** effector slot 0 */
+        public function set slot0(list:Array) : void { return _setEffectorList(0, list); }
+        
+        /** effector slot 1 */
+        public function set slot1(list:Array) : void { return _setEffectorList(1, list); }
+        
+        /** effector slot 2 */
+        public function set slot2(list:Array) : void { return _setEffectorList(2, list); }
+        
+        /** effector slot 3 */
+        public function set slot3(list:Array) : void { return _setEffectorList(3, list); }
+        
+        /** effector slot 4 */
+        public function set slot4(list:Array) : void { return _setEffectorList(4, list); }
+        
+        /** effector slot 5 */
+        public function set slot5(list:Array) : void { return _setEffectorList(5, list); }
+        
+        /** effector slot 6 */
+        public function set slot6(list:Array) : void { return _setEffectorList(6, list); }
+        
+        /** effector slot 7 */
+        public function set slot7(list:Array) : void { return _setEffectorList(7, list); }
+        
+        
+        
         
     // constructor
     //--------------------------------------------------------------------------------
@@ -49,6 +75,7 @@ package org.si.sion.effector {
             _localEffects  = new Vector.<SiEffectStream>();
             _globalEffects = new Vector.<SiEffectStream>(SiOPMModule.STREAM_SEND_SIZE, true);
             _masterEffect  = new SiEffectStream(_module, _module.outputStream);
+            _globalEffectCount = 0;
 
             // initialize table
             SiEffectTable.initialize();
@@ -110,8 +137,22 @@ package org.si.sion.effector {
         }
         
         
-        public function reset() : void
+        /** @private [sion internal] reset all buffers */
+        _sion_internal function _reset() : void
         {
+            var es:SiEffectStream, i:int;
+            
+            // local effects
+            for each (es in _localEffects) es.reset();
+            
+            // global effects
+            for (i=1; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
+                if (_globalEffects[i] != null) _globalEffects[i].reset();
+            }
+            
+            // master effect
+            _masterEffect.reset();
+            _globalEffects[0] = _masterEffect;
         }
         
         
@@ -245,18 +286,6 @@ package org.si.sion.effector {
         }
         
         
-        /** Set effector list of specifyed slot
-         *  @param slot Effector slot number.
-         *  @param list Effector list to set
-         */
-        public function setEffectorList(slot:int, list:Vector.<SiEffectBase>) : void
-        {
-            var es:SiEffectStream = _globalEffector(slot);
-            es.chain = list;
-            es.prepareProcess();
-        }
-        
-
         /** Get effector list of specifyed slot
          *  @param slot Effector slot number.
          *  @return Vector of Effector list.
@@ -323,7 +352,6 @@ package org.si.sion.effector {
         
         // get and alloc SiEffectStream if its null
         private function _globalEffector(slot:int) : SiEffectStream {
-            
             if (_globalEffects[slot] == null) {
                 var es:SiEffectStream = _allocStream(0);
                 _globalEffects[slot] = es;
@@ -338,11 +366,23 @@ package org.si.sion.effector {
         
     // functory
     //--------------------------------------------------------------------------------
+        /** Set effector list of specifyed slot
+         *  @param slot Effector slot number.
+         *  @param list Effector list to set
+         */
+        private function _setEffectorList(slot:int, list:Array) : void
+        {
+            var es:SiEffectStream = _globalEffector(slot);
+            es.chain = Vector.<SiEffectBase>(list);
+            es.prepareProcess();
+        }
+        
+
         private function _allocStream(depth:int) : SiEffectStream
         {
-            var inst:SiEffectStream = _freeEffectStreams.pop() || new SiEffectStream(_module);
-            inst.initialize(depth);
-            return inst;
+            var es:SiEffectStream = _freeEffectStreams.pop() || new SiEffectStream(_module);
+            es.initialize(depth);
+            return es;
         }
     }
 }

@@ -65,6 +65,8 @@ package org.si.sound {
         protected var _currentPattern:Array;
         /** @private [protected] Next length sequence pattern to change while playing. */
         protected var _nextPattern:Array;
+        /** @private [protected] Change bass line pattern at the head of segment. */
+        protected var _changePatternOnSegment:Boolean;
         
         
         
@@ -115,8 +117,15 @@ package org.si.sound {
         
         /** Number Array of the sequence notes' length. If the value is 0, insert rest instead. */
         public function set pattern(pat:Array) : void {
-            if (!isPlaying) _updateSequencePattern(pat);
-            else _nextPattern = pat;
+            if (isPlaying && _changePatternOnSegment) _nextPattern = pat;
+            else _updateSequencePattern(pat);
+        }
+        
+        
+        /* True to change bass line pattern at the head of segment. @default true */
+        public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnNextSegment(b:Boolean) : void { 
+            _changePatternOnSegment = b;
         }
         
         
@@ -130,7 +139,7 @@ package org.si.sound {
          *  @param voiceMode Voicing mode.
          *  @param pattern Number Array of the sequence notes' length. If the value is 0, insert rest instead.
          */
-        function ChordPad(chord:*=null, operatorCount:int=4, voiceMode:int=CLOSED, pattern:Array=null)
+        function ChordPad(chord:*=null, operatorCount:int=3, voiceMode:int=CLOSED, pattern:Array=null)
         {
             super("ChordPad");
             
@@ -140,8 +149,10 @@ package org.si.sound {
             _operators = new Vector.<Sequencer>(operatorCount);
             _noteIndexes = voiceMode;
             
+            var defaultVelocity:int = 256 / operatorCount;
+            if (defaultVelocity >128) defaultVelocity = 128;
             for (var i:int=0; i<operatorCount; i++) {
-                _operators[i] = new Sequencer(this, _data, 60, 128, 1);
+                _operators[i] = new Sequencer(this, _data, 60, defaultVelocity, 1);
                 _operators[i].onEnterSegment = _onEnterSegment;
             }
             
@@ -156,6 +167,7 @@ package org.si.sound {
             
             _nextPattern = null;
             _pattern = new Vector.<Note>();
+            _changePatternOnSegment = true;
             
             _updateChordNotes();
             _updateSequencePattern(pattern);
@@ -181,6 +193,8 @@ package org.si.sound {
             if (_tracks && _tracks.length == imax) {
                 _synthesizer._registerTracks(_tracks);
                 for (i=0; i<imax; i++) _operators[i].play(_tracks[i]);
+            } else {
+                throw new Error("unknown error");
             }
         }
         

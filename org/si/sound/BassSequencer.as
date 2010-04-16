@@ -37,6 +37,8 @@ package org.si.sound {
         /** @private [protected] Default chord instance, this is used when the name is specifyed */
         protected var _defaultChord:Chord = new Chord();
 
+        /** @private [protected] pettern number. */
+        protected var _patternNumber:int;
         /** @private [protected] Change bass line pattern at the head of segment. */
         protected var _changePatternOnSegment:Boolean;
                 
@@ -80,21 +82,23 @@ package org.si.sound {
         
         
         /* True to change bass line pattern at the head of segment. @default true */
-        public function get changePatternOnSegment() : Boolean { return _changePatternOnSegment; }
-        public function set changePatternOnSegment(b:Boolean) : void { 
+        public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnNextSegment(b:Boolean) : void { 
             _changePatternOnSegment = b;
         }
         
         
         /** maximum limit of bass line Pattern number */
-        public function get bassPatternNumberMax() : int {
+        public function get patternNumberMax() : int {
             return bassPatternList.length;
         }
         
         
         /** bass line Pattern number */
+        public function get patternNumber() : int { return _patternNumber; }
         public function set patternNumber(n:int) : void {
             if (n < 0 || n >= bassPatternList.length) return;
+            _patternNumber = n;
             if (_changePatternOnSegment) _sequencer.nextPattern = bassPatternList[n];
             else _sequencer.pattern = bassPatternList[n];
         }
@@ -122,6 +126,7 @@ package org.si.sound {
             _chord = new Chord();
             if (chord is Chord) _chord.copyFrom(chord as Chord);
             else if (chord is String) _chord.name = chord as String;
+            _changePatternOnSegment = true;
             
             this.patternNumber = patternNumber;
         }

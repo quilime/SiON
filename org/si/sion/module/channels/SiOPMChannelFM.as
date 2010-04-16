@@ -44,7 +44,7 @@ package org.si.sion.module.channels {
         static private const PROC_RNG:int = 5;
         static private const PROC_SYN:int = 6;
         static private const PROC_PCM:int = 7;
-        
+
         
         
         

@@ -104,6 +104,8 @@ package org.si.sion.utils {
         protected var _scaleTable:int;
         /** notes on the scale */
         protected var _scaleNotes:Vector.<int>;
+        /** notes on 1octave upper scale*/
+        protected var _tensionNotes:Vector.<int>;
         /** scale name */
         protected var _scaleName:String;
         /** note check table (table of available notes on signeture C) */
@@ -193,8 +195,9 @@ package org.si.sion.utils {
         public function get rootNote() : int { return _scaleNotes[0]; }
         public function set rootNote(note:int) : void {
             _scaleNotes.length = 0;
-            for (var i:int=0; i<25; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + note);
-            note = note % 12;
+            _tensionNotes.length = 0;
+            for (var i:int=0; i<12; i++) if (_scaleTable & (1<<i)) _scaleNotes.push(i + note);
+            for (; i<24; i++) if (_scaleTable & (1<<i)) _tensionNotes.push(i + note);
         }
         
         
@@ -215,6 +218,7 @@ package org.si.sion.utils {
         function Scale(scaleName:String = "")
         {
             _scaleNotes = new Vector.<int>();
+            _tensionNotes = new Vector.<int>();
             this.name = scaleName;
         }
         
@@ -266,7 +270,7 @@ package org.si.sion.utils {
                  if (n < 0)  n = (n + 144) % 12;
             else if (n > 23) n = ((n - 12) % 12) + 12;
             if ((_scaleTable & (1<<n)) != 0) return note;
-            var up:int, dw:int, imax:int = _scaleNotes.length;
+            var up:int, dw:int;
             for (up=n+1; up<24 && (_scaleTable & (1<<up)) == 0;) up++; 
             for (dw=n-1; dw>=0 && (_scaleTable & (1<<dw)) == 0;) dw--; 
             return note - n + (((n-dw)<=(up-n)) ? dw : up);
@@ -276,18 +280,7 @@ package org.si.sion.utils {
         /** get scale index from note. */
         public function getScaleIndex(note:int) : int
         {
-            var root:int = rootNote, top:int = root+12, octaveShift:int = 0;
-            while (note < root) {
-                note += 12;
-                octaveShift--;
-            }
-            while (note >= top) {
-                note -= 12;
-                octaveShift++;
-            }
-            var i:int, imax:int = _scaleNotes.length;
-            for (i=0; i<imax; i++) if (note <= _scaleNotes[i]) break;
-            return i + octaveShift*imax;
+            return 0;
         }
         
         
@@ -298,10 +291,24 @@ package org.si.sion.utils {
         public function getNote(index:int) : int
         {
             var imax:int = _scaleNotes.length, octaveShift:int = 0;
+            if (index < 0) {
+                octaveShift = int((index-imax+1)/ imax);
+                index -= octaveShift * imax;
+                return _scaleNotes[index] + octaveShift*12;
+            }
+            if (index < imax) {
+                return _scaleNotes[index];
+            }
+            
+            index -= imax;
+            imax = _tensionNotes.length;
+            if (index < imax) {
+                return _tensionNotes[index];
+            }
+            
             octaveShift = int(index / imax);
-            if (octaveShift < 0) octaveShift--;
-            index -= octaveShift * 12;
-            return _scaleNotes[index] + octaveShift*12;
+            index -= octaveShift * imax;
+            return _tensionNotes[index] + octaveShift*12;
         }
         
         

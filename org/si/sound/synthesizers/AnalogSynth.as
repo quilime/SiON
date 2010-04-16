@@ -136,8 +136,8 @@ package org.si.sound.synthesizers {
         
         
         /** VCA attack time [0-1], This value is not linear. */
-        public function get attackTime() : Number { return (_opp0.ar > 48) ? 0 : (1 - _opp0.ar * 0.020833333333333332); }
-        public function set attackTime(n:Number) : void {
+        override public function get attackTime() : Number { return (_opp0.ar > 48) ? 0 : (1 - _opp0.ar * 0.020833333333333332); }
+        override public function set attackTime(n:Number) : void {
             _opp0.ar = (n == 0) ? 63 : ((1 - n) * 48);
             _voiceUpdateNumber++;
         }
@@ -157,8 +157,8 @@ package org.si.sound.synthesizers {
         }
         
         /** VCA release time [0-1], This value is not linear. */
-        public function get releaseTime() : Number { return (_opp0.rr > 48) ? 0 : (1 - _opp0.rr * 0.020833333333333332); }
-        public function set releaseTime(n:Number) : void {
+        override public function get releaseTime() : Number { return (_opp0.rr > 48) ? 0 : (1 - _opp0.rr * 0.020833333333333332); }
+        override public function set releaseTime(n:Number) : void {
             _opp0.rr = (n == 0) ? 63 : ((1 - n) * 48);
             _voiceUpdateNumber++;
         }
