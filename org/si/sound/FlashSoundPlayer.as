@@ -16,12 +16,13 @@ package org.si.sound {
     //import org.si.sion.sequencer.base.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.synthesizers.*;
+    import org.si.sound.events.FlashSoundPlayerEvent;
     import org.si.sound.namespaces._sound_object_internal;
     import org.si.sound.synthesizers._synthesizer_internal;
     
     
     /** @eventType flash.events.Event */
-    [Event(name="complete", type="flash.events.Event")]
+    [Event(name="fspComplete", type="org.si.sound.events.FlashSoundPlayerEvent")]
     /** @eventType flash.events.Event */
     [Event(name="open",     type="flash.events.Event")]
     /** @eventType flash.events.Event */
@@ -44,21 +45,23 @@ package org.si.sound {
         
     // variables
     //----------------------------------------
-        /** sound instance to play */
+        /** @private [protected] sound instance to play */
         protected var _soundData:Sound = null;
         
-        /** is sound data available to play ? */
+        /** @private [protected] is sound data available to play ? */
         protected var _isSoundDataAvailable:Boolean;
         
-        /** is pitch controlable ? */
-        protected var _isPitchContorable:Boolean;
+        /** @private [protected] synthsizer to play sound */
+        protected var _flashSoundOperator:SamplerSynth;
         
-        /** synthsizer to play sound */
-        protected var _flashSoundOperator:IFlashSoundOperator = null;
-        
-        /** playing mode, 0=stopped, 1=wait for loading, 2=play as single note, 3=play by pattern sequencer */
+        /** @private [protected] playing mode, 0=stopped, 1=wait for loading, 2=play as single note, 3=play by pattern sequencer */
         protected var _playingMode:int;
         
+        /** @private [protected] waiting loading event count */
+        protected var _createdEventCount:int;
+        
+        /** @private [protected] completed loading event count */
+        protected var _completedEventCount:int;
         
         
         
@@ -69,15 +72,12 @@ package org.si.sound {
         public function set soundData(s:Sound) : void {
             _soundData = s;
             if (_soundData == null) return;
-            if (_soundData.bytesLoaded == _soundData.bytesTotal) _setSoundData();
-            else _addAllEventListeners();
+            if (_soundData.bytesTotal > 0 && _soundData.bytesLoaded == _soundData.bytesTotal) _setSoundData(_soundData);
+            else _addLoadingJob(_soundData);
         }
         
         /** is playing ? */
         override public function get isPlaying() : Boolean { return (_playingMode != 0); }
-        
-        /** is pitch controlable ? */
-        public function get isPitchContorable() : Boolean { return _isPitchContorable; }
         
         /** is sound data available to play ? */
         public function get isSoundDataAvailable() : Boolean { return _isSoundDataAvailable; }
@@ -86,14 +86,14 @@ package org.si.sound {
         /** Voice data to play, You cannot change the voice of this sound object. */
         override public function get voice() : SiONVoice { return _synthesizer._synthesizer_internal::_voice; }
         override public function set voice(v:SiONVoice) : void { 
-            throw new Error("SoundPlayer; You cannot change voice of this sound object.");
+            throw new Error("FlashSoundPlayer; You cannot change voice of this sound object.");
         }
         
         
         /** Synthesizer to generate sound, You cannot change the synthesizer of this sound object */
         override public function get synthesizer() : VoiceReference { return _synthesizer; }
         override public function set synthesizer(s:VoiceReference) : void {
-            throw new Error("SoundPlayer; You cannot change synthesizer of this sound object.");
+            throw new Error("FlashSoundPlayer; You cannot change synthesizer of this sound object.");
         }
         
         
@@ -104,17 +104,17 @@ package org.si.sound {
     //----------------------------------------
         /** constructor 
          *  @param soundData flash.media.Sound instance to control.
-         *  @param isPitchControlable pitch controlable flag. Set true to control pitch, false to assign Sound for each note. 
          */
-        function FlashSoundPlayer(soundData:Sound = null, isPitchContorable:Boolean = false)
+        function FlashSoundPlayer(soundData:Sound = null)
         {
             super(68, 128, 0);
-            name = "SoundPlayer";
-            _isPitchContorable = isPitchContorable;
+            name = "FlashSoundPlayer";
             _isSoundDataAvailable = false;
             _playingMode = 0;
-            _flashSoundOperator = (_isPitchContorable) ? (new PCMSynth()) : (new SamplerSynth());
+            _flashSoundOperator = new SamplerSynth();
             _synthesizer = _flashSoundOperator;
+            _createdEventCount = 0;
+            _completedEventCount = 0;
             this.soundData = soundData;
         }
         
@@ -152,11 +152,29 @@ package org.si.sound {
         }
         
         
-        /** load sound from url */
+        /** load sound from url, this method is the simplificaion of setSoundData(new Sound(url, context)).
+         *  @private url same as Sound.load
+         *  @private context same as Sound.load
+         */
         public function load(url:URLRequest, context:SoundLoaderContext=null) : void
         {
             _soundData = new Sound(url, context);
-            _addAllEventListeners();
+            _addLoadingJob(_soundData);
+        }
+        
+        
+        /** Set flash sound instance with key range.
+         *  @param sound Sound instance to assign
+         *  @param keyRangeFrom Assigning key range starts from
+         *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
+         *  @param startPoint slicing point to start data.
+         *  @param endPoint slicing point to end data. The negative value plays whole data.
+         *  @param loopPoint slicing point to repeat data. -1 means no repeat
+         */
+        public function setSoundData(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
+        {
+            if (sound.bytesLoaded == sound.bytesTotal) _setSoundData(sound, keyRangeFrom, keyRangeTo, startPoint, endPoint, loopPoint);
+            else _addLoadingJob(sound, keyRangeFrom, keyRangeTo, startPoint, endPoint, loopPoint);
         }
         
         
@@ -164,11 +182,11 @@ package org.si.sound {
         
     // internal
     //----------------------------------------
-        private function _setSoundData() : void 
+        private function _setSoundData(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
             _isSoundDataAvailable = true;
-            _flashSoundOperator.setSound(_soundData);
-            if (_playingMode == 1) _playSound();
+            _flashSoundOperator.setSound(sound, keyRangeFrom, keyRangeTo, startPoint, endPoint, loopPoint);
+            if (_createdEventCount  == _completedEventCount && _playingMode == 1) _playSound();
         }
         
         
@@ -188,44 +206,43 @@ package org.si.sound {
         }
         
         
-        private function _addAllEventListeners() : void
+        private function _addLoadingJob(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
-            _soundData.addEventListener(Event.COMPLETE, _onComplete);
-            _soundData.addEventListener(Event.ID3, _onID3);
-            _soundData.addEventListener(IOErrorEvent.IO_ERROR, _onIOError);
-            _soundData.addEventListener(Event.OPEN, _onOpen);
-            _soundData.addEventListener(ProgressEvent.PROGRESS, _onProgress);
+            var event:FlashSoundPlayerEvent = new FlashSoundPlayerEvent(sound, _onComplete, _onError, keyRangeFrom, keyRangeTo, startPoint, endPoint, loopPoint);
+            _createdEventCount++;
+            sound.addEventListener(Event.ID3, _onID3);
+            sound.addEventListener(Event.OPEN, _onOpen);
+            sound.addEventListener(ProgressEvent.PROGRESS, _onProgress);
         }
         
         
-        private function _removeAllEventListeners() : void
+        private function _removeAllEventListeners(event:FlashSoundPlayerEvent) : void
         {
-            _soundData.removeEventListener(Event.COMPLETE, _onComplete);
-            _soundData.removeEventListener(Event.ID3, _onID3);
-            _soundData.removeEventListener(IOErrorEvent.IO_ERROR, _onIOError);
-            _soundData.removeEventListener(Event.OPEN, _onOpen);
-            _soundData.removeEventListener(ProgressEvent.PROGRESS, _onProgress);
+            _completedEventCount++;
+            event._sound.removeEventListener(Event.ID3, _onID3);
+            event._sound.removeEventListener(Event.OPEN, _onOpen);
+            event._sound.removeEventListener(ProgressEvent.PROGRESS, _onProgress);
         }
         
         
-        private function _onComplete(event:Event) : void
+        private function _onComplete(event:FlashSoundPlayerEvent) : void
         {
-            _removeAllEventListeners();
-            _setSoundData();
-            dispatchEvent(new Event(Event.COMPLETE));
+            _removeAllEventListeners(event);
+            dispatchEvent(event);
+            _setSoundData(event._sound, event._keyRangeFrom, event._keyRangeTo, event._startPoint, event._endPoint, event._loopPoint);
+        }
+        
+        
+        private function _onError(event:FlashSoundPlayerEvent) : void
+        {
+            _removeAllEventListeners(event);
+            dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "IOError during loading Sound."));
         }
         
         
         private function _onID3(event:Event) : void
         {
             dispatchEvent(new Event(Event.ID3));
-        }
-        
-        
-        private function _onIOError(event:IOErrorEvent) : void
-        {
-            _removeAllEventListeners();
-            dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, event.text));
         }
         
         
@@ -237,7 +254,7 @@ package org.si.sound {
         
         private function _onProgress(event:ProgressEvent) : void
         {
-            dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, event.bytesLoaded, event.bytesTotal));
+            dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, _completedEventCount, _createdEventCount));
         }
     }
 }

@@ -12,7 +12,13 @@ package org.si.sound {
     import org.si.sound.synthesizers.DrumMachinePresetVoice;
     import org.si.sound.patterns.DrumMachinePresetPattern;
     import org.si.sound.patterns.Sequencer;
+    import org.si.sound.patterns.Note;
+    import org.si.sound.events.SoundObjectEvent;
     
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_FRAME */
+    [Event(name="enterFrame",   type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_SEGMENT */
+    [Event(name="enterSegment", type="org.si.sound.events.SoundObjectEvent")]
     
     /** Drum machinie provides independent bass drum, snare drum and hihat symbals tracks. */
     public class DrumMachine extends MultiTrackSoundObject
@@ -94,14 +100,31 @@ package org.si.sound {
         /** Sequencer object of hihat symbal */
         public function get hihat() : Sequencer { return _hihat; }
         
+        /** Sequence pattern of bass drum */
+        public function get bassPattern()  : Vector.<Note> { return _bass.pattern || _bass.nextPattern; }
+        public function set bassPattern(pat:Vector.<Note>)  : void {
+            if (isPlaying && _changePatternOnSegment) _bass.nextPattern = pat;
+            else _bass.pattern = pat;
+        }
+        /** Sequence pattern of snare drum */
+        public function get snarePattern() : Vector.<Note> { return _snare.pattern || _snare.nextPattern; }
+        public function set snarePattern(pat:Vector.<Note>) : void {
+            if (isPlaying && _changePatternOnSegment) _snare.nextPattern = pat;
+            else _snare.pattern = pat;
+        }
+        /** Sequence pattern of hihat symbal */
+        public function get hihatPattern() : Vector.<Note> { return _hihat.pattern || _hihat.nextPattern; }
+        public function set hihatPattern(pat:Vector.<Note>) : void {
+            if (isPlaying && _changePatternOnSegment) _hihat.nextPattern = pat;
+            else _hihat.pattern = pat;
+        }
         
         /** bass drum pattern number. */
         public function get bassPatternNumber() : int { return _bassPatternNumber; }
         public function set bassPatternNumber(index:int) : void {
             if (index < 0 || index >= bassPatternList.length) return;
             _bassPatternNumber = index;
-            if (_changePatternOnSegment) bass.nextPattern = bassPatternList[index];
-            else bass.pattern = bassPatternList[index];
+            bassPattern = bassPatternList[index];
         }
         
         
@@ -179,7 +202,7 @@ package org.si.sound {
         }
         
         
-        /* True to change bass line pattern at the head of segment. @default true */
+        /** True to change bass line pattern at the head of segment. @default true */
         public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
         public function set changePatternOnNextSegment(b:Boolean) : void { 
             _changePatternOnSegment = b;
@@ -235,6 +258,8 @@ package org.si.sound {
         /** play drum sequence */
         override public function play() : void
         {
+            var tn:int, seq:Sequencer;
+            
             stop();
             _tracks = _sequenceOn(_data, false, false);
             if (_tracks && _tracks.length == 3) {
@@ -242,6 +267,18 @@ package org.si.sound {
                 _bass.play(_tracks[0]);
                 _snare.play(_tracks[1]);
                 _hihat.play(_tracks[2]);
+                if (_tracks[0].trackNumber < _tracks[1].trackNumber) {
+                    tn = (_tracks[0].trackNumber < _tracks[2].trackNumber) ? 0 : 2;
+                } else {
+                    tn = (_tracks[1].trackNumber < _tracks[2].trackNumber) ? 1 : 2;
+                }
+                switch (tn) {
+                case 0:  seq = _bass;  break;
+                case 1:  seq = _snare; break;
+                default: seq = _hihat; break;
+                }
+                seq.onEnterFrame   = _onEnterFrame;
+                seq.onEnterSegment = _onEnterSegment;
             } else {
                 throw new Error("unknown error");
             }
@@ -259,6 +296,12 @@ package org.si.sound {
                 for each (var t:SiMMLTrack in _tracks) t.setDisposable();
                 _tracks = null;
                 _sequenceOff(false);
+                _bass.onEnterFrame  = null;
+                _snare.onEnterFrame = null;
+                _hihat.onEnterFrame = null;
+                _bass.onEnterSegment  = null;
+                _snare.onEnterSegment = null;
+                _hihat.onEnterSegment = null;
             }
             _stopEffect();
         }

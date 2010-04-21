@@ -13,7 +13,7 @@ package org.si.sound.synthesizers {
         /** @private */
         public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void {}
         /** @private */
-        public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127) : void {}
+        public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void {}
     }
 }
 

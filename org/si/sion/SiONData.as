@@ -18,7 +18,7 @@ package org.si.sion {
     import org.si.sion.module.SiOPMWaveSamplerData;
 
     
-    /** SiON data class.
+    /** The SiONData class provides musical score (and voice settings) data of SiON.
      */
     public class SiONData extends SiMMLData
     {

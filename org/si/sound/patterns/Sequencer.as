@@ -34,9 +34,11 @@ package org.si.sound.patterns {
         public var voiceList:Array = null;
         
 
-        /** @private [internal use] callback on every notes without any arguments. function() : void */
+        /** @private [internal use] callback on every notes. function(Sequencer) : void */
         _sound_object_internal var onEnterFrame:Function = null;
-        /** @private [internal use] callback on first beat of every segments without any arguments. function() : void */
+        /** @private [internal use] callback after every notes. function(Sequencer) : void */
+        _sound_object_internal var onExitFrame:Function = null;
+        /** @private [internal use] callback on first beat of every segments. function(Sequencer) : void */
         _sound_object_internal var onEnterSegment:Function = null;
         /** @private [internal use] Frame count in one segment */
         _sound_object_internal var segmentFrameCount:int;
@@ -144,6 +146,17 @@ package org.si.sound.patterns {
         public function set defaultLength(l:Number) : void { _defaultLength = (l < 0) ? 0 : l; }
         
         
+        /** Frame divition of 1 measure. Set 16 to play notes in 16th beats. */
+        public function get division() : int { 
+            var step:int = int(1920 / segmentFrameCount);
+            return (step == gridStep) ? segmentFrameCount : 0;
+        }
+        public function set division(d:int) : void {
+            segmentFrameCount = d;
+            gridStep = 1920 / d;
+        }
+        
+        
         
         
     // constructor
@@ -241,7 +254,7 @@ package org.si.sound.patterns {
                 _currentNote = pattern[_sequencePointer];
                 
                 // callback on enter frame
-                if (onEnterFrame != null) onEnterFrame();
+                if (onEnterFrame != null) onEnterFrame(this);
                 
                 // get current velocity, note on when velocity > 0
                 vel = velocity;
@@ -271,6 +284,9 @@ package org.si.sound.patterns {
                 } else {
                     _restEvent.length = gridStep;
                 }
+                
+                // callback on exit frame
+                if (onExitFrame != null) onExitFrame(this);
             }
             
             return null;
@@ -281,7 +297,7 @@ package org.si.sound.patterns {
         protected function _onEnterSegment() : void
         {
             // callback on enter segment
-            if (onEnterSegment != null) onEnterSegment();
+            if (onEnterSegment != null) onEnterSegment(this);
             // replace pattern
             if (nextPattern) {
                 pattern = nextPattern;

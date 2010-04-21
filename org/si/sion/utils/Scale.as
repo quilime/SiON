@@ -108,8 +108,8 @@ package org.si.sion.utils {
         protected var _tensionNotes:Vector.<int>;
         /** scale name */
         protected var _scaleName:String;
-        /** note check table (table of available notes on signeture C) */
-        protected var _noteCheckTable:int;
+        /** default center octave, this apply when there are no octave specification. */
+        protected var _defaultCenterOctave:int;
         
         
         
@@ -157,7 +157,7 @@ package org.si.sion.utils {
             if (str == null || str == "") {
                 _scaleName = "";
                 _scaleTable = ST_MAJOR;
-                this.rootNote = 60;
+                this.rootNote = _defaultCenterOctave*12;
                 return;
             }
             
@@ -174,7 +174,7 @@ package org.si.sion.utils {
                 if (note < 0) note += 12;
                 else if (note > 11) note -= 12;
                 if (mat[1]) note += int(mat[1].charAt(1)) * 12;
-                else note += 60;
+                else note += _defaultCenterOctave*12;
                 
                 if (mat[4]) {
                     if (!(mat[4] in _scaleTableDictionary)) throw _errorInvalidScaleName(str);
@@ -188,6 +188,18 @@ package org.si.sion.utils {
             } else {
                 throw _errorInvalidScaleName(str);
             }
+        }
+        
+        
+        /** center octave */
+        public function get centerOctave() : int { return int(_scaleNotes[0]/12); }
+        public function set centerOctave(oct:int) : void {
+            _defaultCenterOctave = oct;
+            var prevoct:int = int(_scaleNotes[0]/12);
+            if (prevoct == oct) return;
+            var i:int, offset:int = (oct - prevoct) * 12;
+            for (i=0; i<_scaleNotes.length; i++) _scaleNotes[i] += offset;
+            for (i=0; i<_tensionNotes.length; i++) _tensionNotes[i] += offset;
         }
         
         
@@ -213,12 +225,14 @@ package org.si.sion.utils {
     //--------------------------------------------------
         /** constructor 
          *  @param scaleName scale name.
+         *  @param defaultCenterOctave default center octave, this apply when there are no octave specification.
          *  @see #scaleName
          */
-        function Scale(scaleName:String = "")
+        function Scale(scaleName:String = "", defaultCenterOctave:int = 5)
         {
             _scaleNotes = new Vector.<int>();
             _tensionNotes = new Vector.<int>();
+            _defaultCenterOctave = defaultCenterOctave;
             this.name = scaleName;
         }
         
@@ -319,11 +333,15 @@ package org.si.sion.utils {
         {
             _scaleName = src._scaleName;
             _scaleTable = src._scaleTable;
-            _noteCheckTable = src._noteCheckTable;
             var i:int, imax:int = src._scaleNotes.length;
             _scaleNotes.length = imax;
             for (i=0; i<imax; i++) {
                 _scaleNotes[i] = src._scaleNotes[i];
+            }
+            imax = src._tensionNotes.length;
+            _tensionNotes.length = imax;
+            for (i=0; i<imax; i++) {
+                _tensionNotes[i] = src._tensionNotes[i];
             }
             return this;
         }

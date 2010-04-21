@@ -46,7 +46,7 @@ var pat3:Vector.<Note> = pp.parse("[A B ]2");   // generate pattern. The letter 
         /** generate pattern from PML.
          *  @param pml pattern as string.
          */
-        public function parse(pml:String) : Vector.<Note>
+        public function parse(pml:String) : Array
         {
             pml = pml.replace(/\[(.+?)\](\d*)/, function() : String { 
                 var rep:int = int(arguments[2]), text:String="";
@@ -54,7 +54,7 @@ var pat3:Vector.<Note> = pp.parse("[A B ]2");   // generate pattern. The letter 
                 return text;
             });
             var imax:int = pml.length;
-            var pattern:Vector.<Note> = new Vector.<Note>(imax);
+            var pattern:Array = new Array(imax);
             var i:int, l:String, org:Note, prev:Note = null;
             for (i=0; i<imax; i++) {
                 l = pml.charAt(i);

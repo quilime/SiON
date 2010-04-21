@@ -63,11 +63,11 @@ package org.si.sound.patterns {
     //----------------------------------------
         // set pattern
         private var _pp:PMLParser = new PMLParser({
-            "A":new Note(36,128, 1), "a":new Note(36, 64, 1),
-            "H":new Note(48,128, 1), "h":new Note(48, 64, 1)
+            "A":new Note(33,128, 1), "a":new Note(33, 64, 1),
+            "H":new Note(45,128, 1), "h":new Note(45, 64, 1)
         });
         private function _pattern(key:String, pml:String) : void {
-            var pattern:Vector.<Note> = _pp.parse(pml);
+            var pattern:Array = _pp.parse(pml);
             _categolyList.push(pattern);
             this[key] = pattern;
         }

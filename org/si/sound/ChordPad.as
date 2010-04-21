@@ -13,6 +13,10 @@ package org.si.sound {
     import org.si.sound.patterns.Sequencer;
     import org.si.sound.namespaces._sound_object_internal;
     
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_FRAME */
+    [Event(name="enterFrame",   type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_SEGMENT */
+    [Event(name="enterSegment", type="org.si.sound.events.SoundObjectEvent")]
     
     /** Chord pad provides polyphonic synthesizer controled by chord and rhythm pattern. */
     public class ChordPad extends MultiTrackSoundObject
@@ -115,16 +119,29 @@ package org.si.sound {
         }
         
         
+        /** note length in 16th beat. */
+        public function get noteLength() : Number { return _operators[0].defaultLength; }
+        public function set noteLength(l:Number) : void {
+            if (l<0.25) l=0.25;
+            else if (l>16) l=16;
+            for (var i:int=0; i<operatorCount; i++) {
+                _operators[i].defaultLength = l;
+                _operators[i].gridStep = l * 120;
+            }
+        }
+        
+        
         /** Number Array of the sequence notes' length. If the value is 0, insert rest instead. */
+        public function get pattern() : Array { return _currentPattern || _nextPattern; }
         public function set pattern(pat:Array) : void {
             if (isPlaying && _changePatternOnSegment) _nextPattern = pat;
             else _updateSequencePattern(pat);
         }
         
         
-        /* True to change bass line pattern at the head of segment. @default true */
-        public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
-        public function set changePatternOnNextSegment(b:Boolean) : void { 
+        /** True to change bass line pattern at the head of segment. @default true */
+        public function get changePatternOnSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnSegment(b:Boolean) : void { 
             _changePatternOnSegment = b;
         }
         
@@ -138,8 +155,9 @@ package org.si.sound {
          *  @param operatorCount Number of monophonic operators (1-6).
          *  @param voiceMode Voicing mode.
          *  @param pattern Number Array of the sequence notes' length. If the value is 0, insert rest instead.
+         *  @param changePatternOnSegment When this is true, pattern and chord are changed at the head of next segment.
          */
-        function ChordPad(chord:*=null, operatorCount:int=3, voiceMode:int=CLOSED, pattern:Array=null)
+        function ChordPad(chord:*=null, operatorCount:int=3, voiceMode:int=CLOSED, pattern:Array=null, changePatternOnSegment:Boolean=true)
         {
             super("ChordPad");
             
@@ -153,7 +171,6 @@ package org.si.sound {
             if (defaultVelocity >128) defaultVelocity = 128;
             for (var i:int=0; i<operatorCount; i++) {
                 _operators[i] = new Sequencer(this, _data, 60, defaultVelocity, 1);
-                _operators[i].onEnterSegment = _onEnterSegment;
             }
             
             if (chord is Chord) {
@@ -167,7 +184,7 @@ package org.si.sound {
             
             _nextPattern = null;
             _pattern = new Vector.<Note>();
-            _changePatternOnSegment = true;
+            _changePatternOnSegment = changePatternOnSegment;
             
             _updateChordNotes();
             _updateSequencePattern(pattern);
@@ -187,12 +204,17 @@ package org.si.sound {
         /** play drum sequence */
         override public function play() : void
         {
-            var i:int, imax:int = _operators.length;
+            var i:int, imax:int = _operators.length, opn:int;
             stop();
             _tracks = _sequenceOn(_data, false, false);
             if (_tracks && _tracks.length == imax) {
                 _synthesizer._registerTracks(_tracks);
-                for (i=0; i<imax; i++) _operators[i].play(_tracks[i]);
+                for (i=0, opn=0; i<imax; i++) {
+                    if (_tracks[opn].trackNumber > _tracks[i].trackNumber) opn = i;
+                    _operators[i].play(_tracks[i]);
+                }
+                _operators[opn].onEnterFrame   = _onEnterFrame;
+                _operators[opn].onEnterSegment = _onEnterSegment;
             } else {
                 throw new Error("unknown error");
             }
@@ -203,7 +225,11 @@ package org.si.sound {
         override public function stop() : void
         {
             if (_tracks) {
-                for (var i:int=0; i<_operators.length; i++) _operators[i].stop();
+                for (var i:int=0; i<_operators.length; i++) {
+                    _operators[i].stop();
+                    _operators[i].onEnterFrame   = null;
+                    _operators[i].onEnterSegment = null;
+                }
                 _synthesizer._unregisterTracks(_tracks[0], _tracks.length);
                 for each (var t:SiMMLTrack in _tracks) t.setDisposable();
                 _tracks = null;
@@ -253,12 +279,14 @@ package org.si.sound {
         }
         
         
-        // on enter segment 
-        private function _onEnterSegment() : void {
+        /** @private [protected] on enter segment */
+        override protected function _onEnterSegment(seq:Sequencer) : void
+        {
             if (_nextPattern != null) {
                 _updateSequencePattern(_nextPattern);
                 _nextPattern = null;
             }
+            super._onEnterSegment(seq);
         }
     }
 }

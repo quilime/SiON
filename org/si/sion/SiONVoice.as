@@ -17,7 +17,7 @@ package org.si.sion {
     import org.si.sion.module.SiOPMWaveSamplerTable;
     
     
-    /** SiON Voice data. This includes SiOPMChannelParam.
+    /** SiONVoice class provides all of voice setting parameters of SiON.
      *  @see org.si.sion.module.SiOPMChannelParam
      *  @see org.si.sion.module.SiOPMOperatorParam
      */

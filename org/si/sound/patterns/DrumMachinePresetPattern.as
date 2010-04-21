@@ -117,7 +117,7 @@ package org.si.sound.patterns {
         // set pattern
         private var _pp:PMLParser = new PMLParser({"0":new Note(-1,-1,Number.NaN,0), "1":new Note(-1,-1,Number.NaN,1)});
         private function _pattern(key:String, pml:String) : void {
-            var pattern:Vector.<Note> = _pp.parse(pml);
+            var pattern:Vector.<Note> = Vector.<Note>(_pp.parse(pml));
             _categolyList.push(pattern);
             this[key] = pattern;
         }

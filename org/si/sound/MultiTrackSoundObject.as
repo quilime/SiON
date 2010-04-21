@@ -9,7 +9,7 @@ package org.si.sound {
     import org.si.sion.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.namespaces._sound_object_internal;
-    import org.si.sound.synthesizers.BasicSynth;
+    import org.si.sound.synthesizers.*;
     
     
     /** The MultiTrackSoundObject class is the base class for all objects that can control plural tracks. 
@@ -189,7 +189,7 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** @private [protected] constructor */
-        function MultiTrackSoundObject(name:String = null, synth:BasicSynth = null) {
+        function MultiTrackSoundObject(name:String = null, synth:VoiceReference = null) {
             super(name, synth);
             _tracks = null;
             _trackOperationMask = 0;
@@ -203,21 +203,25 @@ package org.si.sound {
         /** @private [protected] Reset */
         override public function reset() : void 
         {
+            super.reset();
             _trackOperationMask = 0;
         }
         
         
-        /** @private [protected] Play sound, you can call this many times as you want. */
+        /** you cannot call play() in MultiTrackSoundObject. */
         override public function play() : void { 
-            _track = _noteOn(_note, false);
-            if (_track) _synthesizer._registerTrack(_track);
-            if (_tracks == null) _tracks = new Vector.<SiMMLTrack>();
-            _tracks.push(_track);
+            _errorNotAvailable("play()");
+        }
+        
+        
+        /** you cannot call stop() in MultiTrackSoundObject. */
+        override public function stop() : void {
+            _errorNotAvailable("stop()");
         }
         
         
         /** @private [protected] Stop all sound belonging to this sound object. */
-        override public function stop() : void {
+        protected function _stopAllTracks() : void {
             if (_tracks) {
                 for each (var t:SiMMLTrack in _tracks) {
                     _synthesizer._unregisterTracks(t);

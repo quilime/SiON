@@ -25,10 +25,10 @@ package org.si.sound {
         
     // valiables
     //----------------------------------------
-        /** the list of child sound objects. */
+        /** @private [protected] the list of child sound objects. */
         protected var _soundList:Vector.<SoundObject>;
         
-        /** playing flag of this container */
+        /** @private [protected] playing flag of this container */
         protected var _isPlaying:Boolean;
         
         
@@ -89,6 +89,11 @@ package org.si.sound {
         override public function set eventMask(m:int) : void {
             _eventMask = m;
             for each (var sound:SoundObject in _soundList) sound.eventMask = m;
+        }
+        /** @private */
+        override public function set eventTriggerID(id:int) : void {
+            _eventTriggerID = id;
+            for each (var sound:SoundObject in _soundList) sound.eventTriggerID = id;
         }
         /** @private */
         override public function set coarseTune(n:int) : void {
@@ -158,18 +163,6 @@ package org.si.sound {
             super.reset();
             _thisVolume = 1;
             for each (var sound:SoundObject in _soundList) sound.reset();
-        }
-        
-        
-        /** Set all children's event triggers.
-         *  @param id Event trigger ID of this track. This value can be refered from SiONTrackEvent.eventTriggerID.
-         *  @param noteOnType Dispatching event type at note on. 0=no events, 1=NOTE_ON_FRAME, 2=NOTE_ON_STREAM, 3=both.
-         *  @param noteOffType Dispatching event type at note off. 0=no events, 1=NOTE_OFF_FRAME, 2=NOTE_OFF_STREAM, 3=both.
-         *  @see org.si.sion.events.SiONTrackEvent
-         */
-        override public function setEventTrigger(id:int, noteOnType:int=1, noteOffType:int=0) : void
-        {
-            for each (var sound:SoundObject in _soundList) sound.setEventTrigger(id, noteOnType, noteOffType);
         }
         
         

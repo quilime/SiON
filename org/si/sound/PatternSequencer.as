@@ -11,7 +11,7 @@ package org.si.sound {
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.patterns.*;
     import org.si.sound.namespaces._sound_object_internal;
-    import org.si.sound.synthesizers._synthesizer_internal;
+    import org.si.sound.synthesizers.*;
     
     
     /** Pattern sequencer class provides simple one track pattern player. The sequence pattern is represented as Vector.<Note>. @see org.si.sound.patterns.Note 
@@ -47,10 +47,15 @@ ps.play();
         
     // variables
     //----------------------------------------
-        /** @private Sequencer instance */
+        /** @private [protected] Sequencer instance */
         protected var _sequencer:Sequencer;
-        /** @private Sequence data */
+        /** @private [protected] Sequence data */
         protected var _data:SiONData;
+
+        /** @private [protected] */
+        protected var _callbackEnterFrame:Function = null;
+        /** @private [protected] */
+        protected var _callbackEnterSegment:Function = null;
         
         
         
@@ -65,6 +70,33 @@ ps.play();
         public function get portament() : int { return _sequencer.portament; }
         public function set portament(p:int) : void { _sequencer.setPortament(p); }
         
+        /** current note in the sequence, you cannot change this property. */
+        override public function get note() : int { return _sequencer.note; }
+        override public function set note(n:int) : void { _errorCannotChange("note"); }
+        
+        /** current length in the sequence, you cannot change this property. */
+        override public function get length() : Number { return _sequencer.length; }
+        override public function set length(l:Number) : void { _errorCannotChange("length"); }
+        
+        
+        /** callback on enter frame */
+        public function get onEnterFrame() : Function { return _callbackEnterFrame; }
+        public function set onEnterFrame(f:Function) : void {
+            _callbackEnterFrame = f;
+        }
+        
+        /** callback on enter segment */
+        public function get onEnterSegment() : Function { return _callbackEnterSegment; }
+        public function set onEnterSegment(f:Function) : void {
+            _callbackEnterSegment = f;
+        }
+        
+        /** callback on exit frame */
+        public function get onExitFrame() : Function { return _sequencer.onExitFrame; }
+        public function set onExitFrame(f:Function) : void {
+            _sequencer.onExitFrame = f;
+        }
+        
         
         
         
@@ -74,12 +106,15 @@ ps.play();
          *  @param defaultNote Default note, this value is referenced when Note.note property is -1.
          *  @param defaultVelocity Default velocity, this value is referenced when Note.velocity property is -1.
          *  @param defaultLength Default length, this value is referenced when Note.length property is Number.NaN.
+         *  @param synth synthesizer to play
          */
-        function PatternSequencer(defaultNote:int=60, defaultVelocity:int=128, defaultLength:Number=0)
+        function PatternSequencer(defaultNote:int=60, defaultVelocity:int=128, defaultLength:Number=0, synth:VoiceReference = null)
         {
-            super("PatternSequencer");
+            super("PatternSequencer", synth);
             _data = new SiONData();
             _sequencer = new Sequencer(this, _data, defaultNote, defaultVelocity, defaultLength);
+            _sequencer.onEnterFrame = _onEnterFrame;
+            _sequencer.onEnterSegment = _onEnterSegment;
         }
         
         
@@ -107,7 +142,7 @@ ps.play();
                 _synthesizer._unregisterTracks(_track);
                 _track.setDisposable();
                 _track = null;
-                _sequenceOff(false);
+                _sequenceOff(true);
             }
             _stopEffect();
         }
@@ -117,6 +152,20 @@ ps.play();
         
     // internal
     //----------------------------------------
+        /** @private [protected] handler on enter segment */
+        override protected function _onEnterFrame(seq:Sequencer) : void
+        {
+            if (_callbackEnterFrame != null) _callbackEnterFrame(seq);
+            super._onEnterFrame(seq);
+        }
+        
+        
+        /** @private [protected] handler on enter segment */
+        override protected function _onEnterSegment(seq:Sequencer) : void
+        {
+            if (_callbackEnterSegment != null) _callbackEnterSegment(seq);
+            super._onEnterSegment(seq);
+        }
     }
 }
 

@@ -72,7 +72,7 @@ package org.si.sion {
     [Event(name="changeBPM",       type="org.si.sion.events.SiONTrackEvent")]
     
     
-    /** SiON driver class.<br/>
+    /** SiONDriver class provides the driver of SiON's digital signal processor emulator. SiON's all basic operations are provided as SiONDriver's properties, methods and events. You can create only one SiONDriver instance in one SWF file, and the error appears when you try to create plural SiONDrivers.<br/>
      * @see SiONData
      * @see SiONVoice
      * @see org.si.sion.events.SiONEvent
@@ -103,13 +103,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         static public const VERSION:String = "0.6.0";
         
         
-        /** note-on exception mode "ignore", No exception. */
+        /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method. */
         static public const NEM_IGNORE:int = 0;
-        /** note-on exception mode "reject", Reject new note. */
+        /** note-on exception mode "reject", Reject new note when the track IDs are conflicted. */
         static public const NEM_REJECT:int = 1;
-        /** note-on exception mode "overwrite", Overwrite current note. */
+        /** note-on exception mode "overwrite", Overwrite current note when the track IDs are conflicted. */
         static public const NEM_OVERWRITE:int = 2;
-        /** note-on exception mode "shift", Shift sound timing. */
+        /** note-on exception mode "shift", Shift the sound timing to next quantize when the track IDs are conflicted. */
         static public const NEM_SHIFT:int = 3;
         
         static private const NEM_MAX:int = 4;
@@ -128,13 +128,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // valiables
     //----------------------------------------
-        /** SiOPM sound module. */
+        /** SiOPM digital signal processor emulator instance.  */
         public var module:SiOPMModule;
         
-        /** effector module. */
+        /** Effector module instance. */
         public var effector:SiEffectModule;
         
-        /** mml sequencer module. */
+        /** Sequencer module instance. */
         public var sequencer:SiMMLSequencer;
         
         
@@ -171,6 +171,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _backgroundSound:Sound;      // background Sound
         private var _backgroundLevel:Number;     // background Sound mixing level
         private var _backgroundBuffer:ByteArray; // buffer for background Sound
+        private var _backgroundLoop:Boolean;     // looping flag of background Sound
         //----- queue
         private var _queueInterval:int;         // interupting interval to execute queued jobs
         private var _queueLength:int;           // queue length to execute
@@ -215,16 +216,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // data
-        /** MML string (this property is only available during compiling ). */
+        /** MML string (this property is only available during compiling). */
         public function get mmlString() : String { return _mmlString; }
         
         /** Data to compile, render and process. */
         public function get data() : SiONData { return _data; }
         
-        /** Sound instance to stream. */
+        /** flash.media.Sound instance to stream SiON's sound. */
         public function get sound() : Sound { return _sound; }
         
-        /** Sound channel (this property is only available during streaming). */
+        /** flash.media.SoundChannel instance of SiON's sound stream (this property is only available during streaming). */
         public function get soundChannel() : SoundChannel { return _soundChannel; }
 
         /** Fader to control fade-in/out. You can check activity by "fader.isActive". */
@@ -232,14 +233,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         
         // paramteters
-        /** Track count (this property is only available during streaming). */
+        /** The number of sound tracks (this property is only available during streaming). */
         public function get trackCount() : int { return sequencer.tracks.length; }
         
         /** Streaming buffer length. */
         public function get bufferLength() : int { return _bufferLength; }
         /** Sample rate (44100 is only available in current version). */
         public function get sampleRate() : Number { return _sampleRate; }
-        /** bit rate, 0 means float value[-1 - +1]. */
+        /** bit rate, the value of 0 means the wave is represented as float value[-1 - +1]. */
         public function get bitRate() : Number { return _bitRate; }
         
         /** Sound volume. */
@@ -294,12 +295,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Is paused ? */
         public function get isPaused() : Boolean { return _isPaused; }
         
-        /** Is on beat ? */
-        public function get isOnBeat() : Boolean { return false; }
-        
         
         // operation
-        /** Playing position[ms] on mml data. @default 0 */
+        /** Get playing position[ms] of current data, or Set initial position of playing data. @default 0 */
         public function get position() : Number {
             return sequencer.processedSampleCount * 1000 / _sampleRate;
         }
@@ -311,11 +309,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             }
         }
         
-        /** maximum limit of track count. @default 128 */
-        public function set maxTrackCount(max:int) : void { sequencer._maxTrackCount = max; }
+        /** The maximum limit of sound tracks. @default 128 */
         public function get maxTrackCount() : int { return sequencer._maxTrackCount; }
+        public function set maxTrackCount(max:int) : void { sequencer._maxTrackCount = max; }
         
-        /** Beat par minute. @default 120 */
+        /** Beat par minute value of SiON's play. @default 120 */
         public function get bpm() : Number {
             return (sequencer.isReadyToProcess) ? sequencer.bpm : sequencer.setting.defaultBPM;
         }
@@ -331,11 +329,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function get autoStop() : Boolean { return _autoStop; }
         public function set autoStop(mode:Boolean) : void { _autoStop = mode; }
         
-        /** Debug mode, true; throw Error / false; throw ErrorEvent when error appears. @default false */
+        /** Debug mode, true; throw Error / false; throw ErrorEvent when error appears inside. @default false */
         public function get debugMode() : Boolean { return _debugMode; }
         public function set debugMode(mode:Boolean) : void { _debugMode = mode; }
         
-        /** Note on exception mode. This value have to be SiONDriver.NEM_*. @default NEM_IGNORE. 
+        /** Note on exception mode, this mode is refered when the noteOn() sound's track IDs are conflicted at the same moment. This value have to be SiONDriver.NEM_*. @default NEM_IGNORE. 
          *  @see #NEM_IGNORE
          *  @see #NEM_REJECT
          *  @see #NEM_OVERWRITE
@@ -350,7 +348,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constructor
     //----------------------------------------
         /** Create driver to manage the synthesizer, sequencer and effector. Only one SiONDriver instance can be created.
-         *  @param bufferLength Buffer size of sound stream. 8192, 4096 or 2048 is available, but no check.
+         *  @param bufferLength Buffer size of sound stream. The value of 8192, 4096 or 2048 is available.
          *  @param channel Channel count. 1(monoral) or 2(stereo) is available.
          *  @param sampleRate Sampling ratio of wave. 44100 is only available in current version.
          *  @param bitRate Bit ratio of wave. 0 means float value [-1 to 1].
@@ -405,6 +403,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _backgroundSound = null;
             _backgroundLevel = 1;
             _backgroundBuffer = null;
+            _backgroundLoop = false;
             
             _position = 0;
             _masterVolume = 1;
@@ -445,7 +444,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // interfaces for data preparation
     //----------------------------------------
-        /** Compile MML string immeriately. 
+        /** Compile MML string to SiONData. 
          *  @param mml MML string to compile.
          *  @param data SiONData to compile. The SiONDriver creates new SiONData instance when this argument is null.
          *  @return Compiled data.
@@ -489,12 +488,12 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // interfaces for sound rendering
     //----------------------------------------
-        /** Render sound immeriately.
+        /** Render wave data from MML string or SiONData. This method may take long time, please consider the using renderQueue() instead.
          *  @param data SiONData or mml String to play.
-         *  @param renderBuffer Rendering target. null to create new buffer. The length of renderBuffer limits rendering length except for 0.
+         *  @param renderBuffer Rendering target. null to create new buffer. The length of this argument limits the rendering length (except for 0).
          *  @param renderBufferChannelCount Channel count of renderBuffer. 2 for stereo and 1 for monoral.
          *  @param resetEffector reset all effectors before play data.
-         *  @return rendered data.
+         *  @return rendered wave data as Vector.<Number>.
          */
         public function render(data:*, renderBuffer:Vector.<Number>=null, renderBufferChannelCount:int=2, resetEffector:Boolean=true) : Vector.<Number>
         {
@@ -549,7 +548,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // interfaces for jobs queue
     //----------------------------------------
-        /** Execute all elements of queue pushed by compileQueue and renderQueue.
+        /** Execute all elements queued by compileQueue() and renderQueue().
          *  After calling this function, the SiONEvent.QUEUE_PROGRESS, SiONEvent.QUEUE_COMPLETE and ErrorEvent.ERROR events will be dispatched.<br/>
          *  The SiONEvent.QUEUE_PROGRESS is dispatched when it's executing queued job.<br/>
          *  The SiONEvent.QUEUE_COMPLETE is dispatched when finish all queued jobs.<br/>
@@ -584,7 +583,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // interfaces for sound streaming
     //----------------------------------------
-        /** Play sound.
+        /** Play SiONData or MML string.
          *  @param data SiONData or mml String to play. You can pass null when resume after pause or streaming without any data.
          *  @param resetEffector reset all effectors before play data.
          *  @return SoundChannel instance to play data. This instance is same as soundChannel property.
@@ -661,10 +660,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param sound Sound instance to play background.
          *  @param mixLevel Mixing level (0-1).
          */
-        public function setBackgroundSound(sound:Sound, mixLevel:Number=1) : void
+        public function setBackgroundSound(sound:Sound, mixLevel:Number=1, isLooping:Boolean=false) : void
         {
             _backgroundSound = sound;
             _backgroundLevel = mixLevel;
+            _backgroundLoop  = isLooping;
             if (_backgroundBuffer == null) {
                 _backgroundBuffer = new ByteArray();
                 _backgroundBuffer.length = _bufferLength * 8;
@@ -1010,17 +1010,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param trackID tracks id to stop.
          *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
-         *  @param stopImmediately stop sound with reseting channel's process
+         *  @param stopWithReset stop sound with reseting channel's process
          *  @return list of SiMMLTracks stopped to play sequence.
          */
-        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1, stopImmediately:Boolean=false) : Vector.<SiMMLTrack>
+        public function sequenceOff(trackID:int, delay:Number=0, quant:Number=1, stopWithReset:Boolean=false) : Vector.<SiMMLTrack>
         {
             var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_SEQUENCE,
                 delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), stoppedTrack:SiMMLTrack = null,
                 tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
                 if (mmlTrack._sion_sequencer_internal::_internalTrackID == internalTrackID) {
-                    mmlTrack.sequenceOff(delaySamples, stopImmediately);
+                    mmlTrack.sequenceOff(delaySamples, stopWithReset);
                     tracks.push(mmlTrack);
                 }
             }
@@ -1387,7 +1387,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
-            var buffer:ByteArray = e.data, 
+            var buffer:ByteArray = e.data, extracted:int, 
                 output:Vector.<Number> = module.output, 
                 imax:int, i:int, event:SiONEvent;
 
@@ -1423,8 +1423,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     imax = output.length;
                     if (_backgroundSound) {
                         // w/ background sound
-                        _backgroundSound.extract(_backgroundBuffer, _bufferLength);
-                        for (i=0; i<imax; i++) buffer.writeFloat(output[i]+_backgroundBuffer.readFloat()*_backgroundLevel);
+                        _backgroundBuffer.length = 0;
+                        extracted = _backgroundSound.extract(_backgroundBuffer, _bufferLength);
+                        if (_backgroundLoop) {
+                            while (extracted < _bufferLength) {
+                                extracted += _backgroundSound.extract(_backgroundBuffer, extracted-extracted, 0);
+                            }
+                        }
+                        if (extracted == _bufferLength) {
+                            for (i=0; i<imax; i++) buffer.writeFloat(output[i]+_backgroundBuffer.readFloat()*_backgroundLevel);
+                        } else {
+                            for (i=0; i<extracted; i++) buffer.writeFloat(output[i]+_backgroundBuffer.readFloat()*_backgroundLevel);
+                            for (; i<imax; i++) buffer.writeFloat(output[i]);
+                        }
                     } else {
                         // w/o background sound
                         for (i=0; i<imax; i++) buffer.writeFloat(output[i]);

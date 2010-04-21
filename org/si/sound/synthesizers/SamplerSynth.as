@@ -76,14 +76,18 @@ package org.si.sound.synthesizers {
         }
                 
         
-        /** set flash sound instance with key range (this feature is not available in currennt version). 
+        /** Set flash sound instance with key range, this method is simplificaion of setSample().
          *  @param sound Sound instance to assign
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
+         *  @param startPoint slicing point to start data.
+         *  @param endPoint slicing point to end data. The negative value plays whole data.
+         *  @param loopPoint slicing point to repeat data. -1 means no repeat
+         *  @see setSample
          */
-        override public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127) : void
+        override public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
-            setSample(sound, false, 2, keyRangeFrom, keyRangeTo);
+            setSample(sound, false, 2, keyRangeFrom, keyRangeTo).slice(startPoint, endPoint, loopPoint);
         }
         
         

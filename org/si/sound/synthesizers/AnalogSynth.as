@@ -50,11 +50,11 @@ package org.si.sound.synthesizers {
         
     // variables
     //----------------------------------------
-        /** operator parameter for op0 */
+        /** @private [protected] operator parameter for op0 */
         protected var _opp0:SiOPMOperatorParam;
-        /** operator parameter for op1 */
+        /** @private [protected] operator parameter for op1 */
         protected var _opp1:SiOPMOperatorParam;
-        /** mixing balance of 2 oscillators.*/
+        /** @private [protected] mixing balance of 2 oscillators.*/
         protected var _intBalance:int;
         
         
@@ -135,6 +135,7 @@ package org.si.sound.synthesizers {
         }
         
         
+        
         /** VCA attack time [0-1], This value is not linear. */
         override public function get attackTime() : Number { return (_opp0.ar > 48) ? 0 : (1 - _opp0.ar * 0.020833333333333332); }
         override public function set attackTime(n:Number) : void {
@@ -164,6 +165,36 @@ package org.si.sound.synthesizers {
         }
         
         
+        /** @private */
+        override public function get cutoff() : Number { return _voice.channelParam.fdc2 * 0.0078125; }
+        override public function set cutoff(n:Number) : void {
+            _voice.channelParam.fdc2 = n * 128;
+            _voiceUpdateNumber++;
+        }
+        
+        
+        /** VCF attack time [0-1], This value is not linear. */
+        public function get vcfAttackTime() : Number { return(1 - _voice.channelParam.far * 0.015873015873015872); }
+        public function set vcfAttackTime(n:Number) : void { 
+            _voice.channelParam.far =(1 - n) * 63;
+            _voiceUpdateNumber++;
+        }
+        
+        
+        /** VCF decay time [0-1], This value is not linear. */
+        public function get vcfDecayTime() : Number { return (1 - _voice.channelParam.fdr1 * 0.015873015873015872); }
+        public function set vcfDecayTime(n:Number) : void { 
+            _voice.channelParam.fdr1 = (1 - n) * 63;
+            _voiceUpdateNumber++;
+        }
+        
+        
+        /** VCF peak cutoff [0-1]. */
+        public function get vcfPeakCutoff() : Number { return _voice.channelParam.fdc1 * 0.0078125; }
+        public function set vcfPeakCutoff(n:Number) : void { 
+            _voice.channelParam.fdc1 = n * 128;
+            _voiceUpdateNumber++;
+        }
         
         
         
@@ -185,6 +216,11 @@ package org.si.sound.synthesizers {
             _voice.setAnalogLike(connectionType, ws1, ws2, _intBalance, vco2pitch*64);
             _opp0 = _voice.channelParam.operatorParam[0];
             _opp1 = _voice.channelParam.operatorParam[1];
+            _voice.channelParam.cutoff = 0;
+            _voice.channelParam.far = 63;
+            _voice.channelParam.fdr1 = 63;
+            _voice.channelParam.fdc1 = 128;
+            _voice.channelParam.fdc2 = 128;
         }
         
         
@@ -215,16 +251,13 @@ package org.si.sound.synthesizers {
          *  @param cutoff cutoff frequency[0-1].
          *  @param resonanse resonanse[0-1].
          *  @param attackTime attack time [0-1]. This value is not linear.
-         *  @param startCutoff starting cutoff of attack[0-1].
+         *  @param decayTime decay time [0-1]. This value is not linear.
+         *  @param peakCutoff 
          *  @return this instance
          */
-        public function setVCFEnvelop(cutoff:Number=1, resonanse:Number=0, attackTime:Number=0, startCutoff:Number=0) : AnalogSynth
+        public function setVCFEnvelop(cutoff:Number=1, resonance:Number=0, attackTime:Number=0, decayTime:Number=0, peakCutoff:Number=1) : AnalogSynth
         {
-            if (attackTime == 0 || cutoff == startCutoff) {
-                setLPFEnvelop(cutoff, resonance, 63);
-            } else {
-                setLPFEnvelop(startCutoff, resonance, ((1 - attackTime) * 63), 0, 0, 0, cutoff, cutoff, cutoff, cutoff);
-            }
+            setLPFEnvelop(0, resonance, ((1 - attackTime) * 63), ((1 - decayTime) * 63), 0, 0, peakCutoff, cutoff, cutoff, cutoff);
             return this;
         }
     }

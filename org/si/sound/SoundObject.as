@@ -18,9 +18,21 @@ package org.si.sound {
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.namespaces._sound_object_internal;
     import org.si.sound.core.EffectChain;
+    import org.si.sound.patterns.Sequencer;
+    import org.si.sound.events.SoundObjectEvent;
     import org.si.sound.synthesizers.VoiceReference;
     import org.si.sound.synthesizers.BasicSynth;
     import org.si.sound.synthesizers._synthesizer_internal;
+    
+    
+    /** @eventType org.si.sound.events.SoundObjectEvent.NOTE_ON_STREAM */
+    [Event(name="noteOnStream",    type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.NOTE_OFF_STREAM */
+    [Event(name="noteOffStream",   type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.NOTE_ON_FRAME */
+    [Event(name="noteOnFrame",     type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.NOTE_OFF_FRAME */
+    [Event(name="noteOffFrame",    type="org.si.sound.events.SoundObjectEvent")]
     
     
     /** The SoundObject class is the base class for all objects that can play sounds by operating SiONDriver. 
@@ -74,10 +86,10 @@ package org.si.sound {
         protected var _eventMask:Number;
         /** @private [protected] Event trigger ID */
         protected var _eventTriggerID:int;
-        /** @private [protected] note on trigger type */
-        protected var _noteOnTrigger:int;
-        /** @private [protected] note off trigger type */
-        protected var _noteOffTrigger:int;
+        /** @private [protected] note on trigger | (note off trigger << 2) trigger type */
+        protected var _noteTriggerFlags:int;
+        /** @private [protected] listening note event trigger */
+        protected var _listeningFlags:int;
         
         /** @private [protected] volumes for all streams */
         protected var _volumes:Vector.<int>;
@@ -181,10 +193,11 @@ package org.si.sound {
         public function get trackID() : int { return _trackID; }
         /** Track event trigger ID */
         public function get eventTriggerID() : int { return _eventTriggerID; }
+        public function set eventTriggerID(id:int) : void { _eventTriggerID = id; }
         /** Track note on trigger type */
-        public function get noteOnTriggerType() : int { return _noteOnTrigger; }
+        public function get noteOnTriggerType() : int { return _noteTriggerFlags & 3; }
         /** Track note off trigger type */
-        public function get noteOffTriggerType() : int { return _noteOffTrigger; }
+        public function get noteOffTriggerType() : int { return _noteTriggerFlags >> 2; }
         
         
         /** Channel mute, this property can control track after play(). */
@@ -272,7 +285,7 @@ package org.si.sound {
     // constructor
     //----------------------------------------
         /** constructor. */
-        function SoundObject(name:String = null, synth:BasicSynth = null)
+        function SoundObject(name:String = null, synth:VoiceReference = null)
         {
             this.name = name || "";
             _parent = null;
@@ -302,8 +315,8 @@ package org.si.sound {
             _pitchShift = 0;
             _eventMask = 0;
             _eventTriggerID = 0;
-            _noteOnTrigger = 0;
-            _noteOffTrigger = 0;
+            _noteTriggerFlags = 0;
+            _listeningFlags = 0;
             
             _thisVolume = 0.5;
             _thisPan = 0;
@@ -342,26 +355,12 @@ package org.si.sound {
             _pitchShift = 0;
             _eventMask = 0;
             _eventTriggerID = 0;
-            _noteOnTrigger = 0;
-            _noteOffTrigger = 0;
+            _noteTriggerFlags = 0;
+            _listeningFlags = 0;
             
             _thisVolume = 0.5;
             _thisPan = 0;
             _thisMute = false;
-        }
-        
-        
-        /** Set event trigger.
-         *  @param id Event trigger ID of this track. This value can be refered from SiONTrackEvent.eventTriggerID.
-         *  @param noteOnType Dispatching event type at note on. 0=no events, 1=NOTE_ON_FRAME, 2=NOTE_ON_STREAM, 3=both.
-         *  @param noteOffType Dispatching event type at note off. 0=no events, 1=NOTE_OFF_FRAME, 2=NOTE_OFF_STREAM, 3=both.
-         *  @see org.si.sion.events.SiONTrackEvent
-         */
-        public function setEventTrigger(id:int, noteOnType:int=1, noteOffType:int=0) : void
-        {
-            _eventTriggerID = id;
-            _noteOnTrigger = noteOnType;
-            _noteOffTrigger = noteOffType;
         }
         
         
@@ -448,6 +447,7 @@ package org.si.sound {
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
                 bottomEC:EffectChain = _bottomEffectChain(),
                 track:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposable);
+            _addNoteEventListeners();
             if (_effectChain) {
                 _effectChain._activateLocalEffect(_childDepth);
                 _effectChain.setAllStreamSendLevels(_volumes);
@@ -463,21 +463,21 @@ package org.si.sound {
             track.pitchBend  = _pitchBend * 64;
             track.noteShift  = _noteShift;
             track.pitchShift = _pitchShift * 64;
-            track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
             if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
             return track;
         }
         
         
         /** @private [protected] driver.noteOff()
-         *  @param stopImmediately stop sound wit resetting channels process
+         *  @param stopWithReset stop sound wit resetting channels process
          *  @return stopped track list
          */
-        protected function _noteOff(note:int, stopImmediately:Boolean = true) : Vector.<SiMMLTrack>
+        protected function _noteOff(note:int, stopWithReset:Boolean = true) : Vector.<SiMMLTrack>
         {
             if (!driver) return null;
+            _removeNoteEventListeners();
             if (_effectChain) _effectChain._inactivateLocalEffect();
-            return driver.noteOff(note, _trackID, _delay, _quantize, stopImmediately);
+            return driver.noteOff(note, _trackID, _delay, _quantize, stopWithReset);
         }
         
         
@@ -495,6 +495,7 @@ package org.si.sound {
                 bottomEC:EffectChain = _bottomEffectChain(),
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, len, _delay, _quantize, _trackID, isDisposable),
                 track:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
+            _addNoteEventListeners();
             if (_effectChain) {
                 _effectChain._activateLocalEffect(_childDepth);
                 _effectChain.setAllStreamSendLevels(_volumes);
@@ -511,7 +512,7 @@ package org.si.sound {
                 track.pitchBend  = pb;
                 track.noteShift  = _noteShift;
                 track.pitchShift = ps;
-                track.setEventTrigger(_eventTriggerID, _noteOnTrigger, _noteOffTrigger);
+                track.setEventTrigger(_eventTriggerID, _noteTriggerFlags&3, _noteTriggerFlags>>2);
                 if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
             }
             return list;
@@ -519,14 +520,15 @@ package org.si.sound {
         
         
         /** @private [protected] driver.sequenceOff()
-         *  @param stopImmediately stop sound wit resetting channels process
+         *  @param stopWithReset stop sound wit resetting channels process
          *  @return stopped track list
          */
-        protected function _sequenceOff(stopImmediately:Boolean = true) : Vector.<SiMMLTrack>
+        protected function _sequenceOff(stopWithReset:Boolean = true) : Vector.<SiMMLTrack>
         {
             if (!driver) return null;
+            _removeNoteEventListeners();
             if (_effectChain) _effectChain._inactivateLocalEffect();
-            return driver.sequenceOff(_trackID, 0, _quantize, stopImmediately);
+            return driver.sequenceOff(_trackID, 0, _quantize, stopWithReset);
         }
         
         
@@ -545,6 +547,51 @@ package org.si.sound {
             if (_track) {
                 if (_effectChain) _effectChain.setStreamSend(streamNum, level);
                 else _track.channel.setStreamSend(streamNum, level);
+            }
+        }
+        
+        
+        /** @private [protected] add event trigger listeners */
+        protected function _addNoteEventListeners(): void {
+            if (_listeningFlags != 0) return;
+            var drv:SiONDriver = driver;
+            _noteTriggerFlags = 0;
+            if (hasEventListener(SoundObjectEvent.NOTE_ON_FRAME)) {
+                drv.addEventListener(SiONTrackEvent.NOTE_ON_FRAME,  _onTrackEvent);
+                _noteTriggerFlags |= 1;
+            }
+            if (hasEventListener(SoundObjectEvent.NOTE_ON_STREAM)) {
+                drv.addEventListener(SiONTrackEvent.NOTE_ON_STREAM, _onTrackEvent);
+                _noteTriggerFlags |= 2;
+            }
+            if (hasEventListener(SoundObjectEvent.NOTE_OFF_FRAME)) {
+                drv.addEventListener(SiONTrackEvent.NOTE_OFF_FRAME,  _onTrackEvent);
+                _noteTriggerFlags |= 4;
+            }
+            if (hasEventListener(SoundObjectEvent.NOTE_OFF_STREAM)) {
+                drv.addEventListener(SiONTrackEvent.NOTE_OFF_STREAM, _onTrackEvent);
+                _noteTriggerFlags |= 8;
+            }
+            _listeningFlags = _noteTriggerFlags;
+        }
+        
+        
+        /** @private [protected] remove event trigger listeners */
+        protected function _removeNoteEventListeners() : void {
+            if (_listeningFlags == 0) return;
+            var drv:SiONDriver = driver;
+            if ((_listeningFlags & 1) != 0) drv.removeEventListener(SiONTrackEvent.NOTE_ON_FRAME,  _onTrackEvent);
+            if ((_listeningFlags & 2) != 0) drv.removeEventListener(SiONTrackEvent.NOTE_ON_STREAM, _onTrackEvent);
+            if ((_listeningFlags & 4) != 0) drv.removeEventListener(SiONTrackEvent.NOTE_OFF_FRAME,  _onTrackEvent);
+            if ((_listeningFlags & 8) != 0) drv.removeEventListener(SiONTrackEvent.NOTE_OFF_STREAM, _onTrackEvent);
+            _listeningFlags = 0;
+        }
+        
+        
+        /** @private [protected] handler for note event */
+        protected function _onTrackEvent(e:SiONTrackEvent) : void {
+            if (e.track.trackID == _trackID) {
+                dispatchEvent(new SoundObjectEvent(e.type, this, e));
             }
         }
         
@@ -623,7 +670,7 @@ package org.si.sound {
         /** @private [protected] Handler for SiONEvent.STREAM */
         protected function _onStream(e:SiONEvent) : void
         {
-            if (!_fader.execute()) {
+            if (_fader.execute()) {
                 driver.removeEventListener(SiONEvent.STREAM, _onStream);
                 driver._sion_internal::forceDispatchStreamEvent(false);
             }
@@ -635,8 +682,31 @@ package org.si.sound {
         {
             _faderVolume = v;
             _updateVolume();
+            _updateStreamSend(0, _volumes[0] * 0.0078125);
         }
         
+        
+        /** @private [protected] on enter frame */
+        protected function _onEnterFrame(seq:Sequencer) : void
+        {
+            if (hasEventListener("soundObjectEnterFrame")) {
+                var event:SoundObjectEvent = new SoundObjectEvent("soundObjectEnterFrame", this, null);
+                event._note = note;
+                event._eventTriggerID = _eventTriggerID;
+                dispatchEvent(event);
+            }
+        }
+        
+        
+        /** @private [protected] on enter segment */
+        protected function _onEnterSegment(seq:Sequencer) : void
+        {
+            if (hasEventListener("soundObjectEnterSegment")) {
+                var event:SoundObjectEvent = new SoundObjectEvent("soundObjectEnterSegment", this, null);
+                event._eventTriggerID = _eventTriggerID;
+                dispatchEvent(event);
+            }
+        }
         
         
         

@@ -117,6 +117,7 @@ package org.si.sion.sequencer {
         
         // track ID number
         _sion_sequencer_internal var _internalTrackID:int;
+        _sion_sequencer_internal var _trackNumber:int;
 
         // internal use
         private var _mmlData:SiMMLData;     // mml data. To get bpm from sequenceOn()s track, or only for reference in other cases.
@@ -198,9 +199,11 @@ package org.si.sion.sequencer {
         
     // properties
     //--------------------------------------------------
-        /** track ID number. */
+        /** track number, this value is unique and set by system, the lower numbered track processes sound first. */
+        public function get trackNumber() : int { return _trackNumber; }
+        /** track ID, this value is specifyed by user. */
         public function get trackID() : int { return _internalTrackID & _sion_internal::TRACK_ID_FILTER; }
-        /** track type. */
+        /** track type, this value shows what this track starts by. */
         public function get trackTypeID() : int { return _internalTrackID & _sion_internal::TRACK_TYPE_FILTER; }
 
         /** event trigger ID. eventTriggerID=-1 means tigger not set. */

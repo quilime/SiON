@@ -10,7 +10,7 @@ package org.si.sound.synthesizers {
     import org.si.sound.SoundObject;
     
     
-    /** Physical Modeling Guitar Synthesizer 
+    /** Physical Modeling Guitar Synthesizer (NOT IMPLEMENTED)
      */
     public class PMGuitarSynth extends BasicSynth
     {
@@ -23,7 +23,7 @@ package org.si.sound.synthesizers {
         
     // variables
     //----------------------------------------
-        /** plunk velocity [0-1]. */
+        /** @private [protected] plunk velocity [0-1]. */
         protected var _plunkVelocity:Number;
         
         

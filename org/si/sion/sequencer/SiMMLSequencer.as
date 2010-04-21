@@ -312,6 +312,7 @@ package org.si.sion.sequencer {
             
             if (tracks.length < _sion_internal::_maxTrackCount) {
                 trk = _freeTracks.pop() || new SiMMLTrack();
+                trk._sion_sequencer_internal::_trackNumber = tracks.length;
                 tracks.push(trk);
             } else {
                 trk = _findLowestPriorityTrack();
@@ -392,6 +393,7 @@ package org.si.sion.sequencer {
                         trk = _freeTracks.pop() || (new SiMMLTrack());
                         internalTrackID = idx | SiMMLTrack.MML_TRACK;
                         tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, internalTrackID, _callbackEventNoteOn, _callbackEventNoteOff, true);
+                        tracks[idx]._sion_sequencer_internal::_trackNumber = idx;
                         idx++;
                     }
                     seq = seq.nextSequence;

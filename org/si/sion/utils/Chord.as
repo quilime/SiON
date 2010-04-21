@@ -166,11 +166,12 @@ package org.si.sion.utils {
     //--------------------------------------------------
         /** constructor 
          *  @param chordName chord name.
+         *  @param defaultCenterOctave default center octave, this apply when there are no octave specification.
          *  @see #chordName
          */
-        function Chord(chordName:String = "")
+        function Chord(chordName:String = "", defaultCenterOctave:int = 5)
         {
-            super();
+            super("", defaultCenterOctave);
             this.name = chordName;
             _bassNoteOffset = 0;
         }

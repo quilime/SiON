@@ -9,8 +9,13 @@ package org.si.sound {
     import org.si.sion.*;
     import org.si.sion.utils.Scale;
     import org.si.sound.patterns.Note;
+    import org.si.sound.patterns.Sequencer;
     import org.si.sound.namespaces._sound_object_internal;
     
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_FRAME */
+    [Event(name="enterFrame",   type="org.si.sound.events.SoundObjectEvent")]
+    /** @eventType org.si.sound.events.SoundObjectEvent.ENTER_SEGMENT */
+    [Event(name="enterSegment", type="org.si.sound.events.SoundObjectEvent")]
     
     /** Arpeggiator provides monophonic arpeggio pattern sound. */
     public class Arpeggiator extends PatternSequencer
@@ -24,15 +29,17 @@ package org.si.sound {
         
     // variables
     //----------------------------------------
-        /** Table of notes on scale */
+        /** @private [protected] Table of notes on scale */
         protected var _scale:Scale;
-        /** scale index */
+        /** @private [protected] scale index */
         protected var _scaleIndex:int;
 
-        /** Current arpeggio pattern. */
+        /** @private [protected] Current arpeggio pattern. */
         protected var _currentPattern:Array;
-        /** Next arpeggio pattern to change while playing. */
+        /** @private [protected] Next arpeggio pattern to change while playing. */
         protected var _nextPattern:Array;
+        /** @private [protected] Change bass line pattern at the head of segment. */
+        protected var _changePatternOnSegment:Boolean;
         
                 
         
@@ -85,9 +92,17 @@ package org.si.sound {
         
         
         /** Note index array of the arpeggio pattern. If the index is out of range, insert rest instead. */
+        public function get pattern() : Array { return _currentPattern || _nextPattern; }
         public function set pattern(pat:Array) : void {
-            if (!isPlaying) _updateArpeggioPattern(pat);
-            else _nextPattern = pat;
+            if (isPlaying && _changePatternOnSegment) _nextPattern = pat;
+            else _updateArpeggioPattern(pat);
+        }
+        
+        
+        /** True to change bass line pattern at the head of segment. @default true */
+        public function get changePatternOnNextSegment() : Boolean { return _changePatternOnSegment; }
+        public function set changePatternOnNextSegment(b:Boolean) : void { 
+            _changePatternOnSegment = b;
         }
         
         
@@ -118,6 +133,7 @@ package org.si.sound {
             _nextPattern = null;
             _sequencer.defaultLength = 1;
             _sequencer.pattern = new Vector.<Note>();
+            _sequencer.onEnterFrame = _onEnterFrame;
             _sequencer.onEnterSegment = _onEnterSegment;
             
             _updateArpeggioPattern(pattern);
@@ -140,7 +156,7 @@ package org.si.sound {
         
     // internal
     //----------------------------------------
-        /** call this after the update of note or scale index */
+        /** @private [protected] call this after the update of note or scale index */
         protected function _scaleIndexUpdated() : void {
             var i:int, imax:int = _sequencer.pattern.length;
             for (i=0; i<imax; i++) {
@@ -177,12 +193,14 @@ package org.si.sound {
         }
         
         
-        // on enter segment 
-        private function _onEnterSegment() : void {
+        /** @private [protected] handler on enter segment */
+        override protected function _onEnterSegment(seq:Sequencer) : void
+        {
             if (_nextPattern != null) {
                 _updateArpeggioPattern(_nextPattern);
                 _nextPattern = null;
             }
+            super._onEnterSegment(seq);
         }
     }
 }

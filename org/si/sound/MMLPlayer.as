@@ -13,7 +13,7 @@ package org.si.sound {
     import org.si.sound.synthesizers._synthesizer_internal;
     
     
-    /** MML Player */
+    /** MML Player provides sequence sound written by MML, and you can control all tracks during playing sequence. */
     public class MMLPlayer extends SoundObject
     {
     // variables
