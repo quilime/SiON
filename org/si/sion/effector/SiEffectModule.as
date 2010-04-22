@@ -75,6 +75,7 @@ package org.si.sion.effector {
             _localEffects  = new Vector.<SiEffectStream>();
             _globalEffects = new Vector.<SiEffectStream>(SiOPMModule.STREAM_SEND_SIZE, true);
             _masterEffect  = new SiEffectStream(_module, _module.outputStream);
+            _globalEffects[0] = _masterEffect;
             _globalEffectCount = 0;
 
             // initialize table
