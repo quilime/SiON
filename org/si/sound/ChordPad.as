@@ -116,6 +116,7 @@ package org.si.sound {
         public function get voiceMode() : int { return _noteIndexes; }
         public function set voiceMode(m:int) : void {
             _noteIndexes = m;
+            _updateChordNotes();
         }
         
         

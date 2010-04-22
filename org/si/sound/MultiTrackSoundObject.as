@@ -89,7 +89,6 @@ package org.si.sound {
             }
         }
         
-        
         /** @private */
         override public function set mute(m:Boolean) : void { 
             super.mute = m;
@@ -97,17 +96,6 @@ package org.si.sound {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
                     if ((f&1)==0) _tracks[i].channel.mute = _mute;
-                }
-            }
-        }
-        
-        /** @private */
-        override public function set volume(v:Number) : void {
-            super.volume = v;
-            if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
-                for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.masterVolume = _volumes[0];
                 }
             }
         }
@@ -123,54 +111,6 @@ package org.si.sound {
             }
         }
         
-        
-        /** @private */
-        override public function set effectSend1(v:Number) : void {
-            super.effectSend1 = v;
-            v = _volumes[1] * 0.0078125;
-            if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
-                for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.setStreamSend(1, v);
-                }
-            }
-        }
-        
-        /** @private */
-        override public function set effectSend2(v:Number) : void {
-            super.effectSend2 = v;
-            v = _volumes[2] * 0.0078125;
-            if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
-                for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.setStreamSend(2, v);
-                }
-            }
-        }
-        
-        /** @private */
-        override public function set effectSend3(v:Number) : void {
-            super.effectSend3 = v;
-            v = _volumes[3] * 0.0078125;
-            if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
-                for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.setStreamSend(3, v);
-                }
-            }
-        }
-        
-        /** @private */
-        override public function set effectSend4(v:Number) : void {
-            super.effectSend4 = v;
-            v = _volumes[4] * 0.0078125;
-            if (_tracks) {
-                var i:int, f:uint, imax:int = _tracks.length;
-                for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.setStreamSend(4, v);
-                }
-            }
-        }
         
         /** @private */
         override public function set pitchBend(p:Number) : void {
@@ -230,6 +170,20 @@ package org.si.sound {
                 _tracks = null;
             }
             _stopEffect();
+        }
+        
+        
+        /** @private [protected] update stream send level */
+        override protected function _updateStreamSend(streamNum:int, level:Number) : void {
+            if (_tracks) {
+                if (_effectChain) _effectChain.setStreamSend(streamNum, level);
+                else {
+                    var i:int, f:uint, imax:int = _tracks.length;
+                    for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
+                        if ((f&1)==0) _tracks[i].channel.setStreamSend(streamNum, level);
+                    }
+                }
+            }
         }
     }
 }
