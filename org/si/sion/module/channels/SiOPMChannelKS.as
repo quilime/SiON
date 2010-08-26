@@ -12,8 +12,7 @@ package org.si.sion.module.channels {
     import org.si.sion.sequencer.SiMMLVoice;
     
     
-    /** Karplus-Strong algorism with FM synth. <p>
-     */
+    /** Karplus-Strong algorism with FM synth. */
     public class SiOPMChannelKS extends SiOPMChannelFM
     {
     // valiables
@@ -117,7 +116,7 @@ package org.si.sion.module.channels {
         
     // interfaces
     //--------------------------------------------------
-        /** Set parameters (&#64; commands 2nd-15th args.). (&#64alg,ar,dr,tl,fix,ws)
+        /** Set parameters (&#64; commands 2nd-15th args.). (&#64;alg,ar,dr,tl,fix,ws)
          */
         override public function setParameters(param:Vector.<int>) : void
         {
@@ -149,7 +148,7 @@ package org.si.sion.module.channels {
         }
         
         
-        /** pgType & ptType (&#64; commands 1st arg except for %6,7) */
+        /** pgType and ptType (&#64; commands 1st arg except for %6,7) */
         override public function setType(pgType:int, ptType:int) : void
         {
             _ks_seedType = pgType;
@@ -178,7 +177,7 @@ package org.si.sion.module.channels {
         
     // interfaces
     //--------------------------------------------------
-        /** pitch = (note << 6) | (kf & 63) [0,8191] */
+        /** pitch = (note &lt;&lt; 6) | (kf &amp; 63) [0,8191] */
         override public function get pitch() : int { return _ks_pitchIndex; }
         override public function set pitch(p:int) : void {
             _ks_pitchIndex = p;

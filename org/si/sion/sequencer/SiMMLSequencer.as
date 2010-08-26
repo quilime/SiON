@@ -106,7 +106,7 @@ package org.si.sion.sequencer {
         /** Current working track */
         public function get currentTrack() : SiMMLTrack { return _currentTrack; }
         
-        /** SiONTrackEvent.BEAT_ON_FRAME is called if (beatCount16th & onBeatCallbackFilter) == 0. */ 
+        /** SiONTrackEvent.BEAT_ON_FRAME is called if (beatCount16th &amp; onBeatCallbackFilter) == 0. */ 
         public function set onBeatCallbackFilter(filter:int) : void { _onBeatCallbackFilter = filter; }
         public function get onBeatCallbackFilter() : int { return _onBeatCallbackFilter; }
         
@@ -271,6 +271,13 @@ package org.si.sion.sequencer {
             }
             _processedSampleCount = 0;
             _isSequenceFinished = (tracks.length == 0);
+        }
+        
+        
+        /** @private [sion internal] force stop */
+        _sion_internal function _stopSequence() : void
+        {
+            _isSequenceFinished = true;
         }
         
         
@@ -719,6 +726,7 @@ package org.si.sion.sequencer {
                 case '#OPL@': { __parseToneParam(Translator.parseOPLParam); return true; }
                 case '#OPX@': { __parseToneParam(Translator.parseOPXParam); return true; }
                 case '#MA@':  { __parseToneParam(Translator.parseMA3Param); return true; }
+                case '#AL@':  { __parseToneParam(Translator.parseALParam);  return true; }
                     
                 // parser settings
                 case '#TITLE': { mmlData.title = (noData) ? pfx : dat; return true; }

@@ -52,7 +52,7 @@ package org.si.sion.sequencer.base {
 
         /** Polarization of the ( and ) command. 1=x68k/-1=pc98. */
         public var volumePolarization:int;
-        /** Polarization of the < and > command. 1=x68k/-1=pc98. */
+        /** Polarization of the &lt; and &gt; command. 1=x68k/-1=pc98. */
         public var octavePolarization:int;
         
         

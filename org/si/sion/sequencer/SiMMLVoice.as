@@ -158,6 +158,7 @@ package org.si.sion.sequencer {
         /** constructor. */
         function SiMMLVoice()
         {
+            channelParam = new SiOPMChannelParam();
             initialize();
         }
         
@@ -230,7 +231,7 @@ package org.si.sion.sequencer {
             toneNum = -1;
             preferableNote = -1;
             
-            channelParam = new SiOPMChannelParam();
+            channelParam.initialize();
             waveData = null;
             pmsTension = 8;
             

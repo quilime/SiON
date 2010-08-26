@@ -31,15 +31,37 @@ package org.si.sion.sequencer.base {
         
     // properties
     //--------------------------------------------------
+        /** Get sequence count. */
         public function get sequenceCount() : int
         {
             return _sequences.length;
         }
         
         
+        /** head sequence pointer. */
         public function get headSequence() : MMLSequence
         {
             return _term.nextSequence;
+        }
+        
+
+        /** Get song length by tick count (1920 for wholetone). */
+        public function get tickCount() : int {
+            var ml:int, tc:int = 0;
+            for each (var seq:MMLSequence in _sequences) {
+                ml = seq.mmlLength;
+                if (ml > tc) tc = ml;
+            }
+            return tc;
+        }
+        
+
+        /** does this song have all repeat comand ? */
+        public function get hasRepeatAll() : Boolean {
+            for each (var seq:MMLSequence in _sequences) {
+                if (seq.hasRepeatAll) return true;
+            }
+            return false;
         }
         
         

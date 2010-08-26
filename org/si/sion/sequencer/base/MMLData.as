@@ -80,6 +80,14 @@ package org.si.sion.sequencer.base {
         public function get systemCommands() : Array { return _systemCommands; }
         
         
+        /** Get song length by tick count (1920 for wholetone). */
+        public function get tickCount() : int { return sequenceGroup.tickCount; }
+        
+        
+        /** does this song have all repeat comand ? */
+        public function get hasRepeatAll() : Boolean { return sequenceGroup.hasRepeatAll; }
+        
+        
         
         
     // constructor
@@ -160,7 +168,7 @@ package org.si.sion.sequencer.base {
         
         /** Set wave table data refered by %4.
          *  @param index wave table number.
-         *  @param data Vector.<Number> wave shape data ranged from -1 to 1.
+         *  @param data Vector.&lt;Number&gt; wave shape data ranged from -1 to 1.
          *  @return created data instance
          */
         public function setWaveTable(index:int, data:Vector.<Number>) : SiOPMWaveTable

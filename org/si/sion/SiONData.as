@@ -41,7 +41,7 @@ package org.si.sion {
     //----------------------------------------
         /** Set PCM data rederd by %7.
          *  @param index PCM data number.
-         *  @param data Vector.<Number> stereo wave data. This type ussualy comes from SiONDriver.render().
+         *  @param data Vector.&lt;Number&gt; stereo wave data. This type ussualy comes from SiONDriver.render().
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at
@@ -72,7 +72,7 @@ package org.si.sion {
         
         /** Set sampler data refered by %10.
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param data Vector.<Number> wave data. This type ussualy comes from SiONDriver.render().
+         *  @param data Vector.&lt;Number&gt; wave data. This type ussualy comes from SiONDriver.render().
          *  @param ignoreNoteOff True to set ignoring note off.
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @return created data instance

@@ -240,7 +240,7 @@ package org.si.sion.module {
         public var clock:int;
         /** psg clock */
         public var psg_clock:Number;
-        /** (clock/64/sampling_rate)<<CLOCK_RATIO_BITS */
+        /** (clock/64/sampling_rate)&lt;&lt;CLOCK_RATIO_BITS */
         public var clock_ratio:int;
         /** 44100Hz=0, 22050Hz=1 */
         public var sampleRatePitchShift:int;

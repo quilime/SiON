@@ -106,7 +106,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Returns events as an Vector.<MMLEvent>. 
+        /** Returns events as an Vector.&lt;MMLEvent&gt;. 
          *  @param lengthLimit maximum length of returning Vector. When this argument set to 0, the Vector includes all events.
          *  @param offset starting index of returning Vector.
          *  @param eventID event id to get. When this argument set to -1, the Vector includes all kind of events.
@@ -126,7 +126,7 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Create sequence from Vector.<MMLEvent>. 
+        /** Create sequence from Vector.&lt;MMLEvent&gt;. 
          *  @param events event list of the sequence.
          */
         public function fromVector(events:Vector.<MMLEvent>) : MMLSequence

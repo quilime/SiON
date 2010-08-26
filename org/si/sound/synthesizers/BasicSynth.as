@@ -160,7 +160,7 @@ package org.si.sound.synthesizers {
         
     // operations
     //----------------------------------------
-        /** set low-pass filter envelop (same as '@f' command in MML).
+        /** set low-pass filter envelop (same as '&#64;f' command in MML).
          *  @param cutoff LP filter cutoff (0-1)
          *  @param resonance LP filter resonance (0-1)
          *  @param far LP filter attack rate (0-63)

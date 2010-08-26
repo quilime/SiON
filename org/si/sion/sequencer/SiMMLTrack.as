@@ -71,7 +71,7 @@ package org.si.sion.sequencer {
         static public const MASK_ENVELOP:int = 16;
         /** mask all modulation commands (ma,mp) */
         static public const MASK_MODULATE:int = 32;
-        /** mask all slur and pitch-bending commands (&,&&,*) */
+        /** mask all slur and pitch-bending commands (&amp;,&amp;&amp;,*) */
         static public const MASK_SLUR:int = 64;
         
         
@@ -94,13 +94,13 @@ package org.si.sion.sequencer {
         public var noteShift:int = 0;
         /** detune, set by k command.  */
         public var pitchShift:int = 0;
-        /** key on delay, set by 2nd argument of #&64;q command.  */
+        /** key on delay, set by 2nd argument of &#64;q command.  */
         public var keyOnDelay:int = 0;
         /** quantize ratio, set by q command, the value is between 0-1.  */
         public var quantRatio:Number = 0;
-        /** quantize count, set by #&64;q command. */
+        /** quantize count, set by &#64;q command. */
         public var quantCount:int = 0;
-        /** Event mask, set by #&64;mask command. */
+        /** Event mask, set by &#64;mask command. */
         public var eventMask:int = 0;
         
         // call back function before noteOn/noteOff
@@ -280,7 +280,7 @@ package org.si.sion.sequencer {
             channel.mute = b;
         }
         
-        /** pannning [-64 - +64]*/
+        /** pannning (-64 - +64)*/
         public function get pan() : int { return channel.pan; }
         public function set pan(p:int) : void { channel.pan = p; }
         
@@ -297,10 +297,10 @@ package org.si.sion.sequencer {
         
         /** Channel number, set by 2nd argument of % command. Usually same as programNumber. @see programNumber */
         public function get channelNumber() : int { return _channelNumber; }
-        /** Program number, set by 2nd argument of % command and 1st arg. of #&64; command. Usually same as channelNumber. @see channelNumber */
+        /** Program number, set by 2nd argument of % command and 1st arg. of &#64; command. Usually same as channelNumber. @see channelNumber */
         public function get programNumber() : int { return _tone; }
         
-        /** output level = @v * v * x. */
+        /** output level = &#64;v * v * x. */
         public function get outputLevel() : Number {
             var vol:int = channel.masterVolume;
             if (vol == 0) return _velocity * _expression * 0.000030517578125; // 0.5/(128^2);
@@ -357,7 +357,7 @@ package org.si.sion.sequencer {
     // interfaces for intaractive operations
     //--------------------------------------------------
         /** Set track callback function. The callback functions are called at the timing of streaming before SiOPMEvent.STREAM event.
-         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8191) as an arguments. When the function returns false, noteOn will be canceled.</br>
+         *  @param noteOn Callback function before note on. This function refers this track instance and new pitch (0-8191) as an arguments. When the function returns false, noteOn will be canceled.<br/>
          *  function callbackNoteOn(track:SiMMLTrack) : Boolean { return true; }
          *  @param noteOff Callback function before note off. This function refers this track instance as an argument. When the function returns false, noteOff will be canceled.<br/>
          *  function callbackNoteOff(track:SiMMLTrack) : Boolean { return true; }
@@ -561,7 +561,7 @@ package org.si.sion.sequencer {
                     currentType:int = _eventTriggerTypeOn;
                 _eventTriggerID = id;
                 _eventTriggerTypeOn = noteOnType;
-                _eventTriggerOn(this, 0);
+                _eventTriggerOn(this);
                 _eventTriggerID = currentTID;
                 _eventTriggerTypeOn = currentType;
             }

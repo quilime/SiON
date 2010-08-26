@@ -15,7 +15,7 @@ package org.si.utils {
     //------------------------------------------------------------
         /** int data */
         public var i:int = 0;
-        /** Nest pointer of list */
+        /** Next pointer of list */
         public var next:SLLint = null;
 
         // free list
@@ -53,24 +53,24 @@ package org.si.utils {
         }
         
         /** Allocator of linked list */
-        static public function allocList(size:int) : SLLint
+        static public function allocList(size:int, defaultData:int=0) : SLLint
         {
-            var ret:SLLint = alloc(),
+            var ret:SLLint = alloc(defaultData),
                 elem:SLLint = ret;
             for (var i:int=1; i<size; i++) {
-                elem.next = alloc();
+                elem.next = alloc(defaultData);
                 elem = elem.next;
             }
             return ret;
         }
         
         /** Allocator of ring-linked list */
-        static public function allocRing(size:int) : SLLint
+        static public function allocRing(size:int, defaultData:int=0) : SLLint
         {
-            var ret:SLLint = alloc(),
+            var ret:SLLint = alloc(defaultData),
                 elem:SLLint = ret;
             for (var i:int=1; i<size; i++) {
-                elem.next = alloc();
+                elem.next = alloc(defaultData);
                 elem = elem.next;
             }
             elem.next = ret;

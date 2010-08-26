@@ -6,8 +6,9 @@
 
 package org.si.sion.utils {
     import org.si.sion.namespaces._sion_internal;
+    import org.si.sion.SiONVoice;
     import org.si.sion.module.*;
-    import org.si.sion.sequencer.SiMMLTable;
+    import org.si.sion.sequencer.*;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
     
@@ -25,8 +26,12 @@ package org.si.sion.utils {
         
     // mckc
     //--------------------------------------------------
-        /** Translate ppmckc mml to SiOPM mml. */
-        static public function mckc(mckcMML:String) : String
+        /** Translate ppmckc mml to SiOPM mml.
+         *  @param mckcMML ppmckc MML text.
+         *  @param volumeByX true to translate volume control to SiON MMLs 'x' command, false to translate to SiON MMLs 'v' command.
+         *  @return translated SiON MML text
+         */
+        static public function mckc(mckcMML:String, volumeByX:Boolean=true) : String
         {
             // If I have motivation ..., or I wish someone who know mck well would do ...
             return mckcMML;
@@ -37,7 +42,11 @@ package org.si.sion.utils {
         
     // tsscp
     //--------------------------------------------------
-        /** Translate pTSSCP mml to SiOPM mml. */
+        /** Translate pTSSCP mml to SiOPM mml. 
+         *  @param tsscpMML TSSCP MML text.
+         *  @param volumeByX true to translate volume control to SiON MMLs 'x' command, false to translate to SiON MMLs 'v' command.
+         *  @return translated SiON MML text
+         */
         static public function tsscp(tsscpMML:String, volumeByX:Boolean=true) : String
         {
             var mml:String, com:String, str1:String, str2:String, i:int, imax:int, volUp:String, volDw:String, rex:RegExp, rex_sys:RegExp, rex_com:RegExp, res:*;
@@ -341,7 +350,11 @@ package org.si.sion.utils {
     //--------------------------------------------------
     // parse effector MML string
     //--------------------------------------------------
-        /** parse effector mml */
+        /** Parse effector mml and return an array of SiEffectBase.
+         *  @param mml Effector MML text.
+         *  @param postfix postfix text.
+         *  @return An array of SiEffectBase.
+         */
         static public function parseEffectorMML(mml:String, postfix:String="") : Array
         {
             var ret:Array, res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
@@ -427,6 +440,13 @@ package org.si.sion.utils {
             return _setMA3ParamByArray(param, _splitDataString(param, dataString, 2, 12, "#MA@"));
         }
         
+        /** parse inside of #AL&#64;{..}; */
+        static public function parseALParam(param:SiOPMChannelParam, dataString:String) : SiOPMChannelParam {
+            return _setALParamByArray(param, _splitDataString(param, dataString, 14, 0, "#AL@"));
+        }
+        
+        
+        
         
     // set by Array
     //--------------------------------------------------
@@ -464,6 +484,14 @@ package org.si.sion.utils {
         static public function setMA3Param(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam {
             return _setMA3ParamByArray(_checkOpeCount(param, data.length, 2, 12, "#MA@"), data);
         }
+        
+        /** set inside of #AL&#64;{..}; */
+        static public function setALParam(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam {
+            if (data.length != 14) throw errorToneParameterNotValid("#LA@", 14, 0);
+            return _setALParamByArray(param, data);
+        }
+        
+        
         
         
         
@@ -504,7 +532,7 @@ package org.si.sion.utils {
         
         // #@
         // alg[0-15], fb[0-7], fbc[0-3], 
-        // (ws[0-1023], ar[0-63], dr[0-63], sr[0-63], rr[0-63], sl[0-15], tl[0-127], ksr[0-3], ksl[0-3], mul[], dt1[0-7], detune[], ams[0-3], phase[-1-255], fixedNote[0-127]) x operator_count
+        // (ws[0-511], ar[0-63], dr[0-63], sr[0-63], rr[0-63], sl[0-15], tl[0-127], ksr[0-3], ksl[0-3], mul[], dt1[0-7], detune[], ams[0-3], phase[-1-255], fixedNote[0-127]) x operator_count
         static private function _setParamByArray(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam
         {
             if (param.opeCount == 0) return param;
@@ -701,11 +729,59 @@ package org.si.sion.utils {
         }
         
 
+        // #AL@
+        // con[0-2], ws1[0-511], ws2[0-511], balance[-63-+63], vco2pitch[]
+        // ar[0-63], dr[0-63], sl[0-15], rr[0-63], cutoff[0-128], resonanse[0-9], far[0-63], fdr[0-63], peak[0-128]
+        static private function _setALParamByArray(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam
+        {
+            var opp0:SiOPMOperatorParam = param.operatorParam[0],
+                opp1:SiOPMOperatorParam = param.operatorParam[1],
+                tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable,
+                con:int = int(data[0]), 
+                balance:int = int(data[3]), 
+                cutoff:int = int(data[9]), 
+                resonance:int = int(data[10]), 
+                peak:int = int(data[13]);
+            if (con<0 || con>2) throw errorParameterNotValid("#AL@ connection type", String(con));
+            if (balance > 64 || balance < -64) throw errorParameterNotValid("#AL@ balance", String(balance));
+            if (cutoff<0 || cutoff>128) throw errorParameterNotValid("#AL@ cutoff", String(cutoff));
+            if (resonance<0 || resonance>9) throw errorParameterNotValid("#AL@ resonance", String(resonance));
+            if (peak<0 || peak>128) throw errorParameterNotValid("#AL@ peak cutoff", String(peak));
+            param.opeCount = 5;
+            param.alg = con;
+            opp0.pgType = (int(data[1])) & 511;
+            opp1.pgType = (int(data[2])) & 511;
+            opp0.tl = tltable[64-balance] >> SiOPMTable.ENV_LSHIFT;
+            opp1.tl = tltable[balance+64] >> SiOPMTable.ENV_LSHIFT;
+            opp0.detune = 0;
+            opp1.detune = data[4];
+            
+            opp0.ar = (int(data[5])) & 63;
+            opp0.dr = (int(data[6])) & 63;
+            opp0.sr = 0;
+            opp0.rr = (int(data[8])) & 15;
+            opp0.sl = (int(data[7])) & 63;
+            
+            param.cutoff = 0;
+            param.resonance = resonance;
+            param.far = (int(data[11])) & 63;
+            param.fdr1 = (int(data[12])) & 63;
+            param.fdr2 = 0;
+            param.frr = 0;
+            param.fdc1 = peak;
+            param.fdc2 = cutoff;
+            param.fsc = cutoff;
+            param.frc = cutoff;
+            
+            return param;
+        }
+        
+        
         
         
     // get by Array
     //--------------------------------------------------
-        /** get inside of #&#64;{..}; */
+        /** get number list inside of #&#64;{..}; */
         static public function getParam(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var res:Array = [param.alg, param.fb, param.fbc];
@@ -717,7 +793,7 @@ package org.si.sion.utils {
         }
         
         
-        /** get inside of #OPL&#64;{..}; */
+        /** get number list inside of #OPL&#64;{..}; */
         static public function getOPLParam(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var alg:int = _checkAlgorism(param.opeCount, param.alg, SiMMLTable.instance.alg_opl);
@@ -735,7 +811,7 @@ package org.si.sion.utils {
         }
         
         
-        /** get inside of #OPM&#64;{..}; */
+        /** get number list inside of #OPM&#64;{..}; */
         static public function getOPMParam(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var alg:int = _checkAlgorism(param.opeCount, param.alg, SiMMLTable.instance.alg_opm);
@@ -750,7 +826,7 @@ package org.si.sion.utils {
         }
         
         
-        /** get inside of #OPN&#64;{..}; */
+        /** get number list inside of #OPN&#64;{..}; */
         static public function getOPNParam(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var alg:int = _checkAlgorism(param.opeCount, param.alg, SiMMLTable.instance.alg_opm);
@@ -764,7 +840,7 @@ package org.si.sion.utils {
         }
         
         
-        /** get inside of #OPX&#64;{..}; */
+        /** get number list inside of #OPX&#64;{..}; */
         static public function getOPXParam(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var alg:int = _checkAlgorism(param.opeCount, param.alg, SiMMLTable.instance.alg_opx);
@@ -780,7 +856,7 @@ package org.si.sion.utils {
         }
         
         
-        /** get inside of #MA&#64;{..}; */
+        /** get number list inside of #MA&#64;{..}; */
         static public function getMA3Param(param:SiOPMChannelParam) : Array {
             if (param.opeCount == 0) return null;
             var alg:int = _checkAlgorism(param.opeCount, param.alg, SiMMLTable.instance.alg_ma3);
@@ -797,12 +873,28 @@ package org.si.sion.utils {
         }
         
         
+        /** get number list inside of #AL&#64;{..}; */
+        static public function getALParam(param:SiOPMChannelParam) : Array {
+            if (param.opeCount != 5) return null;
+            var opp0:SiOPMOperatorParam = param.operatorParam[0],
+                opp1:SiOPMOperatorParam = param.operatorParam[1];
+            return [param.alg, opp0.pgType, opp1.pgType, _balanceAL(opp0.tl, opp1.tl), opp1.detune,
+                    opp0.ar, opp0.dr, opp0.sl, opp0.rr, param.fdc2, param.resonance, param.far, param.fdr1, param.fdc1];
+        }
+        
+        
         
         
     // reconstruct MML string from channel parameters
     //--------------------------------------------------
-        /** reconstruct mml text inside of #&#64;{..}; */
-        static public function mmlParam(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #&#64;{..}.
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -811,7 +903,10 @@ package org.si.sion.utils {
             mml += String(param.alg) + separator;
             mml += String(param.fb)  + separator;
             mml += String(param.fbc);
-            if (comment) mml += "// " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
                 var opp:SiOPMOperatorParam = param.operatorParam[opeIndex];
                 mml += lineEnd;
@@ -831,14 +926,20 @@ package org.si.sion.utils {
                 mml += _str(opp.phase, res.ph) + separator
                 mml += _str(opp.fixedPitch>>6, res.fn);
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
         }
         
         
-        /** reconstruct mml text inside of #OPL&#64;{..}; */
-        static public function mmlOPLParam(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #OPL&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlOPLParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -847,7 +948,10 @@ package org.si.sion.utils {
             
             var mml:String = "", res:* = _checkDigit(param);
             mml += "{" + String(alg) + separator + String(param.fb);
-            if (comment) mml += "  // " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
                 
             var pgType:int, tl:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
@@ -867,14 +971,20 @@ package org.si.sion.utils {
                 mml += _str(opp.mul, 2) + separator;                // mul
                 mml += String(opp.ams);                             // ams
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
         }
         
         
-        /** reconstruct mml text inside of #OPM&#64;{..}; */
-        static public function mmlOPMParam(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #OPM&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlOPMParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -883,7 +993,10 @@ package org.si.sion.utils {
             
             var mml:String = "", res:* = _checkDigit(param);
             mml += "{" + String(alg) + separator + String(param.fb);
-            if (comment) mml += "  // " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
                 
             var pgType:int, tl:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
@@ -902,14 +1015,20 @@ package org.si.sion.utils {
                 mml += String(_dt2OPM(opp.detune)) + separator; // dt2
                 mml += String(opp.ams);                         // ams
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
         }
         
         
-        /** reconstruct mml text inside of #OPN&#64;{..}; */
-        static public function mmlOPNParam(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #OPN&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlOPNParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -918,7 +1037,10 @@ package org.si.sion.utils {
             
             var mml:String = "", res:* = _checkDigit(param);
             mml += "{" + String(alg) + separator + String(param.fb);
-            if (comment) mml += "  // " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
 
             var pgType:int, tl:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
@@ -934,16 +1056,22 @@ package org.si.sion.utils {
                 mml += String(opp.ksl) + separator;         // ksl
                 mml += _str(opp.mul, 2) + separator;        // mul
                 mml += String(opp.dt1) + separator;         // dt1
-                mml += String(opp.ams) + separator;         // ams
+                mml += String(opp.ams);                     // ams
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
         }
         
         
-        /** reconstruct mml text inside of #OPX&#64;{..}; */
-        static public function mmlOPXParam(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #OPX&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlOPXParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -952,7 +1080,10 @@ package org.si.sion.utils {
             
             var mml:String = "", res:* = _checkDigit(param);
             mml += "{" + String(alg) + separator + String(param.fb);
-            if (comment) mml += "  // " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
             
             var pgType:int, tl:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
@@ -973,14 +1104,20 @@ package org.si.sion.utils {
                 mml += _str(opp.detune, res.dt) + separator;    // det
                 mml += String(opp.ams);                         // ams
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
         }
         
         
-        /** reconstruct mml text inside of #MA&#64;{..}; */
-        static public function mmlMA3Param(param:SiOPMChannelParam, separator:String, lineEnd:String, comment:String=null) : String
+        /** reconstruct mml text of #MA&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlMA3Param(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
         {
             if (param.opeCount == 0) return "";
             
@@ -989,7 +1126,10 @@ package org.si.sion.utils {
             
             var mml:String = "", res:* = _checkDigit(param);
             mml += "{" + String(alg) + separator + String(param.fb);
-            if (comment) mml += "  // " + comment;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
             
             var pgType:int, tl:int;
             for (var opeIndex:int=0; opeIndex<param.opeCount; opeIndex++) {
@@ -997,7 +1137,7 @@ package org.si.sion.utils {
                 mml += lineEnd;
                 pgType = _pgTypeMA3(opp.pgType);
                 if (pgType == -1) throw errorParameterNotValid("#MA@", "SiOPM ws" + String(opp.pgType));
-                mml += String(pgType) + separator;                  // ws
+                mml += _str(pgType, 2) + separator;                 // ws
                 mml += _str(opp.ar >> 2, 2) + separator;            // ar
                 mml += _str(opp.dr >> 2, 2) + separator;            // dr
                 mml += _str(opp.sr >> 2, 2) + separator;            // sr
@@ -1010,9 +1150,283 @@ package org.si.sion.utils {
                 mml += String(opp.dt1) + separator;                 // dt1
                 mml += String(opp.ams);                             // ams
             }
-            mml += "}" + _initSequence(param);
+            mml += "}";
             
             return mml;
+        }
+        
+        
+        
+        /** reconstruct mml text of #AL&#64;{..}; 
+         *  @param param SiOPMChannelParam for MML reconstruction
+         *  @param separator String to separate each number
+         *  @param lineEnd String to separate line end
+         *  @param comment comment text inserting after 'fbc' number
+         *  @return text formatted as "{..}".
+         */
+        static public function mmlALParam(param:SiOPMChannelParam, separator:String=' ', lineEnd:String='\n', comment:String=null) : String
+        {
+            if (param.opeCount != 5) return null;
+            
+            var opp0:SiOPMOperatorParam = param.operatorParam[0],
+                opp1:SiOPMOperatorParam = param.operatorParam[1],
+                mml:String = "";
+            mml += "{" + String(param.alg) + separator;
+            mml += String(opp0.pgType) + separator;
+            mml += String(opp1.pgType) + separator;
+            mml += String(_balanceAL(opp0.tl, opp1.tl)) + separator;
+            mml += String(opp1.detune) + separator;
+            if (comment) {
+                if (lineEnd == '\n') mml += " // " + comment;
+                else mml += "/* " + comment + " */";
+            }
+            mml += lineEnd + String(opp0.ar) + separator;
+            mml += String(opp0.dr) + separator;
+            mml += String(opp0.sl) + separator;
+            mml += String(opp0.rr) + separator;
+            mml += String(param.fdc2) + separator;
+            mml += String(param.resonance) + separator;
+            mml += String(param.far) + separator;
+            mml += String(param.fdr1) + separator;
+            mml += String(param.fdc1);
+            mml += "}";
+            
+            return mml;
+        }
+        
+        
+        
+        
+    // Voice parameters (filter, lfo, portament, gate time, sweep)
+    //------------------------------------------------------------
+        /** parse voice setting mml */
+        static public function parseVoiceSetting(voice:SiMMLVoice, mml:String) : SiMMLVoice {
+                            //1                2    3 4      5 6      7 8      9 10     1112     1314     1516     1718     1920
+            var rex:RegExp = /(@f|ma|mp|po|q|s)(\d*)(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?/g;
+            var res:* = rex.exec(mml);
+            var param:SiOPMChannelParam = voice.channelParam;
+            while (res) {
+                switch(res[1]) {
+                case '@f':
+                    param.cutoff    = (res[2])  ? int(res[2])  : 128;
+                    param.resonance = (res[4])  ? int(res[4])  : 0;
+                    param.far       = (res[6])  ? int(res[6])  : 0;
+                    param.fdr1      = (res[8])  ? int(res[8])  : 0;
+                    param.fdr2      = (res[10]) ? int(res[10]) : 0;
+                    param.frr       = (res[12]) ? int(res[12]) : 0;
+                    param.fdc1      = (res[14]) ? int(res[14]) : 128;
+                    param.fdc2      = (res[16]) ? int(res[16]) : 64;
+                    param.fsc       = (res[18]) ? int(res[18]) : 32;
+                    param.frc       = (res[20]) ? int(res[20]) : 128;
+                    break;
+                case '@lfo':
+                    param.lfoFrame = (res[2]) ? int(res[2]) : 30;
+                    param.lfoWaveShape = (res[4]) ? int(res[4]) : SiOPMTable.LFO_WAVE_TRIANGLE;
+                    break;
+                case 'ma':
+                    voice.amDepth    = (res[2]) ? int(res[2]) : 0;
+                    voice.amDepthEnd = (res[4]) ? int(res[4]) : 0;
+                    voice.amDelay    = (res[6]) ? int(res[6]) : 0;
+                    voice.amTerm     = (res[8]) ? int(res[8]) : 0;
+                    param.amd = voice.amDepth;
+                    break;
+                case 'mp':
+                    voice.pmDepth    = (res[2]) ? int(res[2]) : 0;
+                    voice.pmDepthEnd = (res[4]) ? int(res[4]) : 0;
+                    voice.pmDelay    = (res[6]) ? int(res[6]) : 0;
+                    voice.pmTerm     = (res[8]) ? int(res[8]) : 0;
+                    param.pmd = voice.pmDepth;
+                    break;
+                case 'po':
+                    voice.portament = (res[2]) ? int(res[2]) : 30;
+                    break;
+                case 'q':
+                    voice.gateTime = (res[2]) ? (int(res[2])*0.125) : Number.NaN;
+                    break;
+                case 's':
+                    voice.releaseSweep = (res[4]) ? int(res[4]) : 0;
+                    break;
+                }
+                res = rex.exec(mml);
+            }
+            return voice;
+        }
+        
+        /** reconstruct voice setting mml */
+        static public function mmlVoiceSetting(voice:SiMMLVoice) : String {
+            var mml:String = "", param:SiOPMChannelParam = voice.channelParam;
+            if (param.cutoff<128 || param.resonance>0 || param.far>0 || param.frr>0) {
+                mml += "@f" + String(param.cutoff) + "," + String(param.resonance);
+                if (param.far>0 || param.frr>0) {
+                    mml += "," + String(param.far)  + "," + String(param.fdr1) + "," + String(param.fdr2) + "," + String(param.frr);
+                    mml += "," + String(param.fdc1) + "," + String(param.fdc2) + "," + String(param.fsc)  + "," + String(param.frc);
+                }
+            }
+            if (voice.amDepth > 0 || voice.amDepthEnd > 0 || param.amd > 0 || voice.pmDepth > 0 || voice.pmDepthEnd > 0 || param.pmd > 0) {
+                var lfo:int = param.lfoFrame, ws:int = param.lfoWaveShape;
+                if (lfo != 30 || ws != SiOPMTable.LFO_WAVE_TRIANGLE) {
+                    mml += "@lfo" + String(lfo);
+                    if (ws != SiOPMTable.LFO_WAVE_TRIANGLE) mml += "," + String(ws);
+                }
+                if (voice.amDepth > 0 || voice.amDepthEnd > 0) {
+                    mml += "ma" + String(voice.amDepth);
+                    if (voice.amDepthEnd > 0) mml += "," + String(voice.amDepthEnd);
+                    if (voice.amDelay > 0 || voice.amTerm > 0) mml += "," + String(voice.amDelay);
+                    if (voice.amTerm > 0) mml += "," + String(voice.amTerm);
+                } else if (param.amd > 0) {
+                    mml += "ma" + String(param.amd);
+                }
+                if (voice.pmDepth > 0 || voice.pmDepthEnd > 0) {
+                    mml += "mp" + String(voice.pmDepth);
+                    if (voice.pmDepthEnd > 0) mml += "," + String(voice.pmDepthEnd);
+                    if (voice.pmDelay > 0 || voice.pmTerm > 0) mml += "," + String(voice.pmDelay);
+                    if (voice.pmTerm > 0) mml += "," + String(voice.pmTerm);
+                } else if (param.pmd > 0) {
+                    mml += "mp" + String(param.pmd);
+                }
+            }
+            if (voice.portament > 0) mml += "po" + String(voice.portament);
+            if (!isNaN(voice.gateTime)) mml += "q" + String(int(voice.gateTime*8));
+            if (voice.releaseSweep > 0) mml += "s," + String(voice.releaseSweep);
+            
+            return mml;
+        }
+        
+        
+        
+        
+    // register data
+    //--------------------------------------------------
+        /** set SiONVoice list by OPM register data
+         *  @param regData int vector of register data.
+         *  @param address address of the first data in regData
+         *  @param enableLFO flag to enable LFO parameters
+         *  @param voiceSet voice list to set parameters. When this argument is null, returning voices are allocated inside.
+         *  @return voice list pick up values from register data.
+         */
+        public function setOPMVoicesByRegister(regData:Vector.<int>, address:int, enableLFO:Boolean=false, voiceSet:Array=null) : Array
+        {
+            var i:int, imax:int, value:int, index:int, v:int, ams:int, pms:int, 
+                chp:SiOPMChannelParam, opp:SiOPMOperatorParam, opi:int, _pmd:int=0, _amd:int=0, 
+                opia:Array = [0,2,1,3], table:SiOPMTable = SiOPMTable.instance;
+            
+            // initialize result voice list
+            voiceSet = voiceSet || [];
+            for (opi=0; opi<8; opi++) { 
+                if (voiceSet[opi]) voiceSet[opi].initialize();
+                else voiceSet[opi] = new SiONVoice();
+                voiceSet[opi].opeCount = 4;
+                voiceSet[opi].chipType = SiONVoice.CHIPTYPE_OPM;
+            }
+            
+            // pick up parameters from register data
+            imax = regData.length;
+            for (i=0; i<imax; i++, address++) {
+                value = regData[i];
+                chp = voiceSet[address & 7].channelParam;
+                
+                // Module parameter
+                if (address < 0x20) {
+                    switch(address) {
+                    case 1:  // TEST:7-2 LFO RESET:1
+                        break;
+                    case 8:  // (KEYON) MUTE:7 OP0:6 OP1:5 OP2:4 OP3:3 CH:2-0
+                        break;
+                    case 15: // NOIZE:7 FREQ:4-0
+                        if (value & 128) {
+                            voiceSet[7].channelParam.opeParam[3].setPGType(SiOPMTable.PG_NOISE_PULSE);
+                            voiceSet[7].channelParam.opeParam[3].fixedPitch = ((value & 31) << 6) + 2048;
+                        }
+                        break;
+                    case 16: // TIMER AH:7-0
+                        break;
+                    case 17: // TIMER AL:10
+                        break;
+                    case 18: // TIMER B :7-0
+                        break;
+                    case 19: // TIMER FUNC ?
+                        break;
+                    case 24: // LFO FREQ:7-0
+                        if (enableLFO) {
+                            v = table.lfo_timerSteps[value];
+                            for (opi=0; opi<8; opi++) { voiceSet[opi].lfoFreqStep = v; }
+                        }
+                        break;
+                    case 25: // A(0)/P(1):7 DEPTH:6-0
+                        if (enableLFO) {
+                            if (value & 128) _pmd = value & 127;
+                            else             _amd = value & 127;
+                        }
+                        break;
+                    case 27: // LFO WS:10
+                        if (enableLFO) {
+                            v = value & 3;
+                            for (opi=0; opi<8; opi++) { voiceSet[opi].lfoWaveShape = v; }
+                        }
+                        break;
+                    }
+                } else 
+
+                // Channel parameter
+                if (address < 0x40) {
+                    switch((address-0x20) >> 3) {
+                    case 0: // L:7 R:6 FB:5-3 ALG:2-0
+                        v = value >> 6;
+                        chp.volumes[0] = (v) ? 0.5 : 0;
+                        chp.pan = (v==1) ? 128 : (v==2) ? 0 : 64;
+                        chp.fb  = (value >> 3) & 7;
+                        chp.alg = (value     ) & 7;
+                        break;
+                    case 1: // KC:6-0
+                        // channel.kc = value & 127
+                        break;
+                    case 2: // KF:6-0
+                        // channel.keyFraction = value & 127
+                        break;
+                    case 3: // PMS:6-4 AMS:10
+                        if (enableLFO) {
+                            pms = (value >> 4) & 7;
+                            ams = (value     ) & 3;
+                            chp.pmd = (pms<6) ? (_pmd >> (6-pms)) : (_pmd << (pms-5));
+                            chp.amd = (ams>0) ? (_amd << (ams-1)) : 0;
+                        }
+                        break;
+                    }
+                } else 
+                
+                // Operator parameter
+                {
+                    index = opia[(address >> 3) & 3];
+                    opp = chp.operatorParam[index];
+                    switch((address-0x40) >> 5) {
+                    case 0: // DT1:6-4 MUL:3-0
+                        opp.dt1 = (value >> 4) & 7;
+                        opp.mul = (value     ) & 15;
+                        break;
+                    case 1: // TL:6-0
+                        opp.tl = value & 127;
+                        break;
+                    case 2: // KS:76 AR:4-0
+                        opp.ksr = (value >> 6) & 3;
+                        opp.ar  = (value & 31) << 1;
+                        break;
+                    case 3: // AMS:7 DR:4-0
+                        opp.ams = ((value >> 7) & 1)<<1;
+                        opp.dr  = (value & 31) << 1;
+                        break;
+                    case 4: // DT2:76 SR:4-0
+                        opp.detune = table.dt2Table[(value >> 6) & 3];
+                        opp.sr     = (value & 31) << 1;
+                        break;
+                    case 5: // SL:7-4 RR:3-0
+                        opp.sl = (value >> 4) & 15;
+                        opp.rr = (value & 15) << 2;
+                        break;
+                    }
+                }
+            }
+            
+            return voiceSet;
         }
         
         
@@ -1067,7 +1481,7 @@ package org.si.sion.utils {
         }
         
         
-        // find dt2 value
+        // find nearest dt2 value
         static private function _dt2OPM(detune:int) : int {
                  if (detune <= 100) return 0;   // 0
             else if (detune <= 420) return 1;   // 384
@@ -1076,18 +1490,17 @@ package org.si.sion.utils {
         }
         
         
-        // reconstruct initializing sequence
-        static private function _initSequence(param:SiOPMChannelParam) : String {
-            var mml:String = "";
-            if (param.cutoff<128 || param.resonance>0 || param.far>0 || param.frr>0) {
-                mml += "@f" + String(param.cutoff) + "," + String(param.resonance);
-                if (param.far>0 || param.frr>0) {
-                    mml += "," + String(param.far)  + "," + String(param.fdr1) + "," + String(param.fdr2) + "," + String(param.frr);
-                    mml += "," + String(param.fdc1) + "," + String(param.fdc2) + "," + String(param.fsc)  + "," + String(param.frc);
-                }
-            }
-            return mml;
+        // find nearest balance value from opp0.tl and opp1.tl
+        static private function _balanceAL(tl0:int, tl1:int) : int {
+            if (tl0 == tl1) return 0;
+            if (tl0 == 0) return -64;
+            if (tl1 == 0) return 64;
+            var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable, i:int;
+            tl0 <<= SiOPMTable.ENV_LSHIFT;
+            for (i=1; i<128; i++) if (tl0 >= tltable[i]) return i-64;
+            return 64;
         }
+        
         
         
         

@@ -22,15 +22,14 @@ package org.si.sion.effector {
         
         
         /** instance */
-        static public var instance:SiEffectTable;
+        static private var _instance:SiEffectTable = null;
         
         
         /** static initializer */
-        static public function initialize() : void
+        static public function get instance():SiEffectTable
         {
-            if (instance == null) {
-                instance = new SiEffectTable();
-            }
+            if (_instance == null) _instance = new SiEffectTable();
+            return _instance;
         }
     }
 }

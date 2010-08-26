@@ -11,7 +11,8 @@ package org.si.sion.module.channels {
     import org.si.sion.module.*;
     
     
-    /** FM sound channel. <p>
+    /** FM sound channel. 
+     *  <p>
      *  The calculation of this class is based on OPM emulation (refer from sources of mame, fmgen and x68sound).
      *  And it has some extension to simulate other sevral fm sound modules (OPNA, OPLL, OPL2, OPL3, OPX, MA3, MA5, MA7, TSS and DX7).
      *  <ul>
@@ -169,7 +170,7 @@ package org.si.sion.module.channels {
         
         
         /** Amplitude modulation.
-         *  @param depth depth = (ams) ? (amd << (ams-1)) : 0;
+         *  @param depth depth = (ams) ? (amd &lt;&lt; (ams-1)) : 0;
          */
         override public function setAmplitudeModulation(depth:int) : void
         {
@@ -180,7 +181,7 @@ package org.si.sion.module.channels {
         
         
         /** Pitch modulation.
-         *  @param depth depth = (pms<6) ? (pmd >> (6-pms)) : (pmd << (pms-5));
+         *  @param depth depth = (pms&lt;6) ? (pmd &gt;&gt; (6-pms)) : (pmd &lt;&lt; (pms-5));
          */
         override public function setPitchModulation(depth:int) : void
         {
@@ -497,7 +498,7 @@ package org.si.sion.module.channels {
         }
         
         
-        /** pgType & ptType (&#64;) */
+        /** pgType and ptType (&#64;) */
         override public function setType(pgType:int, ptType:int) : void
         {
             if (pgType >= SiOPMTable.PG_PCM) {
@@ -535,7 +536,7 @@ package org.si.sion.module.channels {
         
     // interfaces
     //--------------------------------------------------
-        /** pitch = (note << 6) | (kf & 63) [0,8191] */
+        /** pitch = (note &lt;&lt; 6) | (kf &amp; 63) [0,8191] */
         override public function get pitch() : int { return operator[_operatorCount-1].pitchIndex; }
         override public function set pitch(p:int) : void {
             for (var i:int=0; i<_operatorCount; i++) {
@@ -1865,6 +1866,7 @@ package org.si.sion.module.channels {
             _funcProcessType = PROC_ANA + _algorism;
             _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
         }
+        
         
     // SiOPMOperator factory
     //--------------------------------------------------

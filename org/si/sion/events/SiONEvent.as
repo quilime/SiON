@@ -19,7 +19,7 @@ package org.si.sion.events {
     //----------------------------------------
         /** Dispatch when executing queued jobs.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true; Cancel compiling/rendering immediately.</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance compiling/rendering compiling now.</td></tr>
@@ -34,7 +34,7 @@ package org.si.sion.events {
         
         /** Dispatch when finish all queued jobs.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance compiled/rendered.</td></tr>
@@ -49,7 +49,7 @@ package org.si.sion.events {
         
         /** Dispatch when cancel all queued jobs.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance compiled/rendered.</td></tr>
@@ -64,7 +64,7 @@ package org.si.sion.events {
         
         /** Dispatch while streaming. This event is called inside SiONDriver.play() after SiONEvent.STREAM_START, and each streaming timing.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true; Stop streaming. SiONDriver.stop() s called inside</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance playing now.</td></tr>
@@ -78,7 +78,7 @@ package org.si.sion.events {
         
         /** Dispatch when start streaming. This event is called inside SiONDriver.play() before SiONEvent.STREAM.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true; Cancel to start streaming.</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance to start streaming.</td></tr>
@@ -92,7 +92,7 @@ package org.si.sion.events {
         
         /** Dispatch when stop streaming. This event is dispatched inside SiONDriver.stop().
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
@@ -106,7 +106,7 @@ package org.si.sion.events {
         
         /** Dispatch when finish executing all sequences.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance playing now.</td></tr>
@@ -120,7 +120,7 @@ package org.si.sion.events {
         
         /** Dispatch while fading. This event is dispatched after SiONEvent.STREAM.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true to cancel fading.</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
@@ -134,7 +134,7 @@ package org.si.sion.events {
         
         /** Dispatch when fade in is finished. This event is dispatched after SiONEvent.STREAM.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>
@@ -148,7 +148,7 @@ package org.si.sion.events {
         
         /** Dispatch when fade out is finished. This event is dispatched after SiONEvent.STREAM.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance to stop streaming.</td></tr>

@@ -218,7 +218,7 @@ package org.si.sion.sequencer {
     // operations
     //--------------------------------------------------
         /** Register envelop table.
-         *  @param index table number refered by @@,na,np,nt,nf,_@@,_na,_np,_nt and _nf.
+         *  @param index table number refered by &#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt and _nf.
          *  @param table envelop table.
          */
         static public function registerMasterEnvelopTable(index:int, table:SiMMLEnvelopTable) : void

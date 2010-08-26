@@ -76,7 +76,7 @@ package org.si.sion.module {
     // constructor
     //----------------------------------------
         /** constructor 
-         *  @param data wave data, Sound or Vector.<Number>. The Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound or Vector.&lt;Number&gt;. The Sound is extracted when the length is shorter than 4[sec].
          *  @param ignoreNoteOff flag to ignore note off
          *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
          */
@@ -92,7 +92,7 @@ package org.si.sion.module {
     // oprations
     //----------------------------------------
         /** initialize 
-         *  @param data wave data, Sound or Vector.<Number>. The Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound or Vector.&lt;Number&gt;. The Sound is extracted when the length is shorter than 4[sec].
          *  @param ignoreNoteOff flag to ignore note off
          *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
          *  @return this instance.

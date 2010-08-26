@@ -33,6 +33,7 @@ package org.si.utils {
         
         
         
+        
     // constructor
     //------------------------------------------------------------
         /** Constructor */
@@ -54,6 +55,7 @@ package org.si.utils {
         /** load */
         public function load(url:URLRequest) : void
         {
+            _loader.close();
             _bytesTotal = 0;
             _bytesLoaded = 0;
             _isLoadCompleted = false;

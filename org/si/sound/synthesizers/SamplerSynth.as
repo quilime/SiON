@@ -47,7 +47,7 @@ package org.si.sound.synthesizers {
     // constructor
     //----------------------------------------
         /** constructor 
-         *  @param data wave data, Sound or Vector.<Number>, the Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound or Vector.&lt;Number&gt;, the Sound is extracted when the length is shorter than 4[sec].
          *  @param ignoreNoteOff flag to ignore note off
          *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
          */
@@ -92,7 +92,7 @@ package org.si.sound.synthesizers {
         
         
         /** Set sample with key range.
-         *  @param data wave data, Sound or Vector.<Number> can be set, the Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted when the length is shorter than 4[sec].
          *  @param ignoreNoteOff flag to ignore note off
          *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
          *  @param keyRangeFrom Assigning key range starts from

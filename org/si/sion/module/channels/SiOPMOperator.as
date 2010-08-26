@@ -10,14 +10,12 @@ package org.si.sion.module.channels {
     
     
     /** SiOPM operator class.
-     *  <p>
      *  This operator based on the OPM emulation of MAME, but its extended in below points,<br/>
      *  1) You can set the phase offest of pulse generator. <br/>
      *  2) You can select the wave form from some wave tables (see class SiOPMTable).<br/>
      *  3) You can set the key scale level.<br/>
      *  4) You can fix the pitch.<br/>
      *  5) You can set the ssgec in OPNA.<br/>
-     *  </p>
      */
     public class SiOPMOperator
     {
@@ -63,7 +61,7 @@ package org.si.sion.module.channels {
         internal var _ks:int;
         /** @private Key scaling level [0,3] */
         internal var _ksl:int;
-        /** @private _multiple = (mul) ? (mul<<7) : 64; [64,128,256,384,512...] */
+        /** @private _multiple = (mul) ? (mul&lt;&lt;7) : 64; [64,128,256,384,512...] */
         internal var _multiple:int;
         /** @private dt1 [0,7]. */
         internal var _dt1:int;
@@ -71,7 +69,7 @@ package org.si.sion.module.channels {
         internal var _dt2:int;
         /** @private Amp modulation shift [16,0] */
         internal var _ams:int;
-        /** @private Key code = oct<<4 + note [0,127] */
+        /** @private Key code = oct&lt;&lt;4 + note [0,127] */
         internal var _kc:int;
         /** @private SSG type envelop control */
         internal var _ssg_type:int;
@@ -121,7 +119,7 @@ package org.si.sion.module.channels {
     // envelop generator
         /** @private State [EG_ATTACK, EG_DECAY, EG_SUSTAIN, EG_RELEASE, EG_OFF] */
         internal var _eg_state:int;
-        /** @private Envelop generator updating timer, initialized (2047 * 3) << CLOCK_RATIO_BITS. */
+        /** @private Envelop generator updating timer, initialized (2047 * 3) &lt;&lt; CLOCK_RATIO_BITS. */
         internal var _eg_timer:int;
         /** @private Timer stepping by samples */
         internal var _eg_timer_step:int;
@@ -129,7 +127,7 @@ package org.si.sion.module.channels {
         internal var _eg_counter:int;
         /** @private Internal sustain level [0,SiOPMTable.ENV_BOTTOM] */
         internal var _eg_sustain_level :int;
-        /** @private Internal total level [0,1024] = ((tl + f(kc, ksl)) << 3) + _eg_tl_offset + 192. */
+        /** @private Internal total level [0,1024] = ((tl + f(kc, ksl)) &lt;&lt; 3) + _eg_tl_offset + 192. */
         internal var _eg_total_level:int;
         /** @private Internal total level offset by volume [-192,832]*/
         internal var _eg_tl_offset:int;
@@ -139,7 +137,7 @@ package org.si.sion.module.channels {
         internal var _eg_key_scale_level_rshift:int;
         /** @private Envelop generator level [0,1024] */
         internal var _eg_level:int;
-        /** @private Envelop generator output [0,1024<<3] */
+        /** @private Envelop generator output [0,1024&lt;&lt;3] */
         internal var _eg_out:int;
         /** @private SSG envelop control ar switch */
         internal var _eg_ssgec_ar:int;
@@ -329,7 +327,7 @@ package org.si.sion.module.channels {
                 _pitchFixed = false;
             }
         }
-        /** pitchIndex = (note << 6) | (kf & 63) [0,8191] */
+        /** pitchIndex = (note &lt;&lt; 6) | (kf &amp; 63) [0,8191] */
         public function set pitchIndex(i:int) : void
         {
             if (_pitchFixed) return;

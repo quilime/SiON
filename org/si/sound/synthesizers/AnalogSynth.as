@@ -101,10 +101,10 @@ package org.si.sound.synthesizers {
         }
         
         
-        /** mixing balance of 2 oscillators (0<->1), 0=1st only, 0.5=same volume, 1=2nd only. */
+        /** mixing balance of 2 oscillators (0-1), 0=1st only, 0.5=same volume, 1=2nd only. */
         public function get balance() : Number { return (_intBalance+64) * 0.0078125; }
         public function set balance(b:Number) : void {
-            _intBalance = int(balance * 128) - 64;
+            _intBalance = int(b * 128) - 64;
             if (_intBalance > 64) _intBalance = 64;
             else if (_intBalance < -64) _intBalance = -64;
             var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable;
@@ -204,7 +204,7 @@ package org.si.sound.synthesizers {
          *  @param connectionType Connection type, 0=normal, 1=ring, 2=sync.
          *  @param ws1 Wave shape for osc1.
          *  @param ws2 Wave shape for osc2.
-         *  @param balance mixing balance of 2 osccilators (0<->1), 0=1st only, 0.5=same volume, 1=2nd only.
+         *  @param balance mixing balance of 2 osccilators (0-1), 0=1st only, 0.5=same volume, 1=2nd only.
          *  @param vco2pitch pitch difference in osc1 and 2. 1 for halftone.
          */
         function AnalogSynth(connectionType:int=0, ws1:int=1, ws2:int=1, balance:Number=0.5, vco2pitch:Number=0.1)

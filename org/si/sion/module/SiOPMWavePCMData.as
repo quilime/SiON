@@ -52,7 +52,7 @@ package org.si.sion.module {
     // constructor
     //----------------------------------------
         /** Constructor. 
-         *  @param data wave data, Sound, Vector.<Number> or Vector.<int>. The Sound is extracted inside.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt;. The Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (octave 5 as 44.1kHz)
          */
         function SiOPMWavePCMData(data:*=null, samplingOctave:int=5)
@@ -67,7 +67,7 @@ package org.si.sion.module {
     // oprations
     //----------------------------------------
         /** Initializer.
-         *  @param data wave data, Sound, Vector.<Number> or Vector.<int>. The Sound is extracted inside.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt;. The Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (specified octave as 44.1kHz)
          *  @return this instance.
          */

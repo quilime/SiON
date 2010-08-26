@@ -117,7 +117,16 @@ package org.si.sion.sequencer.base {
         /** Reset pointer to sequence head */
         public function resetPointer() : void
         {
-            if (_sequence) pointer = _sequence.headEvent.next;
+            if (_sequence) {
+                pointer = _sequence.headEvent.next;
+                _endRepeatCounter = 0;
+                _repeatPoint = null;
+                SLLint.freeList(_repeatCounter);
+                _repeatCounter = null;
+                _currentTickCount = 0;
+                _residueSampleCount = 0;
+                _decimalFractionSampleCount = 0;
+            }
         }
         
 

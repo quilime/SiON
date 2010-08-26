@@ -151,8 +151,8 @@ package org.si.sound {
             _pattern = new Vector.<Note>();
             
             _changePatternOnSegment = false;
-            if (chord is Chord) this.scale = chord as Chord;
-            else if (chord is String) this.chordName = chord as String;
+            if (chord is String) this.chordName = chord as String;
+            else this.scale = chord as Chord;
             this.patternNumber = patternNumber;
             _changePatternOnSegment = changePatternOnSegment;
             

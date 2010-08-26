@@ -101,7 +101,7 @@ package org.si.sion.module {
         }
         
         
-        /** write buffer by Vector.<Number> */
+        /** write buffer by Vector.&lt;Number&gt; */
         public function writeVectorNumber(pointer:Vector.<Number>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
         {
             var i:int, j:int, n:Number, jmax:int, volL:Number, volR:Number;

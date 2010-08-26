@@ -41,7 +41,7 @@ package org.si.sound.synthesizers {
     // constructor
     //----------------------------------------
         /** constructor
-         *  @param data wave data, Sound or Vector.<Number> can be set, the Sound is extracted inside.
+         *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
          */
         function PCMSynth(data:*=null, samplingOctave:int=5)
@@ -85,7 +85,7 @@ package org.si.sound.synthesizers {
         
         
         /** Set PCM sample with key range (this feature is not available in currennt version).
-         *  @param data wave data, Sound or Vector.<Number> can be set, the Sound is extracted inside.
+         *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".

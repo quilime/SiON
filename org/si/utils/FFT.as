@@ -36,8 +36,8 @@ var magnitude:Vector.&lt;Number&gt; = new Vector.&lt;Number&gt;(512);   // resul
 var phase    :Vector.&lt;Number&gt; = new Vector.&lt;Number&gt;(512);   // result vector for phase (half size of source)
 
 // complex source data
-for (var i:int=0; i<1024; i+=2) {
-    source[i]   = (i<512) ? -1 : 1;     // even members for real part 
+for (var i:int=0; i&lt;1024; i+=2) {
+    source[i]   = (i&lt;512) ? -1 : 1;     // even members for real part 
     source[i+1] = 0;                    // odd members for imaginal part
 }
 
@@ -71,7 +71,7 @@ var fft:FFT = new FFT(1024);    // specify source data length (must be 2^n)
     
 // real number source
 var source:Vector.&lt;Number&gt; = new Vector.&lt;Number&gt;(1024);
-for (var i:int=0; i<1024; i++) {
+for (var i:int=0; i&lt;1024; i++) {
     source[i] = 1-i/512;        // simple real number vector
 }
 

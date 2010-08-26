@@ -16,9 +16,9 @@ package org.si.sion.utils {
     public class SiONUtil {
     // PCM data transformation (for PCM Data %7)
     //--------------------------------------------------
-        /** logarithmical transformation of Sound data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
+        /** logarithmical transformation of Sound data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
          *  @param src The Sound data transforming from. 
-         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
          *  @param sampleMax The maximum sample count to transforme. The length of transformed data is limited by this value.
          *  @return logarithmical transformed data.
          */
@@ -30,10 +30,10 @@ package org.si.sion.utils {
         }
         
         
-        /** logarithmical transformation of Vector.<Number> wave data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
-         *  @param src The Vector.<Number> wave data transforming from. This ussualy comes from SiONDriver.render().
+        /** logarithmical transformation of Vector.&lt;Number&gt; wave data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
+         *  @param src The Vector.&lt;Number&gt; wave data transforming from. This ussualy comes from SiONDriver.render().
          *  @param isDataStereo Flag that the wave data is stereo or monoral.
-         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
          *  @return logarithmical transformed data.
          */
         static public function logTransVector(src:Vector.<Number>, isDataStereo:Boolean=true, dst:Vector.<int>=null) : Vector.<int>
@@ -58,9 +58,9 @@ package org.si.sion.utils {
         }
         
         
-        /** logarithmical transformation of ByteArray wave data. The transformed datas type is Vector.<int>. This data is used for PCM sound module (%7).
+        /** logarithmical transformation of ByteArray wave data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
          *  @param src The ByteArray wave data transforming from. This is ussualy from Sound.extract().
-         *  @param dst The Vector.<int> instance to put result. You can pass null to create new Vector.<int> inside.
+         *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
          *  @return logarithmical transformed data.
          */
         static public function logTransByteArray(src:ByteArray, dst:Vector.<int>=null) : Vector.<int>
@@ -81,9 +81,9 @@ package org.si.sion.utils {
         
     // wave data
     //--------------------------------------------------
-        /** put Sound.extract() result into Vector.<Number>. This data is used for sampler module (%10).
+        /** put Sound.extract() result into Vector.&lt;Number&gt;. This data is used for sampler module (%10).
          *  @param src The Sound data extracting from. 
-         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param dst The Vector.&lt;Number&gt; instance to put result. You can pass null to create new Vector.&lt;Number&gt; inside.
          *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
          *  @param length The maximum sample count to extract. The length of returning vector is limited by this value.
          *  @param startPosition Start position to extract. -1 to set extraction continuously.
@@ -116,7 +116,7 @@ package org.si.sion.utils {
         
         /** extract ADPCM data (YM2151). this algorism is from x68ksound.dll's source code.
          *  @param src The ADPCM ByteArray data extracting from. 
-         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param dst The Vector.&lt;Number&gt; instance to put result. You can pass null to create new Vector.&lt;Number&gt; inside.
          *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
          *  @return extracted data.
          */
@@ -175,7 +175,7 @@ package org.si.sion.utils {
         
         /** extract ADPCM data (YM2608)
          *  @param src The ADPCM ByteArray data extracting from. 
-         *  @param dst The Vector.<Number> instance to put result. You can pass null to create new Vector.<Number> inside.
+         *  @param dst The Vector.&lt;Number&gt; instance to put result. You can pass null to create new Vector.&lt;Number&gt; inside.
          *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
          *  @return extracted data.
          */
@@ -318,7 +318,7 @@ package org.si.sion.utils {
         /** create Wave table Vector from wave color.
          *  @param color wave color value
          *  @param waveType wave type (the voice number of '%5')
-         *  @param dst returning Vector.<Number>. if null, allocate new Vector inside.
+         *  @param dst returning Vector.&lt;Number&gt;. if null, allocate new Vector inside.
          */
         static public function waveColor(color:uint, waveType:int=0, dst:Vector.<Number>=null) : Vector.<Number>
         {

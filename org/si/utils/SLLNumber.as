@@ -53,24 +53,24 @@ package org.si.utils {
         }
         
         /** Allocator of linked list */
-        static public function allocList(size:int) : SLLNumber
+        static public function allocList(size:int, defaultData:Number=0) : SLLNumber
         {
-            var ret:SLLNumber = alloc(),
+            var ret:SLLNumber = alloc(defaultData),
                 elem:SLLNumber = ret;
             for (var i:int=1; i<size; i++) {
-                elem.next = alloc();
+                elem.next = alloc(defaultData);
                 elem = elem.next;
             }
             return ret;
         }
         
         /** Allocator of ring-linked list */
-        static public function allocRing(size:int) : SLLNumber
+        static public function allocRing(size:int, defaultData:Number=0) : SLLNumber
         {
-            var ret:SLLNumber = alloc(),
+            var ret:SLLNumber = alloc(defaultData),
                 elem:SLLNumber = ret;
             for (var i:int=1; i<size; i++) {
-                elem.next = alloc();
+                elem.next = alloc(defaultData);
                 elem = elem.next;
             }
             elem.next = ret;

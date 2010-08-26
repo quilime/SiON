@@ -35,7 +35,7 @@ package org.si.sion.utils
         
         
         /** create Sound class.
-         *  @param samples The Vector.<Number> wave data creating from. The LRLR type stereo data.
+         *  @param samples The Vector.&lt;Number&gt; wave data creating from. The LRLR type stereo data.
          *  @param onComplete callback function when finished to create. 
          */
         static public function create(samples:Vector.<Number>, onComplete:Function) : void {

@@ -100,10 +100,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.6.0";
+        static public const VERSION:String = "0.6.1";
         
         
-        /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method. */
+        /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method (default). */
         static public const NEM_IGNORE:int = 0;
         /** note-on exception mode "reject", Reject new note when the track IDs are conflicted. */
         static public const NEM_REJECT:int = 1;
@@ -128,7 +128,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
     // valiables
     //----------------------------------------
-        /** SiOPM digital signal processor emulator instance.  */
+        /** SiOPM digital signal processor module instance.  */
         public var module:SiOPMModule;
         
         /** Effector module instance. */
@@ -148,7 +148,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _soundChannel:SoundChannel;     // sound channel instance
         private var _soundTransform:SoundTransform; // sound transform
         private var _fader:Fader;                   // sound fader
-        //----- SiOPM module related
+        //----- SiOPM DSP module related
         private var _channelCount:int;          // module output channels (1 or 2)
         private var _sampleRate:Number;         // module output frequency ratio (44100 or 22050)
         private var _bitRate:int;               // module output bitrate
@@ -493,7 +493,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param renderBuffer Rendering target. null to create new buffer. The length of this argument limits the rendering length (except for 0).
          *  @param renderBufferChannelCount Channel count of renderBuffer. 2 for stereo and 1 for monoral.
          *  @param resetEffector reset all effectors before play data.
-         *  @return rendered wave data as Vector.<Number>.
+         *  @return rendered wave data as Vector.&lt;Number&gt;.
          */
         public function render(data:*, renderBuffer:Vector.<Number>=null, renderBufferChannelCount:int=2, resetEffector:Boolean=true) : Vector.<Number>
         {
@@ -641,11 +641,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     _fader.stop();
                     _faderVolume = 1;
                     _soundTransform.volume = _masterVolume;
+                    sequencer._sion_internal::_stopSequence();
                     
                     // dispatch streaming stop event
                     dispatchEvent(new SiONEvent(SiONEvent.STREAM_STOP, this));
                 }
             }
+        }
+        
+        
+        /** Reset signal processor. The effector and sequencer will not reset. If you want to reset all of SiON, call SiONDriver.stop(). */
+        public function reset() : void
+        {
+            sequencer._resetAllTracks();
         }
         
         
@@ -753,7 +761,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Set PCM data rederd by %7.
          *  @param index PCM data number.
-         *  @param wavelet Vector.<Number> stereo wave data. This type ussualy comes from render().
+         *  @param wavelet Vector.&lt;Number&gt; stereo wave data. This type ussualy comes from render().
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at
@@ -782,7 +790,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Set sampler data refered by %10.
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param data Vector.<Number> wave data. This type ussualy comes from render().
+         *  @param data Vector.&lt;Number&gt; wave data. This type ussualy comes from render().
          *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
          *  @param channelCount 1 for monoral, 2 for stereo.
          *  @see #render()

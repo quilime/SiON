@@ -27,7 +27,7 @@ package org.si.sound.events {
     //----------------------------------------
         /** Dispatch when the note on appears.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>
@@ -43,7 +43,7 @@ package org.si.sound.events {
         
         /** Dispatch when the note off appears in the sequence.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>
@@ -59,7 +59,7 @@ package org.si.sound.events {
         
         /** Dispatch when the sound starts.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>
@@ -75,7 +75,7 @@ package org.si.sound.events {
         
         /** Dispatch when the sound ends.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>
@@ -91,7 +91,7 @@ package org.si.sound.events {
         
         /** Dispatch in each frame in PatternSequencer.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>
@@ -107,7 +107,7 @@ package org.si.sound.events {
         
         /** Dispatch in each segment in PatternSequencer.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>soundObject</td><td>Target SoundObject.</td></tr>

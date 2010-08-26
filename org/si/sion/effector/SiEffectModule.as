@@ -79,7 +79,7 @@ package org.si.sion.effector {
             _globalEffectCount = 0;
 
             // initialize table
-            SiEffectTable.initialize();
+            var dummy:SiEffectTable = SiEffectTable.instance;
             
             // register default effectors
             register("ws",      SiEffectWaveShaper);

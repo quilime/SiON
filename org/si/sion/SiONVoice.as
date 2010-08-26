@@ -32,6 +32,7 @@ package org.si.sion {
         static public const CHIPTYPE_OPX:String = "OPX";
         static public const CHIPTYPE_MA3:String = "MA3";
         static public const CHIPTYPE_PMS_GUITAR:String = "PMSGuitar";
+        static public const CHIPTYPE_ANALOG_LIKE:String = "AnalogLike";
         
         
         
@@ -116,6 +117,9 @@ package org.si.sion {
         /** Set by #MA&#64; parameters Array */
         public function set paramMA3(args:Array) : void { Translator.setMA3Param(channelParam, args); chipType = "MA3"; }
         
+        /** Get #AL&#64; parameters by Array */
+        public function set paramAL(args:Array) : void { Translator.setALParam(channelParam, args); chipType = "AnalogLike"; }
+        
         
         /** Get #&#64; parameters by Array */
         public function get param()    : Array { return Translator.getParam(channelParam); }
@@ -135,37 +139,86 @@ package org.si.sion {
         /** Get #MA&#64; parameters by Array */
         public function get paramMA3() : Array { return Translator.getMA3Param(channelParam); }
         
+        /** Get #AL&#64; parameters by Array */
+        public function get paramAL() : Array { return Translator.getALParam(channelParam); }
+        
         
         /** get FM voice setting MML.
          *  @param index voice number.
          *  @param type chip type. choose string from SiONVoice.CHIPTYPE_* or null to detect automatically.
+         *  @param appendPostfixMML append postfix MML of voice settings.
          *  @return mml string of this voice setting.
          */
-        public function getMML(index:int, type:String = null) : String {
+        public function getMML(index:int, type:String = null, appendPostfixMML:Boolean = true) : String {
             if (type == null) type = chipType;
+            var mml:String = ""
             switch (type) {
-            case "OPL": return "#OPL@" + String(index) + Translator.mmlOPLParam(channelParam, " ", "\n", name);
-            case "OPM": return "#OPM@" + String(index) + Translator.mmlOPMParam(channelParam, " ", "\n", name);
-            case "OPN": return "#OPN@" + String(index) + Translator.mmlOPNParam(channelParam, " ", "\n", name);
-            case "OPX": return "#OPX@" + String(index) + Translator.mmlOPXParam(channelParam, " ", "\n", name);
-            case "MA3": return "#MA@"  + String(index) + Translator.mmlMA3Param(channelParam, " ", "\n", name);
-            default:    return "#@"    + String(index) + Translator.mmlParam   (channelParam, " ", "\n", name);
+            case "OPL":        mml = "#OPL@" + String(index) + Translator.mmlOPLParam(channelParam, " ", "\n", name); break;
+            case "OPM":        mml = "#OPM@" + String(index) + Translator.mmlOPMParam(channelParam, " ", "\n", name); break;
+            case "OPN":        mml = "#OPN@" + String(index) + Translator.mmlOPNParam(channelParam, " ", "\n", name); break;
+            case "OPX":        mml = "#OPX@" + String(index) + Translator.mmlOPXParam(channelParam, " ", "\n", name); break;
+            case "MA3":        mml = "#MA@"  + String(index) + Translator.mmlMA3Param(channelParam, " ", "\n", name); break;
+            case "AnalogLike": mml = "#AL@"  + String(index) + Translator.mmlALParam (channelParam, " ", "\n", name); break;
+            default:           mml = "#@"    + String(index) + Translator.mmlParam   (channelParam, " ", "\n", name); break;
             }
-            return "";
+            if (appendPostfixMML) {
+                var postfix:String = Translator.mmlVoiceSetting(this);
+                if (postfix != "") mml += "\n" + postfix;
+            }
+            return mml + ";";
         }
         
+        
+        /** set FM voice by MML.
+         *  @param mml MML string.
+         *  @return voice index number. returns -1 when error.
+         */
+        public function setByMML(mml:String) : int {
+            // separating
+            var rexNum:RegExp = new RegExp("(#[A-Z]*@)\\s*(\\d+)\\s*{(.*?)}(.*?);", "ms"),
+                res:* = rexNum.exec(mml);
+            if (res) {
+                var cmd:String = String(res[1]),
+                    prm:String = String(res[3]),
+                    pfx:String = String(res[4]),
+                    voiceIndex:int = int(res[2]);
+                switch (cmd) {
+                case "#@":   { Translator.parseParam   (channelParam, prm); chipType = ""; }break;
+                case "#OPL@":{ Translator.parseOPLParam(channelParam, prm); chipType = "OPL"; }break;
+                case "#OPM@":{ Translator.parseOPMParam(channelParam, prm); chipType = "OPM"; }break;
+                case "#OPN@":{ Translator.parseOPNParam(channelParam, prm); chipType = "OPN"; }break;
+                case "#OPX@":{ Translator.parseOPXParam(channelParam, prm); chipType = "OPX"; }break;
+                case "#MA@": { Translator.parseMA3Param(channelParam, prm); chipType = "MA3"; }break;
+                case "#AL@": { Translator.parseALParam (channelParam, prm); chipType = "AnalogLike"; }break;
+                default: return -1;
+                }
+                Translator.parseVoiceSetting(this, pfx);
+                return voiceIndex;
+            }
+            return -1;
+        }
         
         
         
     // Voice setter
     //--------------------------------------------------
+        /** initializer */
+        override public function initialize() : void
+        {
+            name = "";
+            chipType = "";
+            super.initialize();
+        }
+        
+        
         /** Set as PCM voice (Sound with pitch shift, LPF envlope).
          *  @param wave Sound instance to play
          *  @param samplingOctave sampling data's octave (octave 5 as 44.1kHz)
          *  @return PCM data instance as SiOPMWavePCMData
          *  @see org.si.sion.module.SiOPMWavePCMData
          */
-        public function setPCMVoice(wave:Sound, samplingOctave:int=5) : SiOPMWavePCMData {
+        public function setPCMVoice(wave:Sound, samplingOctave:int=5) : SiOPMWavePCMData
+        {
             moduleType = 7;
             return (waveData = new SiOPMWavePCMData(wave, samplingOctave)) as SiOPMWavePCMData;
         }
@@ -178,7 +231,8 @@ package org.si.sion {
          *  @return MP3 data instance as SiOPMWaveSamplerData
          *  @see org.si.sion.module.SiOPMWaveSamplerData
          */
-        public function setMP3Voice(wave:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2) : SiOPMWaveSamplerData {
+        public function setMP3Voice(wave:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2) : SiOPMWaveSamplerData
+        {
             moduleType = 10;
             return (waveData = new SiOPMWaveSamplerData(wave, ignoreNoteOff, channelCount)) as SiOPMWaveSamplerData;
         }
@@ -193,7 +247,8 @@ package org.si.sion {
          *  @param tension sustain rate of the tone
          *  @return this SiONVoice instance
          */
-        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=68, ws:int=20, tension:int=8) : SiONVoice {
+        public function setPMSGuitar(ar:int=48, dr:int=48, tl:int=0, fixedPitch:int=68, ws:int=20, tension:int=8) : SiONVoice
+        {
             moduleType = 11;
             channelNum = 1;
             param = [1, 0, 0, ws, ar, dr, 0, 63, 15, tl, 0, 0, 1, 0, 0, 0, 0, fixedPitch];
@@ -211,7 +266,8 @@ package org.si.sion {
          *  @param vco2pitch pitch difference in osc1 and 2. 64 for 1 halftone.
          *  @return this SiONVoice instance
          */
-        public function setAnalogLike(connectionType:int, ws1:int=1, ws2:int=1, balance:int=0, vco2pitch:int=0) : SiONVoice {
+        public function setAnalogLike(connectionType:int, ws1:int=1, ws2:int=1, balance:int=0, vco2pitch:int=0) : SiONVoice
+        {
             channelParam.opeCount = 5;
             channelParam.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
             channelParam.operatorParam[0].pgType = ws1;
@@ -227,13 +283,15 @@ package org.si.sion {
             channelParam.operatorParam[0].detune = 0;
             channelParam.operatorParam[1].detune = vco2pitch;
             
+            chipType = "AnalogLike";
+            
             return this;
         }
         
         
         
         
-    // Voice setting
+    // Optional settings
     //--------------------------------------------------
         /** Set envelop parameters of all operators.
          *  @param ar Attack rate (0-63).
@@ -243,7 +301,8 @@ package org.si.sion {
          *  @param sl Sustain level (0-15).
          *  @param tl Total level (0-127).
          */
-        public function setEnvelop(ar:int, dr:int, sr:int, rr:int, sl:int, tl:int) : SiONVoice {
+        public function setEnvelop(ar:int, dr:int, sr:int, rr:int, sl:int, tl:int) : SiONVoice
+        {
             for (var i:int=0; i<4; i++) {
                 var opp:SiOPMOperatorParam = channelParam.operatorParam[i];
                 opp.ar = ar;
@@ -270,7 +329,8 @@ package org.si.sion {
          *  @param frc LP filter release cutoff (0-128)
          *  @return this SiONVoice instance
          */
-        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice {
+        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice 
+        {
             channelParam.cutoff = cutoff;
             channelParam.resonance = resonance;
             channelParam.far = far;
@@ -292,7 +352,8 @@ package org.si.sion {
          *  @param term changing term (same as 4th argument)
          *  @return this instance
          */
-        public function setAmplitudeModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice {
+        public function setAmplitudeModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice 
+        {
             channelParam.amd = amDepth = depth;
             amDepthEnd = end_depth;
             amDelay = delay;
@@ -308,7 +369,8 @@ package org.si.sion {
          *  @param term changing term (same as 4th argument)
          *  @return this instance
          */
-        public function setPitchModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice {
+        public function setPitchModulation(depth:int=0, end_depth:int=0, delay:int=0, term:int=0) : SiONVoice 
+        {
             channelParam.pmd = pmDepth = depth;
             pmDepthEnd = end_depth;
             pmDelay = delay;

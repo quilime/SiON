@@ -28,7 +28,7 @@ package org.si.sound {
     // variables
     //----------------------------------------
         /** @private [protected] note object to sound on the beat */
-        protected var _noteObject:Note;
+        private var _noteObject:Note;
         
         
         

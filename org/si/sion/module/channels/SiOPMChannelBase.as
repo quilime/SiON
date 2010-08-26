@@ -10,7 +10,7 @@ package org.si.sion.module.channels {
     import org.si.sion.module.*;
     
     
-    /** SiOPM sound channel base class. </br>
+    /** SiOPM sound channel base class. <br/>
      *  The SiOPM sound channels generate wave data and write it into streaming buffer.
      */
     public class SiOPMChannelBase
@@ -126,7 +126,7 @@ package org.si.sion.module.channels {
         public function setFeedBack(fb:int, fbc:int) : void {}
         /** parameters (&#64; call from SiMMLTrack._setChannelParameters()) */
         public function setParameters(param:Vector.<int>) : void {}
-        /** pgType & ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
+        /** pgType and ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
         public function setType(pgType:int, ptType:int) : void {}
         /** Attack rate */
         public function setAllAttackRate(ar:int) : void {}
@@ -193,8 +193,8 @@ package org.si.sion.module.channels {
         
     // volume control
     //--------------------------------------------------
-        /** set all stream send levels by Vector.<int>.
-         *  @param param Vector.<int>(8) of all volumes[0-128].
+        /** set all stream send levels by Vector.&lt;int&gt;.
+         *  @param param Vector.&lt;int&gt;(8) of all volumes[0-128].
          */
         public function setAllStreamSendLevels(param:Vector.<int>) : void
         {

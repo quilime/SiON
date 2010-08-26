@@ -84,7 +84,7 @@ package org.si.sound.core {
         }
         
         
-        /** set all stream send levels by Vector.<int>(8) (0-128) */
+        /** set all stream send levels by Vector.&lt;int&gt;(8) (0-128) */
         public function setAllStreamSendLevels(volumes:Vector.<int>) : void
         {
             if (!_effectStream) return;

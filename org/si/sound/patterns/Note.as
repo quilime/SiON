@@ -17,7 +17,9 @@ package org.si.sound.patterns {
         public var velocity:int = 0;
         /** Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length. */
         public var length:Number = 0;
-        /** Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing. @see si.org.sound.PatternSequencer.voiceList */
+        /** Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing.
+         *  @see si.org.sound.PatternSequencer.voiceList 
+         */
         public var voiceIndex:Number = 0;
         /** Any informations */
         public var data:* = null;
@@ -31,8 +33,9 @@ package org.si.sound.patterns {
          *  @param note Note number[-1-127], -1 sets playing with sequencer's default note.
          *  @param velocity Velocity[-1-128], -1 sets playing with sequencer's default velocity, 0 sets no note (rest).
          *  @param length Length in 16th beat [16 for whole tone], Number.NaN sets playing with sequencers default length.
-         *  @param voiceIndex Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing. @see si.org.sound.PatternSequencer.voiceList.
+         *  @param voiceIndex Voice index refering from PatternSequencer.voiceList, -1 (or all negatives) sets no voice changing.
          *  @param data Any informations you want.
+         *  @see si.org.sound.PatternSequencer.voiceList.
          */
         function Note(note:int=-1, velocity:int=0, length:Number=Number.NaN, voiceIndex:int=-1, data:*=null)
         {

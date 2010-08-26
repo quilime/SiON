@@ -82,11 +82,11 @@ package org.si.sound {
         protected var _pitchShift:Number;
         /** @private [protected] gate ratio (value of 'q' command * 0.125) */
         protected var _gateTime:Number;
-        /** @private [protected] Event mask (value of '@mask' command) */
+        /** @private [protected] Event mask (value of '&#64;mask' command) */
         protected var _eventMask:Number;
         /** @private [protected] Event trigger ID */
         protected var _eventTriggerID:int;
-        /** @private [protected] note on trigger | (note off trigger << 2) trigger type */
+        /** @private [protected] note on trigger | (note off trigger &lt;&lt; 2) trigger type */
         protected var _noteTriggerFlags:int;
         /** @private [protected] listening note event trigger */
         protected var _listeningFlags:int;
@@ -171,7 +171,7 @@ package org.si.sound {
             _noteShift = n;
             if (_track) _track.noteShift = _noteShift;
         }
-        /** Master fine tuning, 1 for half-tone, you can specify fineTune<-1 or fineTune>1. */
+        /** Master fine tuning, 1 for half-tone, you can specify fineTune&lt;-1 or fineTune&gt;1. */
         public function get fineTune() : Number { return _pitchShift * 0.015625; }
         public function set fineTune(p:Number) : void {
             _pitchShift = p;
@@ -183,7 +183,7 @@ package org.si.sound {
             _gateTime = (g<0) ? 0 : (g>1) ? 1 : g;
             if (_track) _track.quantRatio = _gateTime;
         }
-        /** Track event mask. (value of '@mask' command) */
+        /** Track event mask. (value of '&#64;mask' command) */
         public function get eventMask() : int { return _eventMask; }
         public function set eventMask(m:int) : void {
             _eventMask = m;

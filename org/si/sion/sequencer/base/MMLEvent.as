@@ -96,7 +96,7 @@ package org.si.sion.sequencer.base {
         
         /** Initializes 
          *  @param id Event ID.
-         *  @param data Event data. Recommend that the value <= 0xffffff.
+         *  @param data Event data. Recommend that the value &lt;= 0xffffff.
          */
         public function initialize(id:int, data:int, length:int) : MMLEvent
         {

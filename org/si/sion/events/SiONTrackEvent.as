@@ -21,7 +21,7 @@ package org.si.sion.events {
     //----------------------------------------
         /** Dispatch when the note on appears in the sequence with "%t" command.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true; mute the note</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance.</td></tr>
@@ -39,7 +39,7 @@ package org.si.sion.events {
         
         /** Dispatch when the note off appears in the sequence with "%t" command.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>true; mute the note</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance.</td></tr>
@@ -57,7 +57,7 @@ package org.si.sion.events {
         
         /** Dispatch when the sound starts.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance.</td></tr>
@@ -75,7 +75,7 @@ package org.si.sion.events {
         
         /** Dispatch when the sound ends.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance.</td></tr>
@@ -93,7 +93,7 @@ package org.si.sion.events {
         
         /** Dispatch on beat while streaming. This event is called in each beat timing on frame. When you want to listen this event, you have to set addEventListener() before SiONDriver.play().
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance playing now.</td></tr>
@@ -111,7 +111,7 @@ package org.si.sion.events {
         
         /** Dispatch when the bpm changes.
          * <p>The properties of the event object have the following values:</p>
-         * <table class=innertable>
+         * <table class='innertable'>
          * <tr><th>Property</th><th>Value</th></tr>
          * <tr><td>cancelable</td><td>false</td></tr>
          * <tr><td>driver</td><td>SiONDriver instance.</td></tr>

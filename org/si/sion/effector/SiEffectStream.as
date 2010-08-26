@@ -60,8 +60,8 @@ package org.si.sion.effector {
         
     // setting
     //--------------------------------------------------------------------------------
-        /** set all stream send levels by Vector.<int>.
-         *  @param param Vector.<int>(8) of all volumes[0-128].
+        /** set all stream send levels by Vector.&lt;int&gt;.
+         *  @param param Vector.&lt;int&gt;(8) of all volumes[0-128].
          */
         public function setAllStreamSendLevels(param:Vector.<int>) : void
         {

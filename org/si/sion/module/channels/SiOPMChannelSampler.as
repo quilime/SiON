@@ -103,7 +103,7 @@ package org.si.sion.module.channels {
         }
         
         
-        /** pgType & ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
+        /** pgType and ptType (&#64; call from SiMMLChannelSetting.selectTone()/initializeTone()) */
         override public function setType(pgType:int, ptType:int) : void 
         {
             _bankNumber = pgType & 3;
@@ -114,7 +114,7 @@ package org.si.sion.module.channels {
         
     // interfaces
     //--------------------------------------------------
-        /** pitch = (note << 6) | (kf & 63) [0,8191] */
+        /** pitch = (note &lt;&lt; 6) | (kf &amp; 63) [0,8191] */
         override public function get pitch() : int { return _waveNumber<<6; }
         override public function set pitch(p:int) : void {
             _waveNumber = p >> 6;
