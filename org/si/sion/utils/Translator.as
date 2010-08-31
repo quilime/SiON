@@ -507,7 +507,8 @@ package org.si.sion.utils {
             if (dataString == "") {
                 param.opeCount = 0;
             } else {
-                data = dataString.replace(/^[^\d\-.]+|[^\d\-.]+$/g, "").split(/[^\d\-.]+/gm);
+                var comrex:RegExp = new RegExp("/\\*.*?\\*/|//.*?[\\r\\n]+", "gms");
+                data = dataString.replace(comrex, "").replace(/^[^\d\-.]+|[^\d\-.]+$/g, "").split(/[^\d\-.]+/gm);
                 for (i=1; i<5; i++) {
                     if (data.length == chParamCount + opParamCount*i) {
                         param.opeCount = i;
@@ -1304,7 +1305,7 @@ package org.si.sion.utils {
          *  @param voiceSet voice list to set parameters. When this argument is null, returning voices are allocated inside.
          *  @return voice list pick up values from register data.
          */
-        public function setOPMVoicesByRegister(regData:Vector.<int>, address:int, enableLFO:Boolean=false, voiceSet:Array=null) : Array
+        static public function setOPMVoicesByRegister(regData:Vector.<int>, address:int, enableLFO:Boolean=false, voiceSet:Array=null) : Array
         {
             var i:int, imax:int, value:int, index:int, v:int, ams:int, pms:int, 
                 chp:SiOPMChannelParam, opp:SiOPMOperatorParam, opi:int, _pmd:int=0, _amd:int=0, 
@@ -1315,7 +1316,7 @@ package org.si.sion.utils {
             for (opi=0; opi<8; opi++) { 
                 if (voiceSet[opi]) voiceSet[opi].initialize();
                 else voiceSet[opi] = new SiONVoice();
-                voiceSet[opi].opeCount = 4;
+                voiceSet[opi].channelParam.opeCount = 4;
                 voiceSet[opi].chipType = SiONVoice.CHIPTYPE_OPM;
             }
             

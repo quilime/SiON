@@ -175,7 +175,9 @@ package org.si.sion {
          */
         public function setByMML(mml:String) : int {
             // separating
+            initialize();
             var rexNum:RegExp = new RegExp("(#[A-Z]*@)\\s*(\\d+)\\s*{(.*?)}(.*?);", "ms"),
+                rexNam:RegExp = new RegExp("^.*?(//\\s*(.+?))?[\\n\\r]"),
                 res:* = rexNum.exec(mml);
             if (res) {
                 var cmd:String = String(res[1]),
@@ -193,6 +195,8 @@ package org.si.sion {
                 default: return -1;
                 }
                 Translator.parseVoiceSetting(this, pfx);
+                res = rexNam.exec(prm);
+                name = (res && res[2]) ? String(res[2]) : "";
                 return voiceIndex;
             }
             return -1;
