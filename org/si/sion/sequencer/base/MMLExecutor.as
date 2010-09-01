@@ -32,10 +32,10 @@ package org.si.sion.sequencer.base {
         private  var _repeatPoint:MMLEvent;
         // event to process
         private  var _processEvent:MMLEvent;
-        // rest event
-        private  var _restEvent:MMLEvent;
         // note event
         private  var _noteEvent:MMLEvent;
+        // pitchbend event
+        private  var _bendEvent:MMLEvent;
         
         /** @private [internal] current position in tick count. */
         internal var _currentTickCount:int;
@@ -60,6 +60,9 @@ package org.si.sion.sequencer.base {
         /** Current event */
         public function get currentEvent() : MMLEvent { return (pointer === _processEvent) ? pointer.jump : pointer; }
         
+        /** Note that wait for note on execution ? -1 for not waiting */
+        public function get noteWaitingFor() : int { return (pointer === _noteEvent) ? _noteEvent.data : -1; }
+        
         
         
         
@@ -73,8 +76,9 @@ package org.si.sion.sequencer.base {
             _endRepeatCounter = 0;
             _repeatPoint = null;
             _processEvent = MMLParser._allocEvent(MMLEvent.PROCESS, 0);
-            _restEvent = MMLParser._allocEvent(MMLEvent.REST, 0);
-            _noteEvent = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
+            _noteEvent    = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
+            _bendEvent    = MMLParser._allocEvent(MMLEvent.PITCHBEND, 0);
+            _bendEvent.next = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
             _repeatCounter = null;
             _currentTickCount = 0;
             _residueSampleCount = 0;
@@ -157,6 +161,24 @@ package org.si.sion.sequencer.base {
             SLLint.freeList(_repeatCounter);
             _repeatCounter = null;
             _currentTickCount = 0;
+        }
+        
+        
+        /** pitch bending, this function only is avilable after calling singleNote().
+         *  @param note Note number bending to.
+         *  @param tickLength length of the note after pitch bending.
+         *  @return success or failure
+         */
+        public function bendingTo(note:int, tickLength:int) : Boolean
+        {
+            if (pointer !== _noteEvent) return false;
+            _noteEvent.next = _bendEvent;
+            _bendEvent.length = _noteEvent.length;
+            _noteEvent.length = 0;
+            _bendEvent.next.next = null;
+            _bendEvent.next.data = note;
+            _bendEvent.next.length = tickLength;
+            return true;
         }
         
         

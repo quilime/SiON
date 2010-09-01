@@ -182,6 +182,9 @@ package org.si.sion.module.channels {
         /** buffer index */
         public function get bufferIndex() : int { return _bufferIndex; }
         
+        /** is this channel note on ? */
+        public function get isNoteOn() : Boolean { return _isNoteOn; }
+        
         /** Is idling ? */
         public function get isIdling() : Boolean { return _isIdling; }
         
@@ -504,13 +507,6 @@ package org.si.sion.module.channels {
                 shiftLPFilterState(EG_RELEASE);
             }
             _isNoteOn = false;
-        }
-        
-        
-        /** Check note on */
-        public function isNoteOn() : Boolean 
-        {
-            return _isNoteOn;
         }
         
         

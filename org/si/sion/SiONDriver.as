@@ -958,12 +958,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function noteOff(note:int, trackID:int=0, delay:Number=0, quant:Number=0, stopImmediately:Boolean=false) : Vector.<SiMMLTrack>
         {
             var internalTrackID:int = (trackID & SiMMLTrack.TRACK_ID_FILTER) | SiMMLTrack.DRIVER_NOTE,
-                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), 
+                delaySamples:int = sequencer.calcSampleDelay(0, delay, quant), n:int, 
                 tracks:Vector.<SiMMLTrack> = new Vector.<SiMMLTrack>();
             for each (var mmlTrack:SiMMLTrack in sequencer.tracks) {
                 if (mmlTrack._sion_sequencer_internal::_internalTrackID == internalTrackID) {
-                    if (note == -1 || (note == mmlTrack.note && mmlTrack.channel.isNoteOn())) {
+                    if (note == -1 || (note == mmlTrack.note && mmlTrack.channel.isNoteOn)) {
                         mmlTrack.keyOff(delaySamples, stopImmediately);
+                        tracks.push(mmlTrack);
+                    } else if (mmlTrack.executor.noteWaitingFor == note) {
+                        // if this track is waiting for starting sound ...
+                        mmlTrack.keyOn(note, 1, delaySamples);
                         tracks.push(mmlTrack);
                     }
                 }
@@ -972,7 +976,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Play sequences with synchronizing.
+        /** Play sequences with synchronizing. This function only is available after play(). 
          *  @param data The SiONData including sequences. This data is used only for sequences. The system ignores wave, envelop and voice data.
          *  @param voice SiONVoice to play sequence. The voice setting in the sequence has priority.
          *  @param length note length in 16th beat. 0 sets no note off, this means you should call noteOff().
@@ -1014,7 +1018,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Stop the sequences with synchronizing.
+        /** Stop the sequences with synchronizing. This function only is available after play(). 
          *  @param trackID tracks id to stop.
          *  @param delay sequence off delay units in 16th beat.
          *  @param quant quantize in 16th beat. 0 sets no quantization. 4 sets quantization by 4th beat.
@@ -1269,11 +1273,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // prepare for rendering
         private function _prepareRender(data:*, renderBuffer:Vector.<Number>, renderBufferChannelCount:int, resetEffector:Boolean) : void
         {
+            // same preparation as streaming
             _prepareProcess(data, resetEffector);
+            
+            // prepare rendering buffer
             _renderBuffer = renderBuffer || new Vector.<Number>();
             _renderBufferChannelCount = (renderBufferChannelCount==2) ? 2 : 1;
             _renderBufferSizeMax = _renderBuffer.length;
             _renderBufferIndex = 0;
+
+            // initialize parameters
             _jobProgress = 0.01;
             _timeRender = 0;
             _currentJob = 2;
@@ -1333,21 +1342,23 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private function _prepareProcess(data:*, resetEffector:Boolean) : void
         {
             if (data is String) {
+                // compile mml and play
                 _tempData = _tempData || new SiONData();
                 _data = compile(data as String, _tempData);
             } else {
+                // type check and play
                 if (!(data == null || data is SiONData)) throw errorDataIncorrect();
                 _data = data;
             }
             
             // THESE FUNCTIONS ORDER IS VERY IMPORTANT !!
-            module.initialize(_channelCount, _bitRate, _bufferLength);
-            module.reset();                                                 // reset channels
-            if (resetEffector) effector.initialize();                       // reset effector
+            module.initialize(_channelCount, _bitRate, _bufferLength);      // initialize DSP
+            module.reset();                                                 // reset all channels
+            if (resetEffector) effector.initialize();                       // initialize (or reset) effectors
             else effector._reset();
-            sequencer._prepareProcess(_data, _sampleRate, _bufferLength);   // set track channels (this must be called after module.reset()).
-            if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT (initialize effector inside)
-            effector._prepareProcess();                                     // set stream number inside
+            sequencer._prepareProcess(_data, _sampleRate, _bufferLength);   // set sequencer tracks (should be called after module.reset())
+            if (_data) _parseSystemCommand(_data.systemCommands);           // parse #EFFECT command (should be called after effector._reset())
+            effector._prepareProcess();                                     // set effector connections
             _trackEventQueue.length = 0;                                    // clear event que
             
             // set position
@@ -1373,7 +1384,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             
             // first streaming
             if (_isFirstStreaming) {
-                _firstStream();
+                _onFirstFrameAfterStartingStream();
             } else {
                 // preserve stop
                 if (_preserveStop) stop();
@@ -1392,6 +1403,17 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
+        // first frame after starting stream
+        private function _onFirstFrameAfterStartingStream() : void {
+            _isFirstStreaming = false;
+            
+            // dispatch streaming start event
+            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
+            dispatchEvent(event);
+            if (event.isDefaultPrevented()) stop();   // canceled
+        }
+        
+        
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
@@ -1405,11 +1427,14 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             }
 
             try {
+                // set streaming flag
                 _inStreaming = true;
                 
                 if (_isPaused || _isFirstStreaming) {
+                    // fill silence
                     _fillzero(e.data);
                 } else {
+                    // process starting time
                     var t:int = getTimer();
                     
                     // processing
@@ -1457,11 +1482,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     }
                     
                     // dispatch finishSequence event
-                    if (!_isFinishSeqDispatched) {
-                        if (sequencer.isSequenceFinished) {
-                            dispatchEvent(new SiONEvent(SiONEvent.FINISH_SEQUENCE, this));
-                            _isFinishSeqDispatched = true;
-                        }
+                    if (!_isFinishSeqDispatched && sequencer.isSequenceFinished) {
+                        dispatchEvent(new SiONEvent(SiONEvent.FINISH_SEQUENCE, this));
+                        _isFinishSeqDispatched = true;
                     }
                     
                     // fading
@@ -1474,24 +1497,16 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                         if (_autoStop && sequencer.isFinished) stop();
                     }
                 }
+                
+                // reset streaming flag
                 _inStreaming = false;
+                
             } catch (e:Error) {
                 // error
                 _removeAllEventListners();
                 if (_debugMode) throw e;
                 else dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.message));
             }
-        }
-        
-        
-        // first streaming
-        private function _firstStream() : void {
-            _isFirstStreaming = false;
-            
-            // dispatch streaming start event
-            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
-            dispatchEvent(event);
-            if (event.isDefaultPrevented()) stop();   // canceled
         }
         
         

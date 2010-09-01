@@ -567,13 +567,6 @@ package org.si.sion.module.channels {
         }
         
         
-        /** Check note on. */
-        public function isNoteOn() : Boolean
-        {
-            return (_eg_state < EG_RELEASE);
-        }
-        
-        
         /** Note on. */
         public function noteOn() : void
         {

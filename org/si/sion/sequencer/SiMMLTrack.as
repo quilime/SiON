@@ -433,36 +433,14 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Pitch bend (and slur) 
-         *  @param nextNote The 2nd note to intergradate.
-         *  @param term bending time in sample count.
-         */
-        public function setPitchBend(nextNote:int, term:int) : void
-        {
-            var startPitch:int = channel.pitch,
-                endPitch  :int = (((nextNote + noteShift)<<6) || (startPitch & 63)) + pitchShift;
-            _onSlur();
-            if (startPitch == endPitch) return;
-            
-            _sweep_step = ((endPitch - startPitch) << FIXED_BITS) * _env_internval / term;
-            _sweep_end  = endPitch << FIXED_BITS;
-            _sweep_pitch = startPitch << FIXED_BITS;
-            _env_pitch_active = true;
-            _env_note  = _set_env_note[1];
-            _env_pitch = _set_env_pitch[1];
-            
-            _processMode = ENVELOP;
-        }
-        
-        
         /** Limit key on length. 
          *  @param stopDelay delay to key-off.
          */
         public function limitLength(stopDelay:int) : void
         {
             var length:int = stopDelay - _trackStartDelay;
-            if (length < _keyOnCounter) {
-                _keyOnLength = stopDelay - _trackStartDelay;
+            if (length < _keyOnLength) {
+                _keyOnLength = length;
                 _keyOnCounter = _keyOnLength;
             }
         }
@@ -494,6 +472,16 @@ package org.si.sion.sequencer {
             }
             _mmlKeyOn(note);
             _flagNoKeyOn = slur;
+        }
+        
+        
+        /** Set pitch bending.
+         *  @param noteTo Note number bending to.
+         *  @param tickLength length of the note after pitch bending.
+         */
+        public function setPitchBend(noteTo:int, tickLength:int=0) : void
+        {
+            executor.bendingTo(noteTo, tickLength);
         }
         
         
@@ -826,14 +814,18 @@ package org.si.sion.sequencer {
                 _table._stencilVoices   = null;
             }
             
-            // almost executing this
-            if (_trackStartDelay == 0) return bufferingLength;
-            
+            // sounding now, almost executing this
+            if (_trackStartDelay == 0) {
+                return bufferingLength;
+            }
+
+            // wait for starting sound
             if (bufferingLength <= _trackStartDelay) {
                 _trackStartDelay -= bufferingLength;
                 return 0;
             }
             
+            // start sounding at this buffering
             var len:int = bufferingLength - _trackStartDelay;
             channel.nop(_trackStartDelay);
             _trackStartDelay = 0;
@@ -886,7 +878,7 @@ package org.si.sion.sequencer {
                         _note = -1;
                         channel.reset();
                     }
-                } else if (channel.isNoteOn()) {
+                } else if (channel.isNoteOn) {
                     _keyOff();
                     _note = -1;
                     if (_stopWithReset) {
@@ -996,7 +988,7 @@ package org.si.sion.sequencer {
         // toggle note
         private function _toggleKey() : void
         {
-            if (channel.isNoteOn()) _keyOff();
+            if (channel.isNoteOn) _keyOff();
             else _keyOn();
         }
         
@@ -1023,7 +1015,7 @@ package org.si.sion.sequencer {
                     channel.offsetFilter(128);
                 }
                 // previous note off
-                if (channel.isNoteOn()) {
+                if (channel.isNoteOn) {
                     // callback
                     if (_callbackBeforeNoteOff != null) _callbackBeforeNoteOff(this);
                     channel.noteOff();
@@ -1142,6 +1134,28 @@ package org.si.sion.sequencer {
         internal function _onSlurWeak() : void
         {
             _keyOnCounter = 0;
+        }
+        
+        
+        /** @private [internal] Set pitch bend (and slur) immediately. This function called from pitchBend() and '*' command.
+         *  @param nextNote The 2nd note to intergradate.
+         *  @param term bending time in sample count.
+         */
+        internal function _onPitchBend(nextNote:int, term:int) : void
+        {
+            var startPitch:int = channel.pitch,
+                endPitch  :int = (((nextNote + noteShift)<<6) || (startPitch & 63)) + pitchShift;
+            _onSlur();
+            if (startPitch == endPitch) return;
+            
+            _sweep_step = ((endPitch - startPitch) << FIXED_BITS) * _env_internval / term;
+            _sweep_end  = endPitch << FIXED_BITS;
+            _sweep_pitch = startPitch << FIXED_BITS;
+            _env_pitch_active = true;
+            _env_note  = _set_env_note[1];
+            _env_pitch = _set_env_pitch[1];
+            
+            _processMode = ENVELOP;
         }
         
         

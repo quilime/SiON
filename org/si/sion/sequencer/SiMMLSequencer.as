@@ -1089,7 +1089,7 @@ package org.si.sion.sequencer {
             } else {
                 if (e.next == null || e.next.id != MMLEvent.NOTE) return e.next;  // check next note
                 var term:int = calcSampleCount(e.length);                         // changing time
-                _currentTrack.setPitchBend(e.next.data, term);                    // pitch bending
+                _currentTrack._onPitchBend(e.next.data, term);                    // pitch bending
             }
             return currentExecutor._publishProessingEvent(e);
         }
