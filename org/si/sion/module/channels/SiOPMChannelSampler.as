@@ -240,7 +240,7 @@ package org.si.sion.module.channels {
                         // extract a part
                         _extractedByteArray.length = 0;
                         processed = _sampleData.soundData.extract(_extractedByteArray, residue, _sampleIndex);
-                        _sampleIndex += processed;
+                        _sampleIndex += processed >> 1;
                         if (_sampleIndex > _sampleData.endPoint) processed -= _sampleIndex - _sampleData.endPoint;
                         
                         // copy to vector
@@ -264,14 +264,14 @@ package org.si.sion.module.channels {
                                 stream = _streams[i] || _chip.streamSlot[i];
                                 if (stream) {
                                     vol = _volumes[i] * _expression;
-                                    stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                                    stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, 2);
                                 }
                             }
                         }
                     } else {
                         stream = _streams[0] || _chip.outputStream;
                         vol = _volumes[0] * _expression;
-                        stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                        stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, 2);
                     }
                 }
 

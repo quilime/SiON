@@ -810,8 +810,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMWaveSamplerData
         {
-            var data:Vector.<Number> = SiONUtil.extract(sound, null, channelCount, sampleMax);
-            return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, channelCount);
+            return SiOPMTable._instance.registerSamplerData(index, sound, ignoreNoteOff, channelCount);
         }
         
         
@@ -1460,7 +1459,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                         extracted = _backgroundSound.extract(_backgroundBuffer, _bufferLength);
                         if (_backgroundLoop) {
                             while (extracted < _bufferLength) {
-                                extracted += _backgroundSound.extract(_backgroundBuffer, extracted-extracted, 0);
+                                extracted += _backgroundSound.extract(_backgroundBuffer, _bufferLength-extracted, 0);
                             }
                         }
                         if (extracted == _bufferLength) {

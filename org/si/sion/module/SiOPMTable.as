@@ -85,7 +85,8 @@ package org.si.sion.module {
         static public const PG_NOISE_SHORT:int = 18;    // fc short noise
         static public const PG_NOISE_HIPAS:int = 19;    // high pass noise
         static public const PG_NOISE_PINK :int = 20;    // pink noise
-                                                        // ( 21-  23) reserved
+        static public const PG_NOISE_GB_SHORT:int = 21; // gb short noise
+                                                        // ( 22-  23) reserved
         static public const PG_PC_NZ_16BIT:int = 24;    // pitch controlable periodic noise
         static public const PG_PC_NZ_SHORT:int = 25;    // pitch controlable 93byte noise
                                                         // ( 26-  31) reserved
@@ -584,7 +585,7 @@ package org.si.sion.module {
         {
             // multipurpose
             var i:int, imax:int, imax2:int, imax3:int, imax4:int, j:int, jmax:int, 
-                p:Number, dp:Number, n:Number, v:Number, iv:int, prev:int,
+                p:Number, dp:Number, n:Number, v:Number, iv:int, prev:int, o:int, 
                 table1:Vector.<int>, table2:Vector.<int>;
 
             // allocate table list
@@ -753,6 +754,26 @@ package org.si.sion.module {
                 table1[i] = (j&1) ? iv : (iv+1);
             }
             waveTables[PG_NOISE_SHORT] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            
+            // gb short noise. NOTE:
+            table1 = new Vector.<int>(128, true);
+            iv = calcLogTableIndex(NOISE_WAVE_OUTPUT);
+            j = 0xffff;                      // 16bit LFSR
+            o = 0;
+            for (i=0; i<128; i++) {
+                j += j + (((j >> 6) ^ (j >> 5)) & 1);
+                o ^= j & 1;
+                table1[i] = (o&1) ? iv : (iv+1);
+            }
+            waveTables[PG_NOISE_GB_SHORT] = SiOPMWaveTable.alloc(table1, PT_PCM);
+            
+            // periodic noise
+            table1 = new Vector.<int>(16, true);
+            table1[0] = calcLogTableIndex(SQUARE_WAVE_OUTPUT);
+            for (i=1; i<16; i++) {
+                table1[i] = LOG_TABLE_BOTTOM;
+            }
+            waveTables[PG_PC_NZ_16BIT] = SiOPMWaveTable.alloc(table1);
 
             // high passed white noise
             table1 = new Vector.<int>(NOISE_TABLE_SIZE, true);
@@ -796,6 +817,7 @@ package org.si.sion.module {
                 table1[i] = LOG_TABLE_BOTTOM;
             }
             waveTables[PG_PC_NZ_16BIT] = SiOPMWaveTable.alloc(table1);
+            
             
             // pitch controlable noise
             table1 = waveTables[PG_NOISE_SHORT].wavelet;
