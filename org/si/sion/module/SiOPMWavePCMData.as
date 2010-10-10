@@ -73,7 +73,7 @@ package org.si.sion.module {
          */
         public function initialize(data:*, samplingOctave:int=5) : SiOPMWavePCMData
         {
-            if (data is Sound) wavelet = SiONUtil.logTrans(data as Sound);
+            if (data is Sound) wavelet = SiONUtil.logTrans(data as Sound, null, 1048576, 0);
             else if (data is Vector.<Number>) wavelet = SiONUtil.logTransVector(data as Vector.<Number>);
             else if (data is Vector.<int>) wavelet = data as Vector.<int>;
             else if (data == null) wavelet = null;

@@ -20,12 +20,13 @@ package org.si.sion.utils {
          *  @param src The Sound data transforming from. 
          *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
          *  @param sampleMax The maximum sample count to transforme. The length of transformed data is limited by this value.
+         *  @param startPosition Start position to extract. -1 to set extraction continuously.
          *  @return logarithmical transformed data.
          */
-        static public function logTrans(data:Sound, dst:Vector.<int>=null, sampleMax:int=1048576) : Vector.<int>
+        static public function logTrans(data:Sound, dst:Vector.<int>=null, sampleMax:int=1048576, startPosition:int=-1) : Vector.<int>
         {
             var wave:ByteArray = new ByteArray();
-            var samples:int = data.extract(wave, sampleMax);
+            var samples:int = data.extract(wave, sampleMax, startPosition);
             return logTransByteArray(wave, dst);
         }
         
