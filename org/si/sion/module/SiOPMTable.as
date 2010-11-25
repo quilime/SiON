@@ -89,7 +89,8 @@ package org.si.sion.module {
                                                         // ( 22-  23) reserved
         static public const PG_PC_NZ_16BIT:int = 24;    // pitch controlable periodic noise
         static public const PG_PC_NZ_SHORT:int = 25;    // pitch controlable 93byte noise
-                                                        // ( 26-  31) reserved
+        static public const PG_PC_NZ_OPM  :int = 26;    // pulse noise with OPM noise table
+                                                        // ( 27-  31) reserved
         static public const PG_MA3_WAVE   :int = 32;    // ( 32-  63) MA3 waveforms.  PG_MA3_WAVE+[0,31]
         static public const PG_PULSE      :int = 64;    // ( 64-  79) square pulse wave. PG_PULSE+[0,15]
         static public const PG_PULSE_SPIKE:int = 80;    // ( 80-  95) square pulse wave. PG_PULSE_SPIKE+[0,15]
@@ -107,6 +108,13 @@ package org.si.sion.module {
         static public const WAVE_TABLE_MAX:int = 128;                 // custom wave table max.
         static public const PCM_DATA_MAX    :int = 128;               // pcm data max.
         static public const SAMPLER_DATA_MAX:int = NOTE_TABLE_SIZE;   // sampler data max
+
+        static public const VM_LINEAR:int = 0;  // linear scale
+        static public const VM_DR96DB:int = 1;  // log scale; dynamic range = 96dB 
+        static public const VM_DR64DB:int = 2;  // log scale; dynamic range = 64dB 
+        static public const VM_DR48DB:int = 3;  // log scale; dynamic range = 48dB 
+        static public const VM_DR32DB:int = 4;  // log scale; dynamic range = 32dB 
+        static public const VM_MAX:int = 5;
         
 
         // lfo wave type
@@ -174,8 +182,20 @@ package org.si.sion.module {
         public var eg_timerSteps:Array = null;
         /** EG:sl table from 15 to 1024. */
         public var eg_slTable:Array = null;
+        /** EG:tl table from volume to tl. */
+        public var eg_tlTables:Vector.<Vector.<int>> = null;
         /** EG:tl table from linear volume. */
-        public var eg_tlTable:Vector.<int> = null;
+        public var eg_tlTableLine:Vector.<int> = null;
+        /** EG:tl table of tl based. */
+        public var eg_tlTable96dB:Vector.<int> = null;
+        /** EG:tl table of fmp7 based. */
+        public var eg_tlTable64dB:Vector.<int> = null;
+        /** EG:tl table from psg volume. */
+        public var eg_tlTable48dB:Vector.<int> = null;
+        /** EG:tl table from N88 basic v command. */
+        public var eg_tlTable32dB:Vector.<int> = null;
+        /** EG:tl table from linear-volume to tl. */
+        public var eg_lv2tlTable:Vector.<int> = null;
         
         /** LFO:timer step. */
         public var lfo_timerSteps:Vector.<int> = null;
@@ -301,7 +321,7 @@ package org.si.sion.module {
     //--------------------------------------------------
         private function _createEGTables() : void
         {
-            var i:int, imax:int, imax2:int, table:Array;
+            var i:int, j:int, imax:int, imax2:int, table:Array;
             
             // 128 = 64rates + 32ks-rates + 32dummies for dr,sr=0
             eg_timerSteps    = new Array(128);
@@ -376,19 +396,39 @@ package org.si.sion.module {
             }
             eg_slTable[15] = 31<<5;
             
-            // v(0-128) -> total_level(832- 0). translate linear volume to log scale gain.
-            eg_tlTable = new Vector.<int>(257);
+            //var n88vtable:Array = [104, 40, 37, 34, 32, 29, 26, 24, 21, 18, 16, 13, 10, 8, 5, 2, 0];
+            eg_tlTables = new Vector.<Vector.<int>>(VM_MAX);
+            eg_tlTables[VM_LINEAR] = eg_tlTableLine = new Vector.<int>(513);
+            eg_tlTables[VM_DR96DB] = eg_tlTable96dB = new Vector.<int>(513);
+            eg_tlTables[VM_DR64DB] = eg_tlTable64dB = new Vector.<int>(513);
+            eg_tlTables[VM_DR48DB] = eg_tlTable48dB = new Vector.<int>(513);
+            eg_tlTables[VM_DR32DB] = eg_tlTable32dB = new Vector.<int>(513);
+            
+            // v(0-256) -> total_level(832- 0). translate linear volume to log scale gain.
+            eg_tlTableLine[0] = eg_tlTable96dB[0] = eg_tlTable48dB[0] = eg_tlTable32dB[0] = ENV_BOTTOM;
+            for (i=1; i<257; i++) {
+                // 0.00390625 = 1/256
+                eg_tlTableLine[i] = calcLogTableIndex(i*0.00390625) >> (LOG_VOLUME_BITS - ENV_BITS);
+                eg_tlTable96dB[i] = (256-i) * 4;                       //  (n/2)<<ENV_LSHIFT
+                eg_tlTable64dB[i] = int((256-i) * 2.6666666666666667); // ((n/2)<<ENV_LSHIFT)*2/3
+                eg_tlTable48dB[i] = (256-i) * 2;                       // ((n/2)<<ENV_LSHIFT)*1/2
+                eg_tlTable32dB[i] = int((256-i) * 1.333333333333333);  // ((n/2)<<ENV_LSHIFT)*1/3
+            }
+            // v(257-448) -> total_level(0 - -192). distortion.
+            for (i=1; i<193; i++) {
+                j = i + 256;
+                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = -i;
+            }
+            // v(449-512) -> total_level=-192. distortion.
+            for (i=1; i<65; i++) {
+                j = i + 448;
+                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = ENV_TOP;
+            }
+            
+            // table from linear volume to tl
+            eg_lv2tlTable = new Vector.<int>(129);
             for (i=0; i<129; i++) {
-                // 0.0078125 = 1/128
-                eg_tlTable[i] = calcLogTableIndex(i*0.0078125) >> (LOG_VOLUME_BITS - ENV_BITS);
-            }
-            // v(129-224) -> total_level(0 - -192). distortion.
-            for (i=1; i<97; i++) {
-                eg_tlTable[i+128] = -(i*2);
-            }
-            // v(225-257) -> total_level=-192. distortion.
-            for (i=1; i<34; i++) {
-                eg_tlTable[i+224] = ENV_TOP;
+                eg_lv2tlTable[i] = calcLogTableIndex(i*0.0078125) >> (LOG_VOLUME_BITS - ENV_BITS + ENV_LSHIFT);
             }
             
             // panning volume table
@@ -532,19 +572,19 @@ package org.si.sion.module {
             
         // dt1 table
         //----------------------------------------
-            // dt1 table from fmgen
+            // dt1 table from X68Sound.dll
             var fmgen_dt1:Array = [  //[4][32]
-                [  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-                [  0,  0,  0,  0,  2,  2,  2,  2,  2,  2,  2,  2,  4,  4,  4,  4,    4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14, 16, 16, 16, 16],
-                [  2,  2,  2,  2,  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10,   10, 12, 12, 14, 16, 16, 18, 20, 22, 24, 26, 28, 32, 32, 32, 32],
-                [  4,  4,  4,  4,  4,  6,  6,  6,  8,  8,  8, 10, 10, 12, 12, 14,   16, 16, 18, 20, 22, 24, 26, 28, 32, 34, 38, 40, 44, 44, 44, 44]
+                [0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0], 
+                [0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5,  6,  6,  7,  8,  8,  8,  8], 
+                [1,  1,  1,  1,  2,  2,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5,  6,  6,  7,  8,  8,  9, 10, 11, 12, 13, 14, 16, 16, 16, 16], 
+                [2,  2,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5,  6,  6,  7,  8,  8,  9, 10, 11, 12, 13, 14, 16, 17, 19, 20, 22, 22, 22, 22]
             ];
             dt1Table = new Array(8);
             for (i=0; i<4; i++) {
                 dt1Table[i]   = new Vector.<int>(KEY_CODE_TABLE_SIZE, true);
                 dt1Table[i+4] = new Vector.<int>(KEY_CODE_TABLE_SIZE, true);
                 for (j=0; j<KEY_CODE_TABLE_SIZE; j++) {
-                    iv = int(fmgen_dt1[i][j>>2]);
+                    iv = (int(fmgen_dt1[i][j>>2]) * 64 * clock_ratio) >> CLOCK_RATIO_BITS;
                     dt1Table[i]  [j] =  iv;
                     dt1Table[i+4][j] = -iv;
                 }
@@ -742,6 +782,7 @@ package org.si.sion.module {
             }
             waveTables[PG_NOISE_WHITE] = SiOPMWaveTable.alloc(table1, PT_PCM);
             waveTables[PG_NOISE_PULSE] = SiOPMWaveTable.alloc(table2, PT_PCM);
+            waveTables[PG_PC_NZ_OPM]   = SiOPMWaveTable.alloc(table2, PT_OPM_NOISE);
             waveTables[PG_NOISE] = waveTables[PG_NOISE_WHITE];
             
             // fc short noise. NOTE: Dishonest impelementation. 93*11=1023 aprox.-> 1024.
@@ -989,7 +1030,7 @@ package org.si.sion.module {
     //--------------------------------------------------
         private function _createLFOTables() : void
         {
-            var i:int, t:int, s:int, table:Vector.<int>;
+            var i:int, t:int, s:int, table:Vector.<int>, table2:Vector.<int>;
             
             // LFO timer steps
             // This calculation is hybrid between fmgen and x68sound.dll, and extend as 20bit fixed dicimal.
@@ -1000,21 +1041,32 @@ package org.si.sion.module {
                 lfo_timerSteps[i] = ((t << (LFO_FIXED_BITS-4)) * clock_ratio / (8 << s)) >> CLOCK_RATIO_BITS; // 4 from fmgen, 8 from x68sound.
             }
             
-            lfo_waveTables = new Array(4);    // [0, 255]
+            lfo_waveTables = new Array(8);    // [0, 255]
             
             // LFO_TABLE_SIZE = 256 cannot be changed !!
             // saw wave
             table = new Vector.<int>(256, true);
-            for (i=0; i<256; i++) { table[i] = 255 - i; }
+            table2 = new Vector.<int>(256, true);
+            for (i=0; i<256; i++) { 
+                table[i] = 255 - i;
+                table2[i] = i;
+            }
             lfo_waveTables[LFO_WAVE_SAW] = table;
+            lfo_waveTables[LFO_WAVE_SAW+4] = table2;
             
             // pulse wave
             table = new Vector.<int>(256, true);
-            for (i=0; i<256; i++) { table[i] = (i<128) ? 255 : 0; }
+            table2 = new Vector.<int>(256, true);
+            for (i=0; i<256; i++) {
+                table[i] = (i<128) ? 255 : 0;
+                table2[i] = 255 - table[i];
+            }
             lfo_waveTables[LFO_WAVE_SQUARE] = table;
+            lfo_waveTables[LFO_WAVE_SQUARE+4] = table2;
             
             // triangle wave
             table = new Vector.<int>(256, true);
+            table2 = new Vector.<int>(256, true);
             for (i=0; i<64; i++) {
                 t = i<<1;
                 table[i]     = t+128;
@@ -1022,13 +1074,19 @@ package org.si.sion.module {
                 table[128+i] = 126-t;
                 table[255-i] = 126-t;
             }
+            for (i=0; i<256; i++) { table2[i] = 255 - table[i]; }
             lfo_waveTables[LFO_WAVE_TRIANGLE] = table;
+            lfo_waveTables[LFO_WAVE_TRIANGLE+4] = table2;
 
             // noise wave
             table = new Vector.<int>(256, true);
-            for (i=0; i<256; i++) { table[i] = int(Math.random()*255); }
+            table2 = new Vector.<int>(256, true);
+            for (i=0; i<256; i++) { 
+                table[i] = int(Math.random()*255);
+                table2[i] = 255 - table[i];
+            }
             lfo_waveTables[LFO_WAVE_NOISE] = table;
-            
+            lfo_waveTables[LFO_WAVE_TRIANGLE+4] = table2;
             
             // lfo table for chorus
             table = new Vector.<int>(256, true);

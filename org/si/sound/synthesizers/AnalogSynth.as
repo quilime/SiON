@@ -30,9 +30,9 @@ package org.si.sound.synthesizers {
         /** nromal connection */
         static public const CONNECT_NORMAL:int = 0;
         /** ring connection */
-        static public const CONNECT_RING:int = 0;
+        static public const CONNECT_RING:int = 1;
         /** sync connection */
-        static public const CONNECT_SYNC:int = 0;
+        static public const CONNECT_SYNC:int = 2;
         
         /** wave shape number of saw wave */
         static public const SAW:int = SiOPMTable.PG_SAW_UP;
@@ -107,9 +107,9 @@ package org.si.sound.synthesizers {
             _intBalance = int(b * 128) - 64;
             if (_intBalance > 64) _intBalance = 64;
             else if (_intBalance < -64) _intBalance = -64;
-            var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable;
-            _opp0.tl = tltable[64-_intBalance] >> SiOPMTable.ENV_LSHIFT;
-            _opp1.tl = tltable[_intBalance+64] >> SiOPMTable.ENV_LSHIFT;
+            var tltable:Vector.<int> = SiOPMTable.instance.eg_lv2tlTable;
+            _opp0.tl = tltable[64-_intBalance];
+            _opp1.tl = tltable[_intBalance+64];
             var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
                 ch = _tracks[i].channel as SiOPMChannelFM;

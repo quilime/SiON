@@ -76,6 +76,11 @@ package org.si.sound.patterns {
         /** @private Mute */
         protected var _mute:Boolean;
         
+        /** @private [protected] Event trigger ID */
+        protected var _eventTriggerID:int;
+        /** @private [protected] note on trigger | (note off trigger &lt;&lt; 2) trigger type */
+        protected var _noteTriggerFlags:int;
+        
         /** @private Grid shift pattern */
         protected var _gridShiftPattern:Vector.<int>;
         
@@ -129,6 +134,14 @@ package org.si.sound.patterns {
             if (_currentNote == null || isNaN(_currentNote.length)) return _defaultLength;
             return _currentNote.length;
         }
+        
+        /** Track event trigger ID */
+        public function get eventTriggerID() : int { return _eventTriggerID; }
+        public function set eventTriggerID(id:int) : void { _eventTriggerID = id; }
+        /** Track note on trigger type */
+        public function get noteOnTriggerType() : int { return _noteTriggerFlags & 3; }
+        /** Track note off trigger type */
+        public function get noteOffTriggerType() : int { return _noteTriggerFlags >> 2; }
         
         
         /** default note (0-127), this value is refered when the Note's note property is under 0 (ussualy -1). */
@@ -184,6 +197,8 @@ package org.si.sound.patterns {
             _currentGridShift = 0;
             _gridShiftPattern = gridShiftPattern;
             _mute = false;
+            _eventTriggerID = 0;
+            _noteTriggerFlags = 0;
 
             // create internal sequence
             var seq:MMLSequence = data.appendNewSequence();
@@ -204,6 +219,7 @@ package org.si.sound.patterns {
             _synthesizer_updateNumber = _owner.synthesizer._synthesizer_internal::_voiceUpdateNumber;
             _track = track;
             _track.setPortament(portament);
+            _track.setEventTrigger(_eventTriggerID, _noteTriggerFlags&3, _noteTriggerFlags>>2);
             _sequencePointer = _initialSequencePointer;
             _frameCounter = (_initialSequencePointer == -1) ? -1 : (_initialSequencePointer % segmentFrameCount);
             _currentGridShift = 0;

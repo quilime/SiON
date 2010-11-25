@@ -149,7 +149,7 @@ package org.si.sound {
         
         
         /** bass drum pattern number. */
-        public function get bassVoiceNumber() : int { return _bassVoiceNumber; }
+        public function get bassVoiceNumber() : int { return _bassVoiceNumber>>1; }
         public function set bassVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= bassVoiceList.length) return;
@@ -159,7 +159,7 @@ package org.si.sound {
         
         
         /** snare drum pattern number. */
-        public function get snareVoiceNumber() : int { return _snareVoiceNumber; }
+        public function get snareVoiceNumber() : int { return _snareVoiceNumber>>1; }
         public function set snareVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= snareVoiceList.length) return;
@@ -169,7 +169,7 @@ package org.si.sound {
         
         
         /** hi-hat cymbal pattern number. */
-        public function get hihatVoiceNumber() : int { return _hihatVoiceNumber; }
+        public function get hihatVoiceNumber() : int { return _hihatVoiceNumber>>1; }
         public function set hihatVoiceNumber(index:int) : void {
             index <<= 1;
             if (index < 0 || index >= hihatVoiceList.length) return;

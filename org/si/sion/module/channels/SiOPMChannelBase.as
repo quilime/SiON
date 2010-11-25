@@ -65,6 +65,8 @@ package org.si.sion.module.channels {
         /** pan */              protected var _pan:int;
         /** effect send flag */ protected var _hasEffectSend:Boolean;
         /** mute */             protected var _mute:Boolean;
+        /** veocity table */    protected var _veocityTable:Vector.<int>;
+        /** expression table */ protected var _expressionTable:Vector.<int>;
         
         // LPFilter
         /** filter switch */    protected var _filterOn:Boolean;
@@ -270,7 +272,7 @@ package org.si.sion.module.channels {
         /** initialize LFO (&#64;lfo). */
         public function initializeLFO(waveform:int) : void
         {
-            waveform = (0<=waveform && waveform<=3) ? waveform : SiOPMTable.LFO_WAVE_TRIANGLE;
+            waveform = (0<=waveform && waveform<=7) ? waveform : SiOPMTable.LFO_WAVE_TRIANGLE;
             _lfo_waveTable = _table.lfo_waveTables[waveform];
             _lfo_waveShape = waveform;
             _lfo_timer = 1;
@@ -427,6 +429,17 @@ package org.si.sion.module.channels {
         }
         
         
+        /** set velocity and expression tables
+         *  @param vtable volume table (length = 513)
+         *  @param xtable expression table (length = 513)
+         */
+        public function setVolumeTables(vtable:Vector.<int>, xtable:Vector.<int>) : void
+        {
+            _veocityTable = vtable;
+            _expressionTable = xtable;
+        }
+        
+        
         
         
     // operations
@@ -444,6 +457,8 @@ package org.si.sion.module.channels {
                 _pan = prev._pan;
                 _hasEffectSend = prev._hasEffectSend;
                 _mute = prev._mute;
+                _veocityTable = prev._veocityTable;
+                _expressionTable = prev._expressionTable;
             } else {
                 _volumes[0] = 0.5;
                 _streams[0] = null;
@@ -454,6 +469,8 @@ package org.si.sion.module.channels {
                 _pan = 64;
                 _hasEffectSend = false;
                 _mute = false;
+                _veocityTable = _table.eg_tlTableLine;
+                _expressionTable = _table.eg_tlTableLine;
             }
             
             // buffer index

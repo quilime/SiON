@@ -701,8 +701,8 @@ package org.si.sion.sequencer.base {
         // volume
         static private function _volume(param:int) : void
         {
-            if (param<_setting.minVolume || param>_setting.maxVolume) {
-                throw errorRangeOver("v", _setting.minVolume, _setting.maxVolume);
+            if (param<0 || param>_setting.maxVolume) {
+                throw errorRangeOver("v", 0, _setting.maxVolume);
             }
             addMMLEvent(MMLEvent.VOLUME, param);
         }
@@ -711,8 +711,8 @@ package org.si.sion.sequencer.base {
         // fine volume
         static private function _at_volume(param:int) : void
         {
-            if (param<_setting.minFineVolume || param>_setting.maxFineVolume) {
-                throw errorRangeOver("@v", _setting.minFineVolume, _setting.maxFineVolume);
+            if (param<0 || param>_setting.maxFineVolume) {
+                throw errorRangeOver("@v", 0, _setting.maxFineVolume);
             }
             addMMLEvent(MMLEvent.FINE_VOLUME, param);
         }

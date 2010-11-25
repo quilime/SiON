@@ -138,8 +138,8 @@ package org.si.sion.module.channels {
                 break;
             default:
                 _ks_seedType = KS_SEED_DEFAULT;
-                setAlgorism(1, 0);
-                setFeedBack(0, 0);
+                //setAlgorism(1, 0);
+                //setFeedBack(0, 0);
                 setSiOPMParameters(param[1], param[2], 0, 63, 15, param[3], 0, 0, 1, 0, 0, 0, 0, param[4]);
                 activeOperator.pgType = (param[5] == int.MIN_VALUE) ? SiOPMTable.PG_NOISE_PINK : param[5];
                 activeOperator.ptType = _table.getWaveTable(activeOperator.pgType).defaultPTType;

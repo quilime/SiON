@@ -83,6 +83,7 @@ package org.si.sound {
         {
             if (_tracks) {
                 _length = length;
+                _note = note;
                 _track = _noteOn(_note, false);
                 if (_track) _synthesizer._registerTrack(_track);
                 _track.velocity = velocity;

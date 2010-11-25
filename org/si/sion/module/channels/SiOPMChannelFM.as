@@ -582,8 +582,8 @@ package org.si.sion.module.channels {
         /** update all tl offsets of final carriors */
         override public function offsetVolume(expression:int, velocity:int) : void
         {
-            var i:int, ope:SiOPMOperator,
-                tl:int = _table.eg_tlTable[expression] + _table.eg_tlTable[velocity];
+            var i:int, ope:SiOPMOperator, tl:int, x:int = expression<<1;
+            tl = _expressionTable[x] + _veocityTable[velocity];
             for (i=0; i<_operatorCount; i++) {
                 ope = operator[i];
                 if (ope._final) ope._tlOffset(tl);

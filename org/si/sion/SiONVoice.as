@@ -280,9 +280,9 @@ package org.si.sion {
             if (balance > 64) balance = 64;
             else if (balance < -64) balance = -64;
 
-            var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable;
-            channelParam.operatorParam[0].tl = tltable[64-balance] >> SiOPMTable.ENV_LSHIFT;
-            channelParam.operatorParam[1].tl = tltable[balance+64] >> SiOPMTable.ENV_LSHIFT;
+            var tltable:Vector.<int> = SiOPMTable.instance.eg_lv2tlTable;
+            channelParam.operatorParam[0].tl = tltable[64-balance];
+            channelParam.operatorParam[1].tl = tltable[balance+64];
             
             channelParam.operatorParam[0].detune = 0;
             channelParam.operatorParam[1].detune = vco2pitch;

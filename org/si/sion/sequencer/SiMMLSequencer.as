@@ -161,6 +161,8 @@ package org.si.sion.sequencer {
             setMMLEventListener(MMLEvent.VOLUME,       _onVolume);
             setMMLEventListener(MMLEvent.VOLUME_SHIFT, _onVolumeShift);
             setMMLEventListener(MMLEvent.FINE_VOLUME,  _onMasterVolume);
+            newMMLEventListener('%v',  _onVolumeSetting);
+            newMMLEventListener('%x',  _onExpressionSetting);
 
             // channel setting
             newMMLEventListener('@clock', _onClock);
@@ -240,8 +242,8 @@ package org.si.sion.sequencer {
             setting.defaultQuantRatio = 6;
             setting.maxQuantRatio     = 8;
             setting.defaultOctave     = 5;
-            setting.maxVolume         = 32;
-            setting.defaultVolume     = 16;
+            setting.maxVolume         = 512;
+            setting.defaultVolume     = 256;
             setting.maxFineVolume     = 128;
             setting.defaultFineVolume = 64;
         }
@@ -264,7 +266,7 @@ package org.si.sion.sequencer {
         {
             for each (var trk:SiMMLTrack in tracks) {
                 trk._reset(0);
-                trk.velocity   = setting.defaultVolume<<3;
+                trk.velocity   = setting.defaultVolume;
                 trk.quantRatio = setting.defaultQuantRatio / setting.maxQuantRatio;
                 trk.quantCount = calcSampleCount(setting.defaultQuantCount);
                 trk.channel.masterVolume = setting.defaultFineVolume;
@@ -294,7 +296,7 @@ package org.si.sion.sequencer {
         {
             var result:Array = [];
             for each (var trk:SiMMLTrack in tracks) {
-                if (trk._sion_sequencer_internal::_internalTrackID == internalTrackID && trk.isActive) {
+                if (trk._internalTrackID == internalTrackID && trk.isActive) {
                     if (delay == -1) return trk;
                     var diff:int = trk.trackStartDelay - delay;
                     if (-8<diff && diff<8) return trk;
@@ -319,7 +321,7 @@ package org.si.sion.sequencer {
             
             if (tracks.length < _sion_internal::_maxTrackCount) {
                 trk = _freeTracks.pop() || new SiMMLTrack();
-                trk._sion_sequencer_internal::_trackNumber = tracks.length;
+                trk._trackNumber = tracks.length;
                 tracks.push(trk);
             } else {
                 trk = _findLowestPriorityTrack();
@@ -400,7 +402,7 @@ package org.si.sion.sequencer {
                         trk = _freeTracks.pop() || (new SiMMLTrack());
                         internalTrackID = idx | SiMMLTrack.MML_TRACK;
                         tracks[idx] = trk._initialize(seq, mmlData.defaultFPS, internalTrackID, _callbackEventNoteOn, _callbackEventNoteOff, true);
-                        tracks[idx]._sion_sequencer_internal::_trackNumber = idx;
+                        tracks[idx]._trackNumber = idx;
                         idx++;
                     }
                     seq = seq.nextSequence;
@@ -744,6 +746,15 @@ package org.si.sion.sequencer {
                         setting.maxQuantRatio     = num;
                         setting.defaultQuantRatio = int(num*0.75);
                     }
+                    return true;
+                }
+                case '#TMODE': {
+                    _parseTCommansSubMML(dat);
+                    return true;
+                }
+                case '#VMODE': {
+                    _parseVCommansSubMML(dat);
+                    return true;
                 }
                 case '#REV': {
                     if (noData) dat = pfx;
@@ -807,6 +818,53 @@ package org.si.sion.sequencer {
             }
         }
         
+        // Parse inside of #TMODE{...}
+        private function _parseTCommansSubMML(dat:String) : void
+        {
+            var tcmdrex:RegExp = /(unit|timerb|fps)=?([\d.]+)/;
+            var res:* = tcmdrex.exec(dat), num:Number;
+            switch(String(res[1])) {
+            case "unit":
+                num = Number(res[2]);
+                mmlData.tcommandMode = MMLData.TCOMMAND_BPM;
+                mmlData.tcommandResolution = (num>0) ? 1 / num : 1;
+                break;
+            case "timerb":
+                mmlData.tcommandMode = MMLData.TCOMMAND_TIMERB;
+                mmlData.tcommandResolution = num;
+                break;
+            case "fps":
+                mmlData.tcommandMode = MMLData.TCOMMAND_FRAME;
+                mmlData.tcommandResolution = (num>0) ? num * 60 : 3600;
+                break;
+            }
+        }
+        
+        // Parse inside of #VMODE{...}
+        private function _parseVCommansSubMML(dat:String) : void
+        {
+            throw new Error("#VMODE{...} currently not supported");
+            var tcmdrex:RegExp = /(n88|mdx|psg|mck|tss|%x|%v)(\d*)/g;
+            var res:* = tcmdrex.exec(dat), num:Number;
+            switch(String(res[1])) {
+            case "%x":
+                break;
+            case "%v":
+                break;
+            case "n88": case "mdx":
+                mmlData.defaultVelocityMode = SiOPMTable.VM_DR32DB;
+                mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
+                break;
+            case "psg":
+                mmlData.defaultVelocityMode = SiOPMTable.VM_DR48DB;
+                mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
+                break;
+            default: // mck/tss
+                mmlData.defaultVelocityMode = SiOPMTable.VM_LINEAR;
+                mmlData.defaultExpressionMode = SiOPMTable.VM_LINEAR;
+                break;
+            }
+        }        
         
         // Parse system command after parsing mml.
         private function _parseSystemCommandAfter(seqGroup:MMLSequenceGroup, syscmd:MMLSequence) : MMLSequence
@@ -1350,7 +1408,7 @@ package org.si.sion.sequencer {
         private function _onVolume(e:MMLEvent) : MMLEvent
         {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next;  // check mask
-            _currentTrack.velocity = e.data<<3;                        // velocity (data<<3 = 16->128)
+            _currentTrack._mmlVCommand(e.data);                                   // velocity (data<<3 = 16->128)
             return e.next;
         }
         
@@ -1358,7 +1416,17 @@ package org.si.sion.sequencer {
         private function _onVolumeShift(e:MMLEvent) : MMLEvent
         {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next;  // check mask
-            _currentTrack.velocity += e.data<<3;                                  // velocity (data<<3 = 16->128)
+            _currentTrack._mmlVShift(e.data);                                     // velocity (data<<3 = 16->128)
+            return e.next;
+        }
+        
+        // %v
+        private function _onVolumeSetting(e:MMLEvent) : MMLEvent
+        {
+            e = e.getParameters(_p, SiOPMModule.STREAM_SEND_SIZE);
+            if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next;  // check mask
+            _currentTrack._vcommandShift = (_p[1] == int.MIN_VALUE) ? 4 : _p[1];
+            _currentTrack.velocityMode   = (_p[0] == int.MIN_VALUE) ? 0 : _p[0];
             return e.next;
         }
     
@@ -1368,6 +1436,14 @@ package org.si.sion.sequencer {
             if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next; // check mask
             var x:int = (e.data == int.MIN_VALUE) ? 128 : e.data;                // default value = 128
             _currentTrack.expression = x;                                        // expression
+            return e.next;
+        }
+        
+        // %x
+        private function _onExpressionSetting(e:MMLEvent) : MMLEvent
+        {
+            if (_currentTrack.eventMask & SiMMLTrack.MASK_VOLUME) return e.next;  // check mask
+            _currentTrack.expressionMode = (e.data == int.MIN_VALUE) ? 0 : e.data;
             return e.next;
         }
 
@@ -1614,6 +1690,8 @@ package org.si.sion.sequencer {
         {
             return e.next;
         }
+        
+        
         
         
         

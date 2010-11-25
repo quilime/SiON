@@ -79,8 +79,7 @@ package org.si.sound {
         /** chord instance */
         public function get scale() : Scale { return _scale; }
         public function set scale(s:Scale) : void {
-            if (s == null) _scale = _defaultChord;
-            _scale = s;
+            _scale = s || _defaultChord;
             _updateBassNote();
         }
         
@@ -109,7 +108,7 @@ package org.si.sound {
         }
         
         
-        /** Number Array of the sequence notes' length. If the value is 0, insert rest instead. */
+        /** Number Array of the sequence notes. If the value is 0, insert rest instead. */
         public function get pattern() : Array { return _currentPattern || _nextPattern; }
         public function set pattern(pat:Array) : void {
             if (isPlaying && _changePatternOnSegment) {

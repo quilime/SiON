@@ -134,15 +134,19 @@ package org.si.sion.sequencer {
 
         // settings
         private var _channelModuleSetting:SiMMLChannelSetting;  // selected module's setting
-        private var _velocity:int;      // velocity
-        private var _expression:int;    // expression
-        private var _pitchIndex:int;    // current pitch index
-        private var _pitchBend:int;     // pitch bend
-        private var _tone:int;          // tone number
-        private var _note:int;          // note number
-        private var _defaultFPS:int;    // default fps
+        private var _velocityMode:int;   // velocity mode 
+        private var _expressionMode:int; // expression mode
+        private var _velocity:int;       // velocity[0-256-512]
+        private var _expression:int;     // expression[0-128]
+        private var _pitchIndex:int;     // current pitch index
+        private var _pitchBend:int;      // pitch bend
+        private var _tone:int;           // tone number
+        private var _note:int;           // note number
+        private var _defaultFPS:int;     // default fps
         /** @private [internal] channel number. */
         internal var _channelNumber:int; 
+        /** @private [internal] vcommand shift. */
+        _sion_sequencer_internal var _vcommandShift:int;  // vcommand shift
         
         // setting
         private var _set_processMode:Vector.<int>;
@@ -233,7 +237,7 @@ package org.si.sion.sequencer {
         /** velocity(0-256). linked to operator's total level. */
         public function get velocity()        : int  { return _velocity; }
         public function set velocity(v:int)   : void { 
-            _velocity = (v<0) ? 0 : (v>256) ? 256 : v;
+            _velocity = (v<0) ? 0 : (v>512) ? 512 : v;
             channel.offsetVolume(_expression, _velocity);
         }
         
@@ -294,6 +298,23 @@ package org.si.sion.sequencer {
         /** callback function when update register event appears. */
         public function get onUpdateRegister() : Function { return _callbackUpdateRegister; }
         public function set onUpdateRegister(func:Function) : void { _callbackUpdateRegister = func || _defaultUpdateRegister; }
+        
+        /** velocity table mode */
+        public function get velocityMode() : int { return _velocityMode; }
+        public function set velocityMode(mode:int) : void {
+            var tlTables:Vector.<Vector.<int>> = SiOPMTable.instance.eg_tlTables;
+            _velocityMode = (mode>=0 && mode<SiOPMTable.VM_MAX) ? mode : SiOPMTable.VM_LINEAR;
+            channel.setVolumeTables(tlTables[_velocityMode], tlTables[_expressionMode]);
+        }
+        
+        /** expression table mode */
+        public function get expressionMode() : int { return _expressionMode; }
+        public function set expressionMode(mode:int) : void {
+            var tlTables:Vector.<Vector.<int>> = SiOPMTable.instance.eg_tlTables;
+            _expressionMode = (mode>=0 && mode<SiOPMTable.VM_MAX) ? mode : SiOPMTable.VM_LINEAR;
+            channel.setVolumeTables(tlTables[_velocityMode], tlTables[_expressionMode]);
+        }
+
         
         /** Channel number, set by 2nd argument of % command. Usually same as programNumber. @see programNumber */
         public function get channelNumber() : int { return _channelNumber; }
@@ -739,12 +760,23 @@ package org.si.sion.sequencer {
             _channelNumber = 0;
             
             // initialize channel by _channelModuleSetting
-            _velocity = 128;
+            if (_mmlData) {
+                _vcommandShift = _mmlData.defaultVCommandShift;
+                _velocityMode = _mmlData.defaultVelocityMode;
+                _expressionMode = _mmlData.defaultExpressionMode;
+            } else {
+                _vcommandShift = 4;
+                _velocityMode = SiOPMTable.VM_LINEAR;
+                _expressionMode = SiOPMTable.VM_LINEAR;
+            }
+            _velocity = 256;
             _expression = 128;
             _pitchBend = 0;
             _note = -1;
             channel = null;
             _tone = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
+            var tlTables:Vector.<Vector.<int>> = SiOPMTable.instance.eg_tlTables;
+            channel.setVolumeTables(tlTables[_velocityMode], tlTables[_expressionMode]);
             
             // initialize parameters
             noteShift = 0;
@@ -1179,6 +1211,17 @@ package org.si.sion.sequencer {
             return ret;
         }
         
+        /** @private [internal use] mml v command */
+        internal function _mmlVCommand(v:int) : void 
+        {
+            velocity = v << _vcommandShift;
+        }
+        
+        /** @private [internal use] mml v command */
+        internal function _mmlVShift(v:int) : void 
+        {
+            velocity += v << _vcommandShift;
+        }
         
         // update register
         private function _defaultUpdateRegister(addr:int, data:int) : void

@@ -275,7 +275,7 @@ package org.si.sion.module.channels {
                     }
                 }
 
-                //
+                // note off when processed length less than whole length
                 if (processed < len) {
                     _isNoteOn = false;
                     _isIdling = true;

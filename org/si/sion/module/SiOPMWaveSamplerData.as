@@ -57,7 +57,7 @@ package org.si.sion.module {
         /** flag t ignore note off */
         public function get ignoreNoteOff() : Boolean { return _ignoreNoteOff; }
         public function set ignoreNoteOff(b:Boolean) : void {
-            _ignoreNoteOff = (_loopPoint != -1) && b;
+            _ignoreNoteOff = (_loopPoint == -1) && b;
         }
         
         

@@ -737,7 +737,7 @@ package org.si.sion.utils {
         {
             var opp0:SiOPMOperatorParam = param.operatorParam[0],
                 opp1:SiOPMOperatorParam = param.operatorParam[1],
-                tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable,
+                tltable:Vector.<int> = SiOPMTable.instance.eg_lv2tlTable,
                 con:int = int(data[0]), 
                 balance:int = int(data[3]), 
                 cutoff:int = int(data[9]), 
@@ -752,8 +752,8 @@ package org.si.sion.utils {
             param.alg = con;
             opp0.pgType = (int(data[1])) & 511;
             opp1.pgType = (int(data[2])) & 511;
-            opp0.tl = tltable[64-balance] >> SiOPMTable.ENV_LSHIFT;
-            opp1.tl = tltable[balance+64] >> SiOPMTable.ENV_LSHIFT;
+            opp0.tl = tltable[64-balance];
+            opp1.tl = tltable[balance+64];
             opp0.detune = 0;
             opp1.detune = data[4];
             
@@ -1496,8 +1496,7 @@ package org.si.sion.utils {
             if (tl0 == tl1) return 0;
             if (tl0 == 0) return -64;
             if (tl1 == 0) return 64;
-            var tltable:Vector.<int> = SiOPMTable.instance.eg_tlTable, i:int;
-            tl0 <<= SiOPMTable.ENV_LSHIFT;
+            var tltable:Vector.<int> = SiOPMTable.instance.eg_lv2tlTable, i:int;
             for (i=1; i<128; i++) if (tl0 >= tltable[i]) return i-64;
             return 64;
         }

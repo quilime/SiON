@@ -24,6 +24,17 @@ package org.si.sion.sequencer.base {
         
         
         
+    // constants
+    //--------------------------------------------------
+        /** specify tcommand argument by BPM */
+        static public const TCOMMAND_BPM:String = "bpm";
+        /** specify tcommand argument by OPM's TIMERB */
+        static public const TCOMMAND_TIMERB:String = "timerb";
+        /** specify tcommand argument by frame count */
+        static public const TCOMMAND_FRAME:String = "frame";
+        
+        
+        
     // valiables
     //--------------------------------------------------
         /** Sequence group */
@@ -37,8 +48,16 @@ package org.si.sion.sequencer.base {
         public var title:String;
         /** Author */
         public var author:String;
-        /** @private [sion sequencer internal] default BPM of this data */
-        _sion_sequencer_internal var _initialBPM:BeatPerMinutes;
+        /** mode of t command */
+        public var tcommandMode:String;
+        /** resolution of t command */
+        public var tcommandResolution:Number;
+        /** default velocity command shift */
+        public var defaultVCommandShift:int;
+        /** default velocity mode */
+        public var defaultVelocityMode:int;
+        /** default expression mode */
+        public var defaultExpressionMode:int;
         
         /** wave tables */
         protected var waveTables:Vector.<SiOPMWaveTable>;
@@ -47,7 +66,9 @@ package org.si.sion.sequencer.base {
         /** wave data */
         protected var sampleTable:SiOPMWaveSamplerTable;
         
-        /** @private [sion sequencer internal] system commands that can not be parsed */
+        /** @private [sion sequencer internal] default BPM of this data */
+        _sion_sequencer_internal var _initialBPM:BeatPerMinutes;
+        /** @private [sion sequencer internal] system commands that can not be parsed by system */
         _sion_sequencer_internal var _systemCommands:Array;
         
         
@@ -59,17 +80,16 @@ package org.si.sion.sequencer.base {
         public function get sequenceCount() : int { return sequenceGroup.sequenceCount; }
         
         
-        /** Beat per minutes, 0 when this data depends on driver's BPM. */
+        /** Beat per minutes, set 0 when this data depends on driver's BPM. */
         public function set bpm(t:Number) : void {
             _initialBPM = (t>0) ? (new BeatPerMinutes(t, 44100)) : null;
         }
         public function get bpm() : Number {
             return (_initialBPM) ? _initialBPM.bpm : 0;
         }
-        
-        
+                
         /** system commands that can not be parsed. Examples are for mml string "#ABC5{def}ghi;".<br/>
-         *  the array elements are Object. and it has properties of ...<br/>
+         *  the array elements are Object, and it has following properties.<br/>
          *  <ul>
          *  <li>command: command name. this always starts with "#". ex) command = "#ABC"</li>
          *  <li>number:  number after command. ex) number = 5</li>
@@ -98,6 +118,11 @@ package org.si.sion.sequencer.base {
             globalSequence = new MMLSequence();
             
             _initialBPM = null;
+            tcommandMode = TCOMMAND_BPM;
+            tcommandResolution = 1;
+            defaultVCommandShift = 4;
+            defaultVelocityMode = 0;
+            defaultExpressionMode = 0;
             defaultFPS = 60;
             title = "";
             author = "";
@@ -122,6 +147,10 @@ package org.si.sion.sequencer.base {
             globalSequence.free();
             
             _initialBPM = null;
+            tcommandMode = TCOMMAND_BPM;
+            tcommandResolution = 1;
+            defaultVelocityMode = 0;
+            defaultExpressionMode = 0;
             defaultFPS = 60;
             title = "";
             author = "";
@@ -180,6 +209,20 @@ package org.si.sion.sequencer.base {
             waveTables[index] = SiOPMWaveTable.alloc(table);
             return waveTables[index];
         }
+        
+        /** @private calculate bpm from t command paramater */
+        _sion_sequencer_internal function _calcBPMfromTcommand(param:int) : Number
+        {
+           switch(tcommandMode) {
+            case TCOMMAND_BPM:
+                return param * tcommandResolution;
+            case TCOMMAND_FRAME:
+                return (param) ? (tcommandResolution / param) : 120;
+            default: // TCOMMAND_TIMERB:
+                return param * tcommandResolution;
+            }
+            return 0;
+         }
     }
 }
 

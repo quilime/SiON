@@ -519,13 +519,13 @@ package org.si.sion.sequencer.base {
             // sort and create global sequence
             seq = mmlData.globalSequence;
             
-            list = list.sortOn(length, Array.NUMERIC);
+            list = list.sortOn('length', Array.NUMERIC);
             pos = 0;
             initialBPM = 0;
             for each (e in list) {
                 if (e.length == 0 && e.id == MMLEvent.TEMPO) {
                     // first tempo command is default bpm.
-                    initialBPM = e.data;
+                    initialBPM = mmlData._calcBPMfromTcommand(e.data);
                 } else {
                     count = e.length - pos;
                     pos = e.length;
@@ -685,7 +685,7 @@ package org.si.sion.sequencer.base {
         /** default operation for MMLEvent.TEMPO. */
         protected function _default_onTempo(e:MMLEvent) : MMLEvent
         {
-            _sion_internal::bpm = e.data;
+            _sion_internal::bpm = (mmlData) ? (mmlData._calcBPMfromTcommand(e.data)) : e.data;
             return e.next;
         }
         

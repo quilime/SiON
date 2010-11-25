@@ -16,7 +16,7 @@ package org.si.sion.sequencer.base {
         public var resolution       :int;
         private var _mml2nn         :int;
         /** Default value of beat per minutes. */
-        public var defaultBPM       :int;
+        public var defaultBPM       :Number;
         
         /** Default value of the l command. */
         public var defaultLValue    :int;
@@ -32,16 +32,12 @@ package org.si.sion.sequencer.base {
         public var maxQuantCount     :int;
         /** Default value of the @q command. */
         public var defaultQuantCount :int;
-        /** Minimum value of the v command. */
-        public var minVolume        :int;
         /** Maximum value of the v command. */
-        public var maxVolume        :int;
+        public var maxVolume:int;
         /** Default value of the v command. */
-        public var defaultVolume    :int;
-        /** Minimum value of the @v command. */
-        public var minFineVolume    :int;
+        public var defaultVolume:int;
         /** Maximum value of the @v command. */
-        public var maxFineVolume    :int;
+        public var maxFineVolume:int;
         /** Default value of the @v command. */
         public var defaultFineVolume:int;
         /** Minimum value of the o command. */
@@ -104,14 +100,10 @@ package org.si.sion.sequencer.base {
             minQuantCount     = -192;
             maxQuantCount     =  192;
             defaultQuantCount =    0;
-
-            minVolume         =   0;
-            maxVolume         =  15;
-            defaultVolume     =   8;
-            minFineVolume     =   0;
+            maxVolume         = 15;
+            defaultVolume     = 10;
             maxFineVolume     = 127;
-            defaultFineVolume =  64;
-
+            defaultFineVolume = 127;
             minOctave     = 0;
             maxOctave     = 9;
             defaultOctave = 5;
@@ -141,10 +133,8 @@ package org.si.sion.sequencer.base {
             if (initializer.maxQuantCount     != undefined) maxQuantCount = initializer.maxQuantCount;
             if (initializer.defaultQuantCount != undefined) defaultQuantCount = initializer.defaultQuantCount;
 
-            if (initializer.minVolume         != undefined) minVolume = initializer.minVolume;
             if (initializer.maxVolume         != undefined) maxVolume = initializer.maxVolume;
             if (initializer.defaultVolume     != undefined) defaultVolume = initializer.defaultVolume;
-            if (initializer.minFineVolume     != undefined) minFineVolume = initializer.minFineVolume;
             if (initializer.maxFineVolume     != undefined) maxFineVolume = initializer.maxFineVolume;
             if (initializer.defaultFineVolume != undefined) defaultFineVolume = initializer.defaultFineVolume;
 

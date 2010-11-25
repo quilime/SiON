@@ -100,7 +100,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.6.1";
+        static public const VERSION:String = "0.6.1.2";
         
         
         /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method (default). */
@@ -640,6 +640,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     _latency = 0;
                     _fader.stop();
                     _faderVolume = 1;
+                    _isPaused = false;
                     _soundTransform.volume = _masterVolume;
                     sequencer._sion_internal::_stopSequence();
                     
@@ -1390,15 +1391,19 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
 
                 // frame trigger
                 if (_trackEventQueue.length > 0) {
-                    _trackEventQueue = _trackEventQueue.filter(function(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
-                        if (e._decrementTimer(_frameRate)) {
-                            dispatchEvent(e);
-                            return false;
-                        }
-                        return true;
-                    });
+                    _trackEventQueue = _trackEventQueue.filter(_trackEventQueueFilter);
                 }
             }
+        }
+        
+        
+        // _trackEventQueue filter
+        private function _trackEventQueueFilter(e:SiONTrackEvent, i:int, v:Vector.<SiONTrackEvent>) : Boolean {
+            if (e._decrementTimer(_frameRate)) {
+                dispatchEvent(e);
+                return false;
+            }
+            return true;
         }
         
         
