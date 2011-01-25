@@ -109,9 +109,13 @@ package org.si.sion.module {
             if (channels == 2) {
                 if (sampleChannelCount == 2) {
                     // stereo data to stereo buffer
+                    vol *= 1.4142135623730951;
+                    volL = _panTable[128-pan] * vol;
+                    volR = _panTable[pan]     * vol;
                     jmax = (startPointer + len)<<1;
-                    for (j=startPointer<<1, i=startBuffer<<1; j<jmax; j++, i++) {
-                        buffer[i] += pointer[j] * vol;
+                    for (j=startPointer<<1, i=startBuffer<<1; j<jmax;) {
+                        buffer[i] += pointer[j] * volL; j++; i++;
+                        buffer[i] += pointer[j] * volR; j++; i++;
                     }
                 } else {
                     // monoral data to stereo buffer

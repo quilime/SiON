@@ -91,6 +91,9 @@ package org.si.sion.effector {
             register("ds",      SiEffectDownSampler);
             register("speaker", SiEffectSpeakerSimulator);
             register("comp",    SiEffectCompressor);
+            register("dist",    SiEffectDistortion);
+            register("stereo",  SiEffectStereoExpander);
+            register("vowel",   SiFilterVowel);
             
             register("lf", SiFilterLowPass);
             register("hf", SiFilterHighPass);
@@ -98,6 +101,8 @@ package org.si.sion.effector {
             register("nf", SiFilterNotch);
             register("pf", SiFilterPeak);
             register("af", SiFilterAllPass);
+            register("lb", SiFilterLowBoost);
+            register("hb", SiFilterHighBoost);
             
             register("nlf", SiCtrlFilterLowPass);
             register("nhf", SiCtrlFilterHighPass);
@@ -185,10 +190,10 @@ package org.si.sion.effector {
         /** @private [sion internal] Clear output buffer. */
         _sion_internal function _beginProcess() : void
         {
-            var slot:int, slotMax:int=_localEffects.length;
+            var slot:int, leLength:int=_localEffects.length;
             
             // local effect
-            for (slot=0; slot<slotMax; slot++) {
+            for (slot=0; slot<leLength; slot++) {
                 _localEffects[slot]._stream.clear();
             }
             
@@ -204,14 +209,14 @@ package org.si.sion.effector {
         /** @private [sion internal] processing. */
         _sion_internal function _endProcess() : void
         {
-            var i:int, slot:int, slotMax:int=_localEffects.length,
+            var i:int, slot:int, leLength:int=_localEffects.length,
                 buffer:Vector.<Number>, effect:SiEffectStream, 
                 bufferLength:int = _module.bufferLength,
                 output:Vector.<Number> = _module.output,
                 imax:int = output.length;
             
             // local effect
-            for (slot=0; slot<slotMax; slot++) {
+            for (slot=0; slot<leLength; slot++) {
                 _localEffects[slot].process(0, bufferLength);
             }
             
@@ -219,9 +224,13 @@ package org.si.sion.effector {
             for (slot=1; slot<SiOPMModule.STREAM_SEND_SIZE; slot++) {
                 effect = _globalEffects[slot];
                 if (effect) {
-                    effect.process(0, bufferLength, false);
-                    buffer = effect._stream.buffer;
-                    for (i=0; i<imax; i++) output[i] += buffer[i];
+                    if (effect._outputDirectly) {
+                        effect.process(0, bufferLength, false);
+                        buffer = effect._stream.buffer;
+                        for (i=0; i<imax; i++) output[i] += buffer[i];
+                    } else {
+                        effect.process(0, bufferLength, true);
+                    }
                 }
             }
             
@@ -316,7 +325,7 @@ package org.si.sion.effector {
          */
         public function parseMML(slot:int, mml:String, postfix:String) : void
         {
-            _globalEffector(slot).parseMML(mml, postfix);
+            _globalEffector(slot).parseMML(slot, mml, postfix);
         }
         
         

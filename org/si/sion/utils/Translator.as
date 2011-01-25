@@ -1335,8 +1335,8 @@ package org.si.sion.utils {
                         break;
                     case 15: // NOIZE:7 FREQ:4-0
                         if (value & 128) {
-                            voiceSet[7].channelParam.opeParam[3].setPGType(SiOPMTable.PG_NOISE_PULSE);
-                            voiceSet[7].channelParam.opeParam[3].fixedPitch = ((value & 31) << 6) + 2048;
+                            voiceSet[7].channelParam.operatorParam[3].setPGType(SiOPMTable.PG_NOISE_PULSE);
+                            voiceSet[7].channelParam.operatorParam[3].fixedPitch = ((value & 31) << 6) + 2048;
                         }
                         break;
                     case 16: // TIMER AH:7-0
@@ -1350,7 +1350,7 @@ package org.si.sion.utils {
                     case 24: // LFO FREQ:7-0
                         if (enableLFO) {
                             v = table.lfo_timerSteps[value];
-                            for (opi=0; opi<8; opi++) { voiceSet[opi].lfoFreqStep = v; }
+                            for (opi=0; opi<8; opi++) { voiceSet[opi].channelParam.lfoFreqStep = v; }
                         }
                         break;
                     case 25: // A(0)/P(1):7 DEPTH:6-0
@@ -1362,7 +1362,7 @@ package org.si.sion.utils {
                     case 27: // LFO WS:10
                         if (enableLFO) {
                             v = value & 3;
-                            for (opi=0; opi<8; opi++) { voiceSet[opi].lfoWaveShape = v; }
+                            for (opi=0; opi<8; opi++) { voiceSet[opi].channelParam.lfoWaveShape = v; }
                         }
                         break;
                     }

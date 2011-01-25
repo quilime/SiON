@@ -238,7 +238,7 @@ package org.si.sion.module.channels {
                 setAmplitudeModulation(param.amd);
                 setPitchModulation(param.pmd);
             }
-            setLPFilter(param.cutoff, param.resonance, param.far, param.fdr1, param.fdr2, param.frr, param.fdc1, param.fdc2, param.fsc, param.frc);
+            setSVFilter(param.cutoff, param.resonance, param.far, param.fdr1, param.fdr2, param.frr, param.fdc1, param.fdc2, param.fsc, param.frc);
             for (i=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.operatorParam[i]);
             }
@@ -572,7 +572,9 @@ package org.si.sion.module.channels {
         override public function set ssgec(i:int) : void { activeOperator.ssgec = i; }
         
         /** envelop reset (&#64;er) */
-        override public function set erst(b:Boolean) : void { for (var i:int=0; i<_operatorCount; i++) { operator[i].erst = b; } }
+        override public function set erst(b:Boolean) : void {
+            for (var i:int=0; i<_operatorCount; i++) operator[i].erst = b;
+        }
         
         
         
@@ -587,6 +589,7 @@ package org.si.sion.module.channels {
             for (i=0; i<_operatorCount; i++) {
                 ope = operator[i];
                 if (ope._final) ope._tlOffset(tl);
+                else ope._tlOffset(0);
             }
         }
         

@@ -45,7 +45,7 @@ package org.si.sound.synthesizers {
             var i:int, imax:int = _tracks.length, p:SiOPMChannelParam = _voice.channelParam;
             p.cutoff = (c<=0) ? 0 : (c>=1) ? 128 : int(c*128);
             for (i=0; i<imax; i++) {
-                _tracks[i].channel.setLPFilter(p.cutoff, p.resonance, p.far, p.fdr1, p.fdr2, p.frr, p.fdc1, p.fdc2, p.fsc, p.frc);
+                _tracks[i].channel.setSVFilter(p.cutoff, p.resonance, p.far, p.fdr1, p.fdr2, p.frr, p.fdc1, p.fdc2, p.fsc, p.frc);
             }
         }
         
@@ -56,7 +56,7 @@ package org.si.sound.synthesizers {
             var i:int, imax:int = _tracks.length, p:SiOPMChannelParam = _voice.channelParam;
             p.resonance = (r<=0) ? 0 : (r>=1) ? 9 : int(r*9);
             for (i=0; i<imax; i++) {
-                _tracks[i].channel.setLPFilter(p.cutoff, p.resonance, p.far, p.fdr1, p.fdr2, p.frr, p.fdc1, p.fdc2, p.fsc, p.frc);
+                _tracks[i].channel.setSVFilter(p.cutoff, p.resonance, p.far, p.fdr1, p.fdr2, p.frr, p.fdc1, p.fdc2, p.fsc, p.frc);
             }
         }
         

@@ -98,42 +98,65 @@ package org.si.sion.effector {
             startIndex <<= 1;
             length <<= 1;
             var i:int, n:Number, l:Number, m:Number, h:Number, imax:int=startIndex+length;
-            for (i=startIndex; i<imax;) {
-                n = buffer[i];
-                f1p0L += (lf * (n - f1p0L)) + 2.3283064370807974e-10;
-                f1p1L += (lf * (f1p0L - f1p1L));
-                f1p2L += (lf * (f1p1L - f1p2L));
-                f1p3L += (lf * (f1p2L - f1p3L));
-                f2p0L += (hf * (n - f2p0L)) + 2.3283064370807974e-10;
-                f2p1L += (hf * (f2p0L - f2p1L));
-                f2p2L += (hf * (f2p1L - f2p2L));
-                f2p3L += (hf * (f2p2L - f2p3L));
-                l = f1p3L;
-                h = sdm3L - f2p3L;
-                m = sdm3L - (h + l);
-                sdm3L = sdm2L;
-                sdm2L = sdm1L;
-                sdm1L = n;
-                buffer[i] = l * lg + m * mg + h * hg;
-                i++;
+            if (channels == 2) {
+                for (i=startIndex; i<imax;) {
+                    n = buffer[i];
+                    f1p0L += (lf * (n - f1p0L)) + 2.3283064370807974e-10;
+                    f1p1L += (lf * (f1p0L - f1p1L));
+                    f1p2L += (lf * (f1p1L - f1p2L));
+                    f1p3L += (lf * (f1p2L - f1p3L));
+                    f2p0L += (hf * (n - f2p0L)) + 2.3283064370807974e-10;
+                    f2p1L += (hf * (f2p0L - f2p1L));
+                    f2p2L += (hf * (f2p1L - f2p2L));
+                    f2p3L += (hf * (f2p2L - f2p3L));
+                    l = f1p3L;
+                    h = sdm3L - f2p3L;
+                    m = sdm3L - (h + l);
+                    sdm3L = sdm2L;
+                    sdm2L = sdm1L;
+                    sdm1L = n;
+                    buffer[i] = l * lg + m * mg + h * hg;
+                    i++;
 
-                n = buffer[i];
-                f1p0R += (lf * (n - f1p0R)) + 2.3283064370807974e-10;
-                f1p1R += (lf * (f1p0R - f1p1R));
-                f1p2R += (lf * (f1p1R - f1p2R));
-                f1p3R += (lf * (f1p2R - f1p3R));
-                f2p0R += (hf * (n - f2p0R)) + 2.3283064370807974e-10;
-                f2p1R += (hf * (f2p0R - f2p1R));
-                f2p2R += (hf * (f2p1R - f2p2R));
-                f2p3R += (hf * (f2p2R - f2p3R));
-                l = f1p3R;
-                h = (sdm3R - f2p3R);
-                m = (sdm3R - (h + l));
-                sdm3R = sdm2R;
-                sdm2R = sdm1R;
-                sdm1R = n;
-                buffer[i] = l * lg + m * mg + h * hg;
-                i++;
+                    n = buffer[i];
+                    f1p0R += (lf * (n - f1p0R)) + 2.3283064370807974e-10;
+                    f1p1R += (lf * (f1p0R - f1p1R));
+                    f1p2R += (lf * (f1p1R - f1p2R));
+                    f1p3R += (lf * (f1p2R - f1p3R));
+                    f2p0R += (hf * (n - f2p0R)) + 2.3283064370807974e-10;
+                    f2p1R += (hf * (f2p0R - f2p1R));
+                    f2p2R += (hf * (f2p1R - f2p2R));
+                    f2p3R += (hf * (f2p2R - f2p3R));
+                    l = f1p3R;
+                    h = (sdm3R - f2p3R);
+                    m = (sdm3R - (h + l));
+                    sdm3R = sdm2R;
+                    sdm2R = sdm1R;
+                    sdm1R = n;
+                    buffer[i] = l * lg + m * mg + h * hg;
+                    i++;
+                }
+            } else {
+                for (i=startIndex; i<imax;) {
+                    n = buffer[i];
+                    f1p0L += (lf * (n - f1p0L)) + 2.3283064370807974e-10;
+                    f1p1L += (lf * (f1p0L - f1p1L));
+                    f1p2L += (lf * (f1p1L - f1p2L));
+                    f1p3L += (lf * (f1p2L - f1p3L));
+                    f2p0L += (hf * (n - f2p0L)) + 2.3283064370807974e-10;
+                    f2p1L += (hf * (f2p0L - f2p1L));
+                    f2p2L += (hf * (f2p1L - f2p2L));
+                    f2p3L += (hf * (f2p2L - f2p3L));
+                    l = f1p3L;
+                    h = sdm3L - f2p3L;
+                    m = sdm3L - (h + l);
+                    sdm3L = sdm2L;
+                    sdm2L = sdm1L;
+                    sdm1L = n;
+                    n = l * lg + m * mg + h * hg;
+                    buffer[i] = n; i++;
+                    buffer[i] = n; i++;
+                }
             }
             return channels;
         }

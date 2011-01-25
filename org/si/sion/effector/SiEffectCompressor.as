@@ -91,7 +91,6 @@ package org.si.sion.effector {
         /** @private */
         override public function prepareProcess() : int
         {
-            trace(1);
             if (_windowRMSList) SLLNumber.freeRing(_windowRMSList);
             _windowRMSList = SLLNumber.allocRing(_windowSamples);
             _windowRMSTotal = 0;
@@ -106,7 +105,6 @@ package org.si.sion.effector {
             startIndex <<= 1;
             length <<= 1;
             
-            trace(2);
             var i:int, imax:int = startIndex + length;
             var l:Number, r:Number, rms2:Number;
             for (i=startIndex; i<imax; i++) {

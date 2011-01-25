@@ -65,6 +65,7 @@ package org.si.sound.core {
         /** @private [internal] activate local effect. deeper effectors executes first. */
         _sound_object_internal function _activateLocalEffect(depth:int) : void
         {
+            if (_effectStream) return;
             var driver:SiONDriver = SiONDriver.mutex;
             if (driver) {
                 _effectStream = driver.effector.newLocalEffect(depth, Vector.<SiEffectBase>(_effectList));

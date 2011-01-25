@@ -106,7 +106,7 @@ package org.si.sound {
             if (_tracks) {
                 var i:int, f:uint, imax:int = _tracks.length;
                 for (i=0, f=_trackOperationMask; i<imax; i++, f>>=1) {
-                    if ((f&1)==0) _tracks[i].channel.pan = _pan;
+                    if ((f&1)==0) _tracks[i].channel.pan = _pan*64;
                 }
             }
         }

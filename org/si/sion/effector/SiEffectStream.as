@@ -42,6 +42,21 @@ package org.si.sion.effector {
         public function get stream() : SiOPMStream { return _stream; }
         
         
+        /** panning of output (-64:L - 0:C - 64:R). */
+        public function get pan() : int { return pan-64; }
+        public function set pan(p:int) : void {
+            _pan = p+64;
+            if (_pan < 0) _pan = 0;
+            else if (_pan > 128) _pan = 128;
+        }
+        
+        
+        /** @private [internal use] flag to write output stream directly */
+        internal function get _outputDirectly() : Boolean {
+            return (!_hasEffectSend && _volumes[0] == 1 && _pan == 64);
+        }
+        
+        
         
         
     // constructor
@@ -117,7 +132,7 @@ package org.si.sion.effector {
                 _volumes[i] = 0;
                 _outputStreams[i] = null;
             }
-            _volumes[0] = 128;
+            _volumes[0] = 1;
             _pan = 64;
             _hasEffectSend = false;
             _depth = depth;
@@ -196,30 +211,49 @@ package org.si.sion.effector {
          *  @param mml MML string.
          *  @param postfix Postfix string.
          */
-        public function parseMML(mml:String, postfix:String) : void
+        public function parseMML(slot:int, mml:String, postfix:String) : void
         {
-            var res:*, rex:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, i:int,
-                cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true);
-            
+            var res:*, i:int, cmd:String = "", argc:int = 0, args:Vector.<Number> = new Vector.<Number>(16, true),
+                rexMML:RegExp = /([a-zA-Z_]+|,)\s*([.\-\d]+)?/g, 
+                rexPost:RegExp = /(p|@p|@v|,)\s*([.\-\d]+)?/g;
+                
+                
             // clear
             initialize(0);
             _clearArgs();
             
             // parse mml
-            res = rex.exec(mml);
+            res = rexMML.exec(mml);
             while (res) {
                 if (res[1] == ",") {
                     args[argc++] = Number(res[2]);
                 } else {
                     _connectEffect();
-                    cmd = res[1];
                     _clearArgs();
+                    cmd = res[1];
                     args[0] = Number(res[2]);
                     argc = 1;
                 }
-                res = rex.exec(mml);
+                res = rexMML.exec(mml);
             }
             _connectEffect();
+            _clearArgs();
+            
+            // parse postfix
+            res = rexPost.exec(postfix);
+            while (res) {
+                if (res[1] == ",") {
+                    args[argc++] = Number(res[2]);
+                } else {
+                    _setVolume();
+                    _clearArgs();
+                    cmd = res[1];
+                    args[0] = Number(res[2]);
+                    argc = 1;
+                }
+                res = rexPost.exec(postfix);
+            }
+            _setVolume();
             
             // connect new effector
             function _connectEffect() : void {
@@ -231,9 +265,33 @@ package org.si.sion.effector {
                 }
             }
             
+            // set volumes
+            function _setVolume() : void {
+                var v:Number, i:int;
+                if (argc == 0) return;
+                switch (cmd) {
+                case 'p':
+                    pan = ((int(args[0]))<<4)-64;
+                    break;
+                case '@p':
+                    pan = int(args[0]);
+                    break;
+                case '@v':
+                    v = int(args[0]) * 0.0078125;
+                    setStreamSend(0, (v < 0) ? 0 : (v > 1) ? 1 : v);
+                    if (argc+slot >= SiOPMModule.STREAM_SEND_SIZE) argc = SiOPMModule.STREAM_SEND_SIZE - slot - 1;
+                    for (i = 1; i < argc; i++) {
+                        v = int(args[i]) * 0.0078125;
+                        setStreamSend(i+slot, (v < 0) ? 0 : (v > 1) ? 1 : v);
+                    }
+                    break;
+                }
+            }
+            
             // clear arguments
             function _clearArgs() : void {
                 for (var i:int=0; i<16; i++) args[i]=Number.NaN;
+                argc = 0;
             }
         }
     }

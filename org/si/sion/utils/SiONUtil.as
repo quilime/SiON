@@ -239,6 +239,10 @@ package org.si.sion.utils {
         }
         
         
+        
+        
+    // calculation
+    //--------------------------------------------------
         /** Calculate sample length from 16th beat. 
          *  @param bpm Beat per minuits.
          *  @param beat16 Count of 16th beat.

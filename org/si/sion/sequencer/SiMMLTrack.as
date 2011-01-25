@@ -324,8 +324,8 @@ package org.si.sion.sequencer {
         /** output level = &#64;v * v * x. */
         public function get outputLevel() : Number {
             var vol:int = channel.masterVolume;
-            if (vol == 0) return _velocity * _expression * 0.000030517578125; // 0.5/(128^2);
-            return vol * _velocity * _expression * 4.76837158203125e-7;       // 1/(128^3)
+            if (vol == 0) return _velocity * _expression * 0.0000152587890625; // 0.5/(128*256);
+            return vol * _velocity * _expression * 2.384185791015625e-7;       // 1/(128*128*256)
         }
         
         /** mml data to play. this value only is available in the track playing mml sequence */
@@ -826,6 +826,13 @@ package org.si.sion.sequencer {
             
             // reset pointer
             executor.resetPointer();
+        }
+        
+        
+        /** @private [internal] reset volume offset. */
+        internal function _resetVolumeOffset() : void
+        {
+            channel.offsetVolume(_expression, _velocity);
         }
         
         

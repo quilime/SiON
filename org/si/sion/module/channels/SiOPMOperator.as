@@ -262,7 +262,7 @@ package org.si.sion.module.channels {
         }
         /** Envelop reset on attack */
         public function set erst(b:Boolean) : void {
-            _erst = erst
+            _erst = b;
         }
         
         
@@ -351,9 +351,11 @@ package org.si.sion.module.channels {
             _multiple = m;
             _updatePitch();
         }
-        /** Phase at keyOn [0-255]. similar with pTSS. The value of 255 sets no phase reset. */
+        /** Phase at keyOn [-1-255]. similar with pTSS. The value of 255 sets no phase reset, -1 sets randamize. */
         public function set keyOnPhase(p:int) : void {
-            _keyon_phase = (p != 255) ? ((p & 255) << (SiOPMTable.PHASE_BITS - 8)) : -1;
+            if (p == 255) _keyon_phase = -2;
+            else if (p == -1) _keyon_phase = -1;
+            else _keyon_phase = (p & 255) << (SiOPMTable.PHASE_BITS - 8);
         }
         /** Pulse generator type. */
         public function set pgType(n:int) : void
@@ -381,7 +383,7 @@ package org.si.sion.module.channels {
         public function get detune()     : int { return _pitchIndexShift; }
         public function get detune2()    : int { return _pitchIndexShift2; }
         public function get fmul()       : int { return _multiple; }
-        public function get keyOnPhase() : int { return (_keyon_phase>=0) ? (_keyon_phase >> (SiOPMTable.PHASE_BITS - 8)) : 255; }
+        public function get keyOnPhase() : int { return (_keyon_phase>=0) ? (_keyon_phase >> (SiOPMTable.PHASE_BITS - 8)) : (_keyon_phase == -1) ? -1 : 255; }
         public function get pgType()     : int { return _pgType; }
         public function get modLevel()   : int { return (_fmShift>10) ? (_fmShift-10) : 0; }
         
@@ -478,7 +480,9 @@ package org.si.sion.module.channels {
             pgType = param.pgType;
             ptType = param.ptType;
             
-            _keyon_phase = (param.phase != 255) ? ((param.phase & 255) << (SiOPMTable.PHASE_BITS - 8)) : -1;
+            if (param.phase == 255) _keyon_phase = -2;
+            else if (param.phase == -1) _keyon_phase = -1;
+            else _keyon_phase = (param.phase & 255) << (SiOPMTable.PHASE_BITS - 8);
             
             _ar = param.ar & 63;
             _dr = param.dr & 63;
@@ -571,6 +575,7 @@ package org.si.sion.module.channels {
         public function noteOn() : void
         {
             if (_keyon_phase >= 0) _phase = _keyon_phase;
+            else if (_keyon_phase == -1) _phase = int(Math.random() * SiOPMTable.PHASE_MAX);
             _eg_ssgec_state = -1;
             _eg_shiftState(EG_ATTACK);
             _eg_out = (_eg_levelTable[_eg_level] + _eg_total_level)<<3;

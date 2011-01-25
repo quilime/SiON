@@ -76,9 +76,18 @@ package org.si.sion.effector {
             startIndex <<= 1;
             length <<= 1;
             var i:int, n:Number, c1:Number=(1 + _coefficient)*_outputLevel, imax:int=startIndex+length;
-            for (i=startIndex; i<imax; i++) {
-                n = buffer[i];
-                buffer[i] = c1 * n / (1 + _coefficient * ((n<0) ? -n : n));
+            if (channels == 2) {
+                for (i=startIndex; i<imax; i++) {
+                    n = buffer[i];
+                    buffer[i] = c1 * n / (1 + _coefficient * ((n<0) ? -n : n));
+                }
+            } else {
+                for (i=startIndex; i<imax;) {
+                    n = buffer[i];
+                    n = c1 * n / (1 + _coefficient * ((n<0) ? -n : n));
+                    buffer[i] = n; i++;
+                    buffer[i] = n; i++;
+                }
             }
             return channels;
         }

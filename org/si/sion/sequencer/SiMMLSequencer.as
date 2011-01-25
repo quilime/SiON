@@ -106,10 +106,8 @@ package org.si.sion.sequencer {
         /** Current working track */
         public function get currentTrack() : SiMMLTrack { return _currentTrack; }
         
-        /** SiONTrackEvent.BEAT_ON_FRAME is called if (beatCount16th &amp; onBeatCallbackFilter) == 0. */ 
-        public function set onBeatCallbackFilter(filter:int) : void { _onBeatCallbackFilter = filter; }
-        public function get onBeatCallbackFilter() : int { return _onBeatCallbackFilter; }
-        
+        /** SiONTrackEvent.BEAT is called if (beatCount16th &amp; onBeatCallbackFilter) == 0. */ 
+        _sion_internal function _setBeatCallbackFilter(filter:int) : void { _onBeatCallbackFilter = filter; }
         
         /** @private [sion internal] callback function for timer interruption. */
         _sion_internal function _setTimerCallback(func:Function) : void { _callbackTimer = func; }
@@ -142,6 +140,7 @@ package org.si.sion.sequencer {
             _callbackTempoChanged = tempoChanged;
             _currentTrack = null;
             _sion_internal::_maxTrackCount = DEFAULT_MAX_TRACK_COUNT;
+            _isSequenceFinished = true;
             
             // pitch
             newMMLEventListener('k',    _onDetune);
@@ -163,6 +162,7 @@ package org.si.sion.sequencer {
             setMMLEventListener(MMLEvent.FINE_VOLUME,  _onMasterVolume);
             newMMLEventListener('%v',  _onVolumeSetting);
             newMMLEventListener('%x',  _onExpressionSetting);
+            newMMLEventListener('%f',  _onFilterMode);
 
             // channel setting
             newMMLEventListener('@clock', _onClock);
@@ -210,7 +210,7 @@ package org.si.sion.sequencer {
             newMMLEventListener('po',  _onPortament);
 
             // global event
-            newMMLEventListener('@fadeout', _onFadeOut, true);
+            newMMLEventListener('%fadeout', _onFadeOut, true);
             
             // processing events
             _registerProcessEvent();
@@ -1353,7 +1353,14 @@ package org.si.sion.sequencer {
                 dc2:int = (_p[7] == int.MIN_VALUE) ?  64 : _p[7],
                 sc :int = (_p[8] == int.MIN_VALUE) ?  32 : _p[8],
                 rc :int = (_p[9] == int.MIN_VALUE) ? 128 : _p[9];
-            _currentTrack.channel.setLPFilter(cut, res, ar, dr1, dr2, rr, dc1, dc2, sc, rc);
+            _currentTrack.channel.setSVFilter(cut, res, ar, dr1, dr2, rr, dc1, dc2, sc, rc);
+            return e.next;
+        }
+        
+        // %f
+        private function _onFilterMode(e:MMLEvent) : MMLEvent
+        {
+            _currentTrack.channel.filterMode = e.data;
             return e.next;
         }
 

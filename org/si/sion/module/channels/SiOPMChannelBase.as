@@ -25,6 +25,10 @@ package org.si.sion.module.channels {
         /** input from pipe     */ static public const INPUT_PIPE:int = 1;
         /** input from feedback */ static public const INPUT_FEEDBACK:int = 2;
         
+        /** low pass filter */  static public const FILTER_LP:int = 0;
+        /** band pass filter */ static public const FILTER_BP:int = 1;
+        /** high pass filter */ static public const FILTER_HP:int = 2;
+        
         // LPF envelop status
         static private const EG_ATTACK:int = 0;
         static private const EG_DECAY1:int = 1;
@@ -70,11 +74,11 @@ package org.si.sion.module.channels {
         
         // LPFilter
         /** filter switch */    protected var _filterOn:Boolean;
+        /** filter mode */      protected var _filterMode:int;
         /** cutoff frequency */ protected var _cutoff:int;
         /** cutoff frequency */ protected var _cutoff_offset:int;
         /** resonance */        protected var _resonance:Number;
-        /** previous I */       protected var _prevI:int;
-        /** previous V */       protected var _prevV:int;
+        /** filter Variables */ protected var _filterVriables:Vector.<Number>;
         /** eg step residue */  protected var _prevStepRemain:int;
         /** eg step */          protected var _filter_eg_step:int;
         /** eg phase shift l.*/ protected var _filter_eg_next:int;
@@ -104,6 +108,7 @@ package org.si.sion.module.channels {
             _chip = chip;
             _isFree = true;
             
+            _filterVriables = new Vector.<Number>(3, true);
             _streams = new Vector.<SiOPMStream>(SiOPMModule.STREAM_SEND_SIZE, true);
             _volumes = new Vector.<Number>(SiOPMModule.STREAM_SEND_SIZE, true);
             _filter_eg_time   = new Vector.<int>(6, true);
@@ -192,6 +197,14 @@ package org.si.sion.module.channels {
         
         /** Is filter active ? */
         public function get isFilterActive() : Boolean { return _filterOn; }
+        
+        
+        /** filter mode */
+        public function get filterMode() : int { return _filterMode; }
+        public function set filterMode(mode:int) : void
+        {
+            _filterMode = (mode<0 || mode>2) ? 0 : mode;
+        }
         
         
         
@@ -313,7 +326,7 @@ package org.si.sion.module.channels {
         }
         
         
-        /** LP Filter envelop (&#64;f).
+        /** SVFilter envelop (&#64;f).
          *  @param cutoff initial cutoff (0-128).
          *  @param resonance resonance (0-9).
          *  @param ar attack rate (0-63).
@@ -325,7 +338,7 @@ package org.si.sion.module.channels {
          *  @param sc sustain cutoff level (0-128).
          *  @param rc release cutoff level (0-128).
          */
-        public function setLPFilter(cutoff:int=128, resonance:int=0, ar:int=0, dr1:int=0, dr2:int=0, rr:int=0, dc1:int=128, dc2:int=128, sc:int=128, rc:int=128) : void
+        public function setSVFilter(cutoff:int=128, resonance:int=0, ar:int=0, dr1:int=0, dr2:int=0, rr:int=0, dc1:int=128, dc2:int=128, sc:int=128, rc:int=128) : void
         {
             _filter_eg_cutoff[EG_ATTACK]  = (cutoff<0)  ? 0 : (cutoff>128)  ? 128 : cutoff;
             _filter_eg_cutoff[EG_DECAY1]  = (dc1<0) ? 0 : (dc1>128) ? 128 : dc1;
@@ -489,11 +502,11 @@ package org.si.sion.module.channels {
             setOutput(OUTPUT_STANDARD, 0);
             
             // LPFilter
-            _prevI = 0;
-            _prevV = 0;
+            _filterVriables[0] = _filterVriables[1] = _filterVriables[2] = 0;
             _cutoff_offset = 0;
-            setLPFilter();
-            shiftLPFilterState(EG_OFF);
+            _filterMode = FILTER_LP;
+            setSVFilter();
+            shiftSVFilterState(EG_OFF);
         }
         
         
@@ -510,8 +523,8 @@ package org.si.sion.module.channels {
         {
             _lfo_phase = 0;     // reset lfo phase
             if (_filterOn) {    // reset envelop
-                resetLPFilterState();
-                shiftLPFilterState(EG_ATTACK);
+                resetSVFilterState();
+                shiftSVFilterState(EG_ATTACK);
             }
             _isNoteOn = true;
         }
@@ -521,7 +534,7 @@ package org.si.sion.module.channels {
         public function noteOff() : void
         {
             if (_filterOn) {    // shift filters status
-                shiftLPFilterState(EG_RELEASE);
+                shiftSVFilterState(EG_RELEASE);
             }
             _isNoteOn = false;
         }
@@ -562,7 +575,7 @@ package org.si.sion.module.channels {
                 
                 // ring modulation / LPFilter
                 if (_ringPipe) _applyRingModulation(monoOut, len);
-                if (_filterOn) _applyLPFilter(monoOut, len);
+                if (_filterOn) _applySVFilter(monoOut, len);
                 
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
@@ -606,10 +619,10 @@ package org.si.sion.module.channels {
         }
         
         
-        /** low-pass filter */
-        protected function _applyLPFilter(pointer:SLLint, len:int) : void
+        /** state variable filter */
+        protected function _applySVFilter(pointer:SLLint, len:int) : void
         {
-            var i:int, imax:int, step:int, I:int, V:int, out:int, cut:Number, fb:Number;
+            var i:int, imax:int, step:int, out:int, cut:Number, fb:Number;
             
             // initialize
             out = _cutoff + _cutoff_offset;
@@ -620,15 +633,14 @@ package org.si.sion.module.channels {
 
             // previous setting
             step = _prevStepRemain;
-            I = _prevI;
-            V = _prevV;
 
             while (len >= step) {
                 // processing
                 for (i=0; i<step; i++) {
-                    I += (Number(pointer.i) - V - I * fb) * cut;
-                    V += I * cut;
-                    pointer.i = int(V);
+                    _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
+                    _filterVriables[1] += _filterVriables[2] * cut;
+                    _filterVriables[0] += _filterVriables[1] * cut;
+                    pointer.i = int(_filterVriables[_filterMode]);
                     pointer   = pointer.next;
                 }
                 len -= step;
@@ -640,7 +652,7 @@ package org.si.sion.module.channels {
                 else if (out>128) out=128;
                 cut = _table.filter_cutoffTable[out];
                 fb  = _resonance;// * _table.filter_feedbackTable[out];
-                if (_cutoff == _filter_eg_next) shiftLPFilterState(_filter_eg_state+1);
+                if (_cutoff == _filter_eg_next) shiftSVFilterState(_filter_eg_state+1);
 
                 // next step
                 step = _filter_eg_step;
@@ -648,28 +660,27 @@ package org.si.sion.module.channels {
             
             // process remains
             for (i=0; i<len; i++) {
-                I += (Number(pointer.i) - V - I * fb) * cut;
-                V += I * cut;
-                pointer.i = int(V);
+                _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
+                _filterVriables[1] += _filterVriables[2] * cut;
+                _filterVriables[0] += _filterVriables[1] * cut;
+                pointer.i = int(_filterVriables[_filterMode]);
                 pointer   = pointer.next;
             }
             
             // next setting
             _prevStepRemain = _filter_eg_step - len;
-            _prevI = I;
-            _prevV = V;
         }
 
         
-        /** reset LPFilter */
-        protected function resetLPFilterState() : void
+        /** reset SVFilter */
+        protected function resetSVFilterState() : void
         {
             _cutoff = _filter_eg_cutoff[EG_ATTACK];
         }
         
         
-        /** shift LPFilter state */
-        protected function shiftLPFilterState(state:int) : void
+        /** shift SVFilter state */
+        protected function shiftSVFilterState(state:int) : void
         {
             switch (state) {
             case EG_ATTACK:

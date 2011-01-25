@@ -221,7 +221,7 @@ package org.si.sound {
             _thisPan = p;
             _updatePan();
             _limitPan();
-            if (_track) _track.channel.pan = _pan;
+            if (_track) _track.channel.pan = _pan*64;
         }
         
         
@@ -445,20 +445,20 @@ package org.si.sound {
         {
             if (!driver) return null;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
-                bottomEC:EffectChain = _bottomEffectChain(),
+                topEC:EffectChain = _topEffectChain(),
                 track:SiMMLTrack = driver.noteOn(note, voice, _length, _delay, _quantize, _trackID, isDisposable);
             _addNoteEventListeners();
             if (_effectChain) {
                 _effectChain._activateLocalEffect(_childDepth);
                 _effectChain.setAllStreamSendLevels(_volumes);
             }
-            if (bottomEC) {
+            if (topEC) {
                 track.channel.masterVolume = 128;
-                track.channel.setStreamBuffer(0, bottomEC.streamingBuffer);
+                track.channel.setStreamBuffer(0, topEC.streamingBuffer);
             } else {
                 track.channel.setAllStreamSendLevels(_volumes);
             }
-            track.channel.pan  = _pan;
+            track.channel.pan  = _pan*64;
             track.channel.mute = _mute;
             track.pitchBend  = _pitchBend * 64;
             track.noteShift  = _noteShift;
@@ -476,7 +476,7 @@ package org.si.sound {
         {
             if (!driver) return null;
             _removeNoteEventListeners();
-            if (_effectChain) _effectChain._inactivateLocalEffect();
+            //if (_effectChain) _effectChain._inactivateLocalEffect();
             return driver.noteOff(note, _trackID, _delay, _quantize, stopWithReset);
         }
         
@@ -492,7 +492,7 @@ package org.si.sound {
             if (!driver) return null;
             var len:Number = (applyLength) ? _length : 0;
             var voice:SiONVoice = _synthesizer._synthesizer_internal::_voice, 
-                bottomEC:EffectChain = _bottomEffectChain(),
+                topEC:EffectChain = _topEffectChain(),
                 list:Vector.<SiMMLTrack> = driver.sequenceOn(data, voice, len, _delay, _quantize, _trackID, isDisposable),
                 track:SiMMLTrack, ps:int = _pitchShift * 64, pb:int = _pitchBend * 64;
             _addNoteEventListeners();
@@ -501,13 +501,13 @@ package org.si.sound {
                 _effectChain.setAllStreamSendLevels(_volumes);
             }
             for each (track in list) {
-                if (bottomEC) {
+                if (topEC) {
                     track.channel.masterVolume = 128;
-                    track.channel.setStreamBuffer(0, bottomEC.streamingBuffer);
+                    track.channel.setStreamBuffer(0, topEC.streamingBuffer);
                 } else {
                     track.channel.setAllStreamSendLevels(_volumes);
                 }
-                track.channel.pan  = _pan;
+                track.channel.pan  = _pan*64;
                 track.channel.mute = _mute;
                 track.pitchBend  = pb;
                 track.noteShift  = _noteShift;
@@ -527,7 +527,7 @@ package org.si.sound {
         {
             if (!driver) return null;
             _removeNoteEventListeners();
-            if (_effectChain) _effectChain._inactivateLocalEffect();
+            //if (_effectChain) _effectChain._inactivateLocalEffect();
             return driver.sequenceOff(_trackID, 0, _quantize, stopWithReset);
         }
         
@@ -599,10 +599,10 @@ package org.si.sound {
         
     // internals
     //----------------------------------------
-        // bottom effect chain
-        private function _bottomEffectChain() : EffectChain
+        // top effect chain
+        private function _topEffectChain() : EffectChain
         {
-            return _effectChain || ((_parent) ? _parent._bottomEffectChain() : null);
+            return _effectChain || ((_parent) ? _parent._topEffectChain() : null);
         }
         
         

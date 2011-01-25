@@ -417,12 +417,12 @@ package org.si.sion.module {
             // v(257-448) -> total_level(0 - -192). distortion.
             for (i=1; i<193; i++) {
                 j = i + 256;
-                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = -i;
+                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable64dB[i] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = -i;
             }
             // v(449-512) -> total_level=-192. distortion.
             for (i=1; i<65; i++) {
                 j = i + 448;
-                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = ENV_TOP;
+                eg_tlTableLine[j] = eg_tlTable96dB[j] = eg_tlTable64dB[i] = eg_tlTable48dB[j] = eg_tlTable32dB[j] = ENV_TOP;
             }
             
             // table from linear volume to tl
@@ -434,7 +434,7 @@ package org.si.sion.module {
             // panning volume table
             panTable = new Vector.<Number>(129, true);
             for (i=0; i<129; i++) {
-                panTable[i] = Math.sin(i*0.012176715711588345);  // 0.012176715711588345 = PI*0.5/129
+                panTable[i] = Math.sin(i*0.01227184630308513);  // 0.01227184630308513 = PI*0.5/128
             }
             
         }
@@ -544,7 +544,7 @@ package org.si.sion.module {
             // PSG noise period table.
             table = new Vector.<int>(imax, true);
             // noise_phase_shift = ((1<<PHASE_BIT)  /  ((nf/(clock/16))[sec]  /  (1/44100)[sec])) >> (PHASE_BIT - waveTable.fixedBits)
-            n = PHASE_MAX * psg_clock / (rate * 16);
+            n = PHASE_MAX * clock / (rate * 16);
             for (i=0; i<32; i++) {
                 iv = n / i;
                 for (j=0; j<HALF_TONE_RESOLUTION; j++) {
@@ -1086,7 +1086,7 @@ package org.si.sion.module {
                 table2[i] = 255 - table[i];
             }
             lfo_waveTables[LFO_WAVE_NOISE] = table;
-            lfo_waveTables[LFO_WAVE_TRIANGLE+4] = table2;
+            lfo_waveTables[LFO_WAVE_NOISE+4] = table2;
             
             // lfo table for chorus
             table = new Vector.<int>(256, true);

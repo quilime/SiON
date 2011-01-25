@@ -293,8 +293,8 @@ package org.si.sion.module.channels {
                 // Karplus-Strong algorism
                 _applyKarplusStrong(monoOut, len);
                 
-                // LPFilter
-                if (_filterOn) _applyLPFilter(monoOut, len);
+                // State variable filter
+                if (_filterOn) _applySVFilter(monoOut, len);
                 
                 // standard output
                 if (_outputMode == OUTPUT_STANDARD && !_mute) {
