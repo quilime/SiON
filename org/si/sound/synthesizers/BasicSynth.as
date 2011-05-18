@@ -61,6 +61,17 @@ package org.si.sound.synthesizers {
         }
         
         
+        /** filter type (0:lowpass, 1:bandpass, 2:highpass) */
+        public function set filterType() : int { return _voice.channelParam.filterType; }
+        public function get filterType(t:int) : void {
+            _voice.channelParam.filterType = t;
+            for (i=0; i<imax; i++) {
+                _tracks[i].channel.filterType = t;
+            }
+        }
+        
+        
+        
         /** modulation (low-frequency oscillator) wave shape, 0=saw, 1=square, 2=triangle, 3=random. */
         public function get lfoWaveShape() : int { return _voice.channelParam.lfoWaveShape; }
         public function set lfoWaveShape(type:int) : void {
@@ -160,7 +171,26 @@ package org.si.sound.synthesizers {
         
     // operations
     //----------------------------------------
-        /** set low-pass filter envelop (same as '&#64;f' command in MML).
+        /** set filter envelop (same as '&#64;f' command in MML).
+         *  @param cutoff LP filter cutoff (0-1)
+         *  @param resonance LP filter resonance (0-1)
+         *  @param far LP filter attack rate (0-63)
+         *  @param fdr1 LP filter decay rate 1 (0-63)
+         *  @param fdr2 LP filter decay rate 2 (0-63)
+         *  @param frr LP filter release rate (0-63)
+         *  @param fdc1 LP filter decay cutoff 1 (0-1)
+         *  @param fdc2 LP filter decay cutoff 2 (0-1)
+         *  @param fsc LP filter sustain cutoff (0-1)
+         *  @param frc LP filter release cutoff (0-1)
+         */
+        public function setFilterEnvelop(filterType:int=0, cutoff:Number=1, resonance:Number=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:Number=1, fdc2:Number=0.5, fsc:Number=0.25, frc:Number=1) : void
+        {
+            _voice.setFilterEnvelop(filterType, cutoff*128, resonance*9, far, fdr1, fdr2, frr, fdc1*128, fdc2*128, fsc*128, frc*128);
+            _voiceUpdateNumber++;
+        }
+        
+        
+        /** [Please use setFilterEnvelop instead of this function]. This function is for compatibility of old versions.
          *  @param cutoff LP filter cutoff (0-1)
          *  @param resonance LP filter resonance (0-1)
          *  @param far LP filter attack rate (0-63)
@@ -174,8 +204,7 @@ package org.si.sound.synthesizers {
          */
         public function setLPFEnvelop(cutoff:Number=1, resonance:Number=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:Number=1, fdc2:Number=0.5, fsc:Number=0.25, frc:Number=1) : void
         {
-            _voice.setLPFEnvelop(cutoff*128, resonance*9, far, fdr1, fdr2, frr, fdc1*128, fdc2*128, fsc*128, frc*128);
-            _voiceUpdateNumber++;
+            setFilterEnvelop(0, cutoff, resonance, far, fdr1, fdr2, frr, fdc1, fdc2, fsc, frc);
         }
         
         

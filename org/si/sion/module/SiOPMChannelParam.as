@@ -43,25 +43,27 @@ package org.si.sion.module {
         /** [extention] panning */
         public var pan:int;
 
-        /** LP filter cutoff */
+        /** filter type */
+        public var filterType:int;
+        /** filter cutoff */
         public var cutoff:int;
-        /** LP filter resonance */
+        /** filter resonance */
         public var resonance:int;
-        /** LP filter attack rate */
+        /** filter attack rate */
         public var far:int;
-        /** LP filter decay rate 1 */
+        /** filter decay rate 1 */
         public var fdr1:int;
-        /** LP filter decay rate 2 */
+        /** filter decay rate 2 */
         public var fdr2:int;
-        /** LP filter release rate */
+        /** filter release rate */
         public var frr:int;
-        /** LP filter decay offset 1 */
+        /** filter decay offset 1 */
         public var fdc1:int;
-        /** LP filter decay offset 2 */
+        /** filter decay offset 2 */
         public var fdc2:int;
-        /** LP filter sustain offset */
+        /** filter sustain offset */
         public var fsc:int;
-        /** LP filter release offset */
+        /** filter release offset */
         public var frc:int;
         
         /** Initializing sequence */
@@ -113,6 +115,7 @@ package org.si.sion.module {
             volumes[0] = 0.5;
             pan = 64;
             
+            filterType = 0;
             cutoff = 128;
             resonance = 0;
             far = 0;
@@ -150,6 +153,7 @@ package org.si.sion.module {
             for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) { volumes[i] = org.volumes[i]; }
             pan = org.pan;
             
+            filterType = org.filterType;
             cutoff = org.cutoff;
             resonance = org.resonance;
             far = org.far;
@@ -180,6 +184,7 @@ package org.si.sion.module {
             $2("lws", lfoWaveShape, "lfq", SiOPMTable.LFO_TIMER_INITIAL*0.005782313/lfoFreqStep);
             $2("amd", amd, "pmd", pmd);
             $2("vol", volumes[0],  "pan", pan-64);
+            $("filter type", filterType);
             $2("co", cutoff, "res", resonance);
             str += "fenv=" + String(far) + "/" + String(fdr1) + "/"+ String(fdr2) + "/"+ String(frr) + "\n";
             str += "feco=" + String(fdc1) + "/"+ String(fdc2) + "/"+ String(fsc) + "/"+ String(frc) + "\n";

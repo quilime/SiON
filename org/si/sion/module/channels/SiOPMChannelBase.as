@@ -74,7 +74,7 @@ package org.si.sion.module.channels {
         
         // LPFilter
         /** filter switch */    protected var _filterOn:Boolean;
-        /** filter mode */      protected var _filterMode:int;
+        /** filter type */      protected var _filterType:int;
         /** cutoff frequency */ protected var _cutoff:int;
         /** cutoff frequency */ protected var _cutoff_offset:int;
         /** resonance */        protected var _resonance:Number;
@@ -92,6 +92,7 @@ package org.si.sion.module.channels {
         /** lfo switch */       protected var _lfo_on:int;
         /** lfo timer */        protected var _lfo_timer:int;
         /** lfo timer step */   protected var _lfo_timer_step:int;
+        /** lfo step buffer */  protected var _lfo_timer_step_:int;
         /** lfo phase */        protected var _lfo_phase:int;
         /** lfo wave table */   protected var _lfo_waveTable:Vector.<int>;
         /** lfo wave shape */   protected var _lfo_waveShape:int;
@@ -200,10 +201,10 @@ package org.si.sion.module.channels {
         
         
         /** filter mode */
-        public function get filterMode() : int { return _filterMode; }
-        public function set filterMode(mode:int) : void
+        public function get filterType() : int { return _filterType; }
+        public function set filterType(mode:int) : void
         {
-            _filterMode = (mode<0 || mode>2) ? 0 : mode;
+            _filterType = (mode<0 || mode>2) ? 0 : mode;
         }
         
         
@@ -289,7 +290,7 @@ package org.si.sion.module.channels {
             _lfo_waveTable = _table.lfo_waveTables[waveform];
             _lfo_waveShape = waveform;
             _lfo_timer = 1;
-            _lfo_timer_step = 0;
+            _lfo_timer_step_ = _lfo_timer_step = 0;
             _lfo_phase = 0;
         }
         
@@ -299,11 +300,11 @@ package org.si.sion.module.channels {
         {
             _lfo_timer = 0;
             // 0.17294117647058824 = 44100/(1000*255)
-            _lfo_timer_step = (SiOPMTable.LFO_TIMER_INITIAL/(ms*0.17294117647058824)) << _table.sampleRatePitchShift;
+            _lfo_timer_step_ = _lfo_timer_step = (SiOPMTable.LFO_TIMER_INITIAL/(ms*0.17294117647058824)) << _table.sampleRatePitchShift;
             
             //set OPM LFO frequency
             //_lfo_timer = 0;
-            //_lfo_timer_step = _table.lfo_timerSteps[freq & 255];
+            //_lfo_timer_step_ = _lfo_timer_step = _table.lfo_timerSteps[freq & 255];
         }
         
         
@@ -504,7 +505,7 @@ package org.si.sion.module.channels {
             // LPFilter
             _filterVriables[0] = _filterVriables[1] = _filterVriables[2] = 0;
             _cutoff_offset = 0;
-            _filterMode = FILTER_LP;
+            _filterType = FILTER_LP;
             setSVFilter();
             shiftSVFilterState(EG_OFF);
         }
@@ -640,7 +641,7 @@ package org.si.sion.module.channels {
                     _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
                     _filterVriables[1] += _filterVriables[2] * cut;
                     _filterVriables[0] += _filterVriables[1] * cut;
-                    pointer.i = int(_filterVriables[_filterMode]);
+                    pointer.i = int(_filterVriables[_filterType]);
                     pointer   = pointer.next;
                 }
                 len -= step;
@@ -663,7 +664,7 @@ package org.si.sion.module.channels {
                 _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
                 _filterVriables[1] += _filterVriables[2] * cut;
                 _filterVriables[0] += _filterVriables[1] * cut;
-                pointer.i = int(_filterVriables[_filterMode]);
+                pointer.i = int(_filterVriables[_filterType]);
                 pointer   = pointer.next;
             }
             

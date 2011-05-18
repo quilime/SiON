@@ -217,6 +217,12 @@ package org.si.sion.sequencer {
         
     // operations
     //--------------------------------------------------
+        /** @private [internal use] reset all user tables */
+        _sion_internal function resetAllUserTables() : void
+        {
+        }
+        
+        
         /** Register envelop table.
          *  @param index table number refered by &#64;&#64;,na,np,nt,nf,_&#64;&#64;,_na,_np,_nt and _nf.
          *  @param table envelop table.

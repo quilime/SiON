@@ -229,7 +229,7 @@ package org.si.sion.module.channels {
             
             _ks_seedType = 0;
             _ks_seedIndex = 0;
-            setSiOPMParameters(48, 48, 0, 63, 15, 0, 0, 0, 1, 0, 0, 0, 0, 0);
+            setSiOPMParameters(48, 48, 0, 63, 15, 0, 0, 0, 1, 0, 0, 0, -1, 0);
             activeOperator.pgType = SiOPMTable.PG_NOISE_PINK;
             activeOperator.ptType = SiOPMTable.PT_PCM;
         }

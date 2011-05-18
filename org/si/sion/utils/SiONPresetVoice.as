@@ -623,7 +623,7 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
             var voice:SiONVoice = new SiONVoice(5, ws, ar, rr);
             voice.gateTime = 0;
             voice.releaseSweep = sw;
-            voice.setLPFEnvelop(cut, res);
+            voice.setFilterEnvelop(0, cut, res);
             voice.name = name;
             _categolyList.push(voice);
             this[key] = voice;

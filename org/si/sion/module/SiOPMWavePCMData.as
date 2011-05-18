@@ -54,8 +54,9 @@ package org.si.sion.module {
         /** Constructor. 
          *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt;. The Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (octave 5 as 44.1kHz)
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          */
-        function SiOPMWavePCMData(data:*=null, samplingOctave:int=5)
+        function SiOPMWavePCMData(data:*=null, samplingOctave:int=5, isStereoSample:Boolean=false)
         {
             super(SiMMLTable.MT_PCM);
             if (data) initialize(data, samplingOctave);
@@ -69,12 +70,13 @@ package org.si.sion.module {
         /** Initializer.
          *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt;. The Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (specified octave as 44.1kHz)
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          *  @return this instance.
          */
-        public function initialize(data:*, samplingOctave:int=5) : SiOPMWavePCMData
+        public function initialize(data:*, samplingOctave:int=5, isStereoSample:Boolean=false) : SiOPMWavePCMData
         {
             if (data is Sound) wavelet = SiONUtil.logTrans(data as Sound, null, 1048576, 0);
-            else if (data is Vector.<Number>) wavelet = SiONUtil.logTransVector(data as Vector.<Number>);
+            else if (data is Vector.<Number>) wavelet = SiONUtil.logTransVector(data as Vector.<Number>, isStereoSample);
             else if (data is Vector.<int>) wavelet = data as Vector.<int>;
             else if (data == null) wavelet = null;
             else throw new Error("SiOPMWavePCMData; not suitable data type");

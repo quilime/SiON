@@ -45,13 +45,14 @@ package org.si.sion {
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          *  @see #render()
          */
-        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isStereoSample:Boolean=false) : SiOPMWavePCMData
         {
             index &= (SiOPMTable.PCM_DATA_MAX-1);
             if (!pcmData[index]) pcmData[index] = new SiOPMWavePCMTable();
-            return pcmData[index].setSample(new SiOPMWavePCMData(wavelet, samplingOctave), keyRangeFrom, keyRangeTo);
+            return pcmData[index].setSample(new SiOPMWavePCMData(wavelet, samplingOctave, isStereoSample), keyRangeFrom, keyRangeTo);
         }
         
         
@@ -74,7 +75,7 @@ package org.si.sion {
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param data Vector.&lt;Number&gt; wave data. This type ussualy comes from SiONDriver.render().
          *  @param ignoreNoteOff True to set ignoring note off.
-         *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @param channelCount of this data, 1 for monoral, 2 for stereo.
          *  @return created data instance
          *  @see #org.si.sion.SiONDriver.render()
          */
@@ -88,7 +89,7 @@ package org.si.sion {
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param sound Sound instance to set.
          *  @param ignoreNoteOff True to set ignoring note off.
-         *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @param channelCount of extracted data, 1 for monoral, 2 for stereo.
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          *  @return created instance
          */

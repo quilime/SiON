@@ -65,7 +65,8 @@ package org.si.sion.module {
         static public const PT_OPM_NOISE:int = 3;
         static public const PT_PSG_NOISE:int = 4;
         static public const PT_APU_NOISE:int = 5;
-        static public const PT_MAX:int = 5;
+//        static public const PT_APU_DPCM:int = 6;
+        static public const PT_MAX:int = 6;
                 
         // pulse generator type (0-511)
         static public const PG_SINE       :int = 0;     // sine wave
@@ -522,6 +523,23 @@ package org.si.sion.module {
             }
             pitchTable[PT_PSG] = table;
             phaseStepShiftFilter[PT_PSG] = 0;
+            
+/*
+            // APU DPCM period table
+            var fc_df:Array = [428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 85, 72, 54];
+            imax  = 16<<HALF_TONE_BITS;
+            table = new Vector.<int>(imax, true);
+            n = psg_clock/(rate*0.018581361171917529);
+            for (i=0; i<16; i++) {
+                iv = Math.log(n / fc_df[i]) * 1.4426950408889633 * PHASE_MAX / rate;
+                for (j=0; j<HALF_TONE_RESOLUTION; j++) {
+                    table[(i<<HALF_TONE_BITS)+j] = iv;
+                }
+            }
+            pitchTable[PT_APU_DPCM] = table;
+            phaseStepShiftFilter[PT_APU_DPCM] = 0xffffffff;
+*/
+            
             
             
         // Noise period tables.

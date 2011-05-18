@@ -75,6 +75,7 @@ package org.si.sion.module.channels {
         /** pm depth */         protected var _pm_depth:int;    // = chip.pmd<<(pms-1)
         /** pm output level */  protected var _pm_out:int;
         
+        
         // tone generator setting
         /** ENV_TIMER_INITIAL * freq_ratio */  protected var _eg_timer_initial:int;
         /** LFO_TIMER_INITIAL * freq_ratio */  protected var _lfo_timer_initial:int;
@@ -200,11 +201,9 @@ package org.si.sion.module.channels {
         /** @private [protected] lfo on/off */
         protected function _lfoSwitch(sw:Boolean) : void
         {
-            var new_lfo_on:int = int(sw);
-            if (_lfo_on != new_lfo_on) {
-                _lfo_on = new_lfo_on;
-                _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
-            }
+            _lfo_on = int(sw);
+            _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
+            _lfo_timer_step = (sw) ? _lfo_timer_step_ : 0;
         }
         
         
@@ -234,10 +233,11 @@ package org.si.sion.module.channels {
             if (withModulation) {
                 initializeLFO(param.lfoWaveShape);
                 _lfo_timer = (param.lfoFreqStep>0) ? 1 : 0;
-                _lfo_timer_step = param.lfoFreqStep;
+                _lfo_timer_step_ = _lfo_timer_step = param.lfoFreqStep;
                 setAmplitudeModulation(param.amd);
                 setPitchModulation(param.pmd);
             }
+            filterType = param.filterType;
             setSVFilter(param.cutoff, param.resonance, param.far, param.fdr1, param.fdr2, param.frr, param.fdc1, param.fdc2, param.fsc, param.frc);
             for (i=0; i<_operatorCount; i++) {
                 operator[i].setSiOPMOperatorParam(param.operatorParam[i]);
@@ -266,7 +266,7 @@ package org.si.sion.module.channels {
                 }
             }
             param.lfoWaveShape = _lfo_waveShape;
-            param.lfoFreqStep  = _lfo_timer_step;
+            param.lfoFreqStep  = _lfo_timer_step_;
             param.amd = _am_depth;
             param.pmd = _pm_depth;
             for (i=0; i<_operatorCount; i++) {
@@ -377,7 +377,7 @@ package org.si.sion.module.channels {
                 case 24: // LFO FREQ:7-0 for all 8 channels
                     v = _table.lfo_timerSteps[data];
                     _lfo_timer = (v>0) ? 1 : 0;
-                    _lfo_timer_step = v;
+                    _lfo_timer_step_ = _lfo_timer_step = v;
                     break;
                 case 25: // A(0)/P(1):7 DEPTH:6-0 for all 8 channels
                     if (data & 128) _amd = data & 127;

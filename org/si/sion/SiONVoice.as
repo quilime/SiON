@@ -320,21 +320,23 @@ package org.si.sion {
         }
         
         
-        /** Set low pass filter envelop parameters.
-         *  @param cutoff LP filter cutoff (0-128)
-         *  @param resonance LP filter resonance (0-9)
-         *  @param far LP filter attack rate (0-63)
-         *  @param fdr1 LP filter decay rate 1 (0-63)
-         *  @param fdr2 LP filter decay rate 2 (0-63)
-         *  @param frr LP filter release rate (0-63)
-         *  @param fdc1 LP filter decay cutoff 1 (0-128)
-         *  @param fdc2 LP filter decay cutoff 2 (0-128)
-         *  @param fsc LP filter sustain cutoff (0-128)
-         *  @param frc LP filter release cutoff (0-128)
+        /** Set filter envelop parameters.
+         *  @param filterType filter type (0:Low-pass, 1:Band-pass, 2:High-pass)
+         *  @param cutoff filter cutoff (0-128)
+         *  @param resonance filter resonance (0-9)
+         *  @param far filter attack rate (0-63)
+         *  @param fdr1 filter decay rate 1 (0-63)
+         *  @param fdr2 filter decay rate 2 (0-63)
+         *  @param frr filter release rate (0-63)
+         *  @param fdc1 filter decay cutoff 1 (0-128)
+         *  @param fdc2 filter decay cutoff 2 (0-128)
+         *  @param fsc filter sustain cutoff (0-128)
+         *  @param frc filter release cutoff (0-128)
          *  @return this SiONVoice instance
          */
-        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice 
+        public function setFilterEnvelop(filterType:int=0, cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice 
         {
+            channelParam.filterType = filterType;
             channelParam.cutoff = cutoff;
             channelParam.resonance = resonance;
             channelParam.far = far;
@@ -346,6 +348,26 @@ package org.si.sion {
             channelParam.fsc = fsc;
             channelParam.frc = frc;
             return this;
+        }
+        
+        
+        /** [Pleas use setFilterEnvelop() instead of this function]. Set low pass filter envelop parameters. This function is for compatibility of old versions.
+         *  @param cutoff LP filter cutoff (0-128)
+         *  @param resonance LP filter resonance (0-9)
+         *  @param far LP filter attack rate (0-63)
+         *  @param fdr1 LP filter decay rate 1 (0-63)
+         *  @param fdr2 LP filter decay rate 2 (0-63)
+         *  @param frr LP filter release rate (0-63)
+         *  @param fdc1 LP filter decay cutoff 1 (0-128)
+         *  @param fdc2 LP filter decay cutoff 2 (0-128)
+         *  @param fsc LP filter sustain cutoff (0-128)
+         *  @param frc LP filter release cutoff (0-128)
+         *  @return this SiONVoice instance
+         *  @see setFilterEnvelop()
+         */
+        public function setLPFEnvelop(cutoff:int=128, resonance:int=0, far:int=0, fdr1:int=0, fdr2:int=0, frr:int=0, fdc1:int=128, fdc2:int=64, fsc:int=32, frc:int=128) : SiONVoice 
+        {
+            return setFilterEnvelop(0, cutoff, resonance, far, fdr1, fdr2, frr, fdc1, fdc2, fsc, frc);
         }
         
         

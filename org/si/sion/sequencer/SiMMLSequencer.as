@@ -900,46 +900,53 @@ package org.si.sion.sequencer {
     //--------------------------------------------------
         static private var _tempNumberList    :SLLint = SLLint.alloc(0);
         static private var _tempNumberListLast:SLLint = null;
-        static private var _tempWaveTable10:Vector.<Number> = new Vector.<Number>(1024, false);
-        static private var _tempWaveTable5:Vector.<Number> = new Vector.<Number>(32, false);
+        static private var _tempWaveTable:Vector.<Number> = new Vector.<Number>();
 
         
         // #TABLE
         private function _parseTableMacro(dat:String, pfx:String) : Boolean
         {
-            return (__parseTableNumbers(dat, pfx, 8192) != null);
+            return (__parseTableNumbers(dat, pfx, 65536).pointer != null);
         }
         
         
         // #WAV
         private function _parseWavMacro(dat:String, pfx:String) : Vector.<Number>
         {
-            var i:int, j:int, jmax:int, v:Number;
+            var i:int, imax:int, v:Number;
             
-            var num:SLLint = __parseTableNumbers(dat, pfx, 32);
-            for (i=0; i<32 && num!=null; i++) {
+            var res:* = __parseTableNumbers(dat, pfx, 1024),
+                num:SLLint = res.pointer;
+            for (imax=2; imax<1024; imax<<=1) {
+                if (imax >= res.length) break;
+            }
+            trace(imax, res.length);
+            _tempWaveTable.length = imax;
+            for (i=0; i<imax && num!=null; i++) {
                 v = (num.i + 0.5) * 0.0078125;
-                _tempWaveTable5[j++] = (v>1) ? 1 : (v<-1) ? -1 : v;
+                _tempWaveTable[i] = (v>1) ? 1 : (v<-1) ? -1 : v;
                 num = num.next;
             }
-            while (i<32) { _tempWaveTable5[i++] = 0; }
+            for (; i<imax; i++) { _tempWaveTable[i] = 0; }
             
-            return _tempWaveTable5;
+            return _tempWaveTable;
         }
         
         
         // #WAVB
         private function _parseWavbMacro(dat:String) : Vector.<Number>
         {
-            var ub:int, i:int, j:int, jmax:int, v:Number;
+            var ub:int, i:int, imax:int;
             
             dat = dat.replace(/\s+/gm, '');
-            for (i=0; i<32; i++) {
-                ub = (i*2+1 < dat.length) ? int("0x" + dat.substr(i*2,2)) : 0;
-                _tempWaveTable5[j++] = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
+            imax = dat.length >> 1;
+            _tempWaveTable.length = imax;
+            for (i=0; i<imax; i++) {
+                ub = parseInt(dat.substr(i<<1,2), 16);
+                _tempWaveTable[i] = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
             }
             
-            return _tempWaveTable5;
+            return _tempWaveTable;
         }
 
         
@@ -971,7 +978,7 @@ package org.si.sion.sequencer {
         
         
         // parse table numbers
-        private function __parseTableNumbers(dat:String, pfx:String, maxIndex:int) : SLLint
+        private function __parseTableNumbers(dat:String, pfx:String, maxIndex:int) : *
         {
             var index:int = 0, i:int, imax:int, j:int, v:int, ti0:int, ti1:int, tr:Number, 
                 t:Number, s:Number, r:Number, o:Number, jmax:int, last:SLLint, rep:SLLint;
@@ -1056,8 +1063,7 @@ package org.si.sion.sequencer {
             
             _tempNumberListLast = last;
             if (rep) last.next = rep.next;
-            // returns length
-            return _tempNumberList.next;
+            return {'pointer':_tempNumberList.next, 'length':index, 'repeated':(rep!=null)};
         }
         
         
@@ -1221,7 +1227,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setToneEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1232,7 +1238,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setAmplitudeEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1243,7 +1249,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setAmplitudeEnvelop(1, _table.getEnvelopTable(idx), _p[1], true);
             return e.next;
         }
@@ -1254,7 +1260,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setPitchEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1265,7 +1271,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setNoteEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1276,7 +1282,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setFilterEnvelop(1, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1287,7 +1293,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setToneEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1298,7 +1304,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setAmplitudeEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1309,7 +1315,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setPitchEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1320,7 +1326,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setNoteEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1331,7 +1337,7 @@ package org.si.sion.sequencer {
             e = e.getParameters(_p, 2);
             if (_currentTrack.eventMask & SiMMLTrack.MASK_ENVELOP) return e.next;   // check mask
             if (_p[1] == int.MIN_VALUE) _p[1] = 1;
-            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : 255;
+            var idx:int = (_p[0]>=0 && _p[0]<255) ? _p[0] : -1;
             _currentTrack.setFilterEnvelop(0, _table.getEnvelopTable(idx), _p[1]);
             return e.next;
         }
@@ -1360,7 +1366,7 @@ package org.si.sion.sequencer {
         // %f
         private function _onFilterMode(e:MMLEvent) : MMLEvent
         {
-            _currentTrack.channel.filterMode = e.data;
+            _currentTrack.channel.filterType = e.data;
             return e.next;
         }
 

@@ -8,6 +8,7 @@
 package org.si.sion.utils {
     import flash.media.*;
     import flash.utils.ByteArray;
+    //import mx.utils.Base64Decoder;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMWaveTable;
     
@@ -115,7 +116,57 @@ package org.si.sion.utils {
         }
         
         
+        /** extract 2a03's DPCM data.<br/>
+         * DPCM frequency table = [
+         * 0=k14o2e,
+         * 1=k18o2f+,
+         * 2=k13o2g+,
+         * 3=k16o2a,
+         * 4=k13o2b,
+         * 5=k16o3c+,
+         * 6=k17o3d+,
+         * 7=k14o3e,
+         * 8=k18o3f+,
+         * 9=k16o3a,
+         * 10=k20o3b,
+         * 11=k7o4c+,
+         * 12=k24o4e,
+         * 13=k13o4g+,
+         * 14=k5o4b,
+         * 15=k4o5e]
+         *  @param src The DPCM ByteArray data extracting from.
+         *  @param initValue initial value of $4011.
+         *  @param dst The Vector.&lt;Number&gt; instance to put result. You can pass null to create new Vector.&lt;Number&gt; inside.
+         *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
+         *  @return extracted data.
+         */
+        static public function extractDPCM(src:ByteArray, initValue:int=0, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
+        {
+            var data:int, i:int, imax:int, j:int, sample:Number, output:int;
+            
+            imax = src.length * dstChannelCount * 8;
+            if (dst == null) dst = new Vector.<Number>();
+            dst.length = imax;
+            
+            output = initValue;
+            src.position = 0;
+            for (i=0; i<imax;) {
+                data = src.readUnsignedByte();
+                for (j=7; j>=0; --j) {
+                    if ((data >> j) & 1) if (output<126) output += 2;
+                    else                 if (output>1)   output -= 2;
+                    sample = (output - 64) * 0.015625;
+                    dst[i] = sample; i++;
+                    if (dstChannelCount == 2) { dst[i] = sample; i++; }
+                }
+            }
+            
+            return dst;
+        }
+        
+        
         /** extract ADPCM data (YM2151). this algorism is from x68ksound.dll's source code.
+         *  _freqTable:Array = [26, 31, 38, 43, 50];
          *  @param src The ADPCM ByteArray data extracting from. 
          *  @param dst The Vector.&lt;Number&gt; instance to put result. You can pass null to create new Vector.&lt;Number&gt; inside.
          *  @param dstChannelCount channel count of extracted data. 1 for monoral, 2 for stereo.
@@ -134,7 +185,7 @@ package org.si.sion.utils {
                                                      337,371,408,449,494,544,598,658, 724,796,876,963,1060,1166,1282,1411,1552]);
             var DCT:Vector.<int> = Vector.<int>([-1,-1,-1,-1,2,4,6,8,-1,-1,-1,-1,2,4,6,8]);
 
-            imax = src.length * 4;
+            imax = src.length * dstChannelCount * 2;
             if (dst == null) dst = new Vector.<Number>();
             dst.length = imax;
             
@@ -153,7 +204,7 @@ package org.si.sion.utils {
                 InpPcm_prev = InpPcm;
                 sample = output * 0.0000019073486328125;
                 dst[i] = sample; i++;
-                dst[i] = sample; i++;
+                if (dstChannelCount == 2) { dst[i] = sample; i++; }
                 
                 r = (data >> 4) & 0x0f;
                 pcm += (dltLTBL[scale] * crTable[r]) >> 3;
@@ -167,7 +218,7 @@ package org.si.sion.utils {
                 InpPcm_prev = InpPcm;
                 sample = output * 0.0000019073486328125;
                 dst[i] = sample; i++;
-                dst[i] = sample; i++;
+                if (dstChannelCount == 2) { dst[i] = sample; i++; }
             }
             
             return dst;
@@ -182,7 +233,7 @@ package org.si.sion.utils {
          */
         static public function extractYM2608ADPCM(src:ByteArray, dst:Vector.<Number>=null, dstChannelCount:int=1) : Vector.<Number>
         {
-            var data:int, r0:int, r1:int, i:int, imax:int, 
+            var data:int, r0:int, r1:int, i:int, imax:int, sample:Number, 
                 predRate:int = 127, output:int = 0;
         
             // chaging ratio table
@@ -190,7 +241,7 @@ package org.si.sion.utils {
             // prediction updating table
             var puTable:Vector.<int> = Vector.<int>([57,57,57,57,77,102,128,153,57,57,57,57,77,102,128,153]);
             
-            imax = src.length * 2;
+            imax = src.length * dstChannelCount * 2;
             if (dst == null) dst = new Vector.<Number>();
             dst.length = imax;
             
@@ -202,7 +253,9 @@ package org.si.sion.utils {
                 predRate *= crTable[r0];
                 predRate >>= 3;
                 output += predRate;
-                dst[i] = output * 0.000030517578125;
+                sample = output * 0.000030517578125;
+                dst[i] = sample; i++;
+                if (dstChannelCount == 2) { dst[i] = sample; i++; }
                 predRate *= puTable[r0]
                 predRate >>= 6;
                 if (predRate>0) {
@@ -212,12 +265,13 @@ package org.si.sion.utils {
                          if (predRate > -127)   predRate = -127;
                     else if (predRate < -24576) predRate = -24576;
                 }
-                i++;
                 
                 predRate *= crTable[r1];
                 predRate >>= 3;
                 output += predRate;
-                dst[i] = output * 0.000030517578125;
+                sample = output * 0.000030517578125;
+                dst[i] = sample; i++;
+                if (dstChannelCount == 2) { dst[i] = sample; i++; }
                 predRate *= puTable[r1];
                 predRate >>= 6;
                 if (predRate>0) {
@@ -227,7 +281,6 @@ package org.si.sion.utils {
                          if (predRate > -127)   predRate = -127;
                     else if (predRate < -24576) predRate = -24576;
                 }
-                i++;
             }
             
             for (i=0; i<imax; i++) {

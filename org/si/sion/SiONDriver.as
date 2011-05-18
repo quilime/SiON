@@ -100,7 +100,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.6.2";
+        static public const VERSION:String = "0.6.3";
         
         
         /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method (default). */
@@ -158,7 +158,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _dispatchFadingEvent:Boolean; // dispatch fading event
         private var _inStreaming:Boolean;         // in streaming
         private var _preserveStop:Boolean;        // preserve stop after streaming
-        private var _isFirstStreaming:Boolean;      // first streaming
+        private var _suspendStreaming:Boolean;      // suspend streaming
+        private var _suspendWhileLoading:Boolean;   // suspend starting steam while loading
+        private var _loadingSoundList:Array;        // loading sound list
+        private var _completeSoundList:Array;       // complete sound list
+        private var _errorSoundList:Array;          // errored sound list
         private var _isFinishSeqDispatched:Boolean; // FINISH_SEQUENCE event already dispacthed
         //----- operation related
         private var _autoStop:Boolean;          // auto stop when the sequence finished
@@ -329,6 +333,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function get autoStop() : Boolean { return _autoStop; }
         public function set autoStop(mode:Boolean) : void { _autoStop = mode; }
         
+        /** pause while loading sound @default true */
+        public function get pauseWhileLoading() : Boolean { return _suspendWhileLoading; }
+        public function set pauseWhileLoading(b:Boolean) : void { _suspendWhileLoading = b; }
+        
         /** Debug mode, true; throw Error / false; throw ErrorEvent when error appears inside. @default false */
         public function get debugMode() : Boolean { return _debugMode; }
         public function set debugMode(mode:Boolean) : void { _debugMode = mode; }
@@ -365,7 +373,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             
             // initialize tables
             var dummy:*;
-            dummy = SiOPMTable.instance; //initialize(3580000, 1789772.5, 44100) sampleRate);
+            dummy = SiOPMTable.instance; //initialize(3580000, 1789772.5, 44100) sampleRate;
             dummy = SiMMLTable.instance; //initialize();
             
             // allocation
@@ -377,6 +385,9 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _soundTransform = new SoundTransform();
             _fader = new Fader();
             _timerSequence = new MMLSequence();
+            _loadingSoundList = [];
+            _completeSoundList = [];
+            _errorSoundList = [];
 
             // initialize
             _tempData = null;
@@ -389,7 +400,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _dispatchFadingEvent = false;
             _preserveStop = false;
             _inStreaming = false;
-            _isFirstStreaming = false;
+            _suspendStreaming = false;
+            _suspendWhileLoading = true;
             _autoStop = false;
             _noteOnExceptionMode = NEM_IGNORE;
             _debugMode = false;
@@ -577,6 +589,37 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             }
             return _queueLength;
         }
+                
+        
+        /** Listen loading status of flash.media.Sound instance. 
+         *  When SiONDriver.pauseWhileLoading is true, SiONDriver starts streaming after all Sound instances passed by this function are loaded.
+         *  @param sound Sound instance to listern 
+         *  @see #pauseWhileLoading()
+         *  @see #clearLoadingSoundList()
+         */
+        public function listenSoundLoadingStatus(sound:Sound) : void 
+        {
+            if (_loadingSoundList.indexOf(sound) != -1) return;
+            if (_completeSoundList.indexOf(sound) != -1) return;
+            if (_errorSoundList.indexOf(sound) != -1) return;
+            if (sound.bytesLoaded == sound.bytesTotal) {
+                _completeSoundList.push(sound);
+            } else {
+                _loadingSoundList.push(sound);
+                sound.addEventListener(Event.COMPLETE, _onSoundEvent);
+                sound.addEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
+            }
+        }
+        
+        
+        /** Clear all listening sound list registerd by SiONDriver.listenLoadingStatus().
+         */
+        public function clearSoundLoadingList() : void
+        {
+            _loadingSoundList.length = 0;
+            _completeSoundList.length = 0;
+            _errorSoundList.length = 0;
+        }
         
         
         
@@ -611,7 +654,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                     _isFinishSeqDispatched = (data == null);
                     
                     // start streaming
-                    _isFirstStreaming = true;
+                    _suspendStreaming = true;
                     _soundChannel = _sound.play();
                     _soundChannel.soundTransform = _soundTransform;
                     _process_addAllEventListners();
@@ -766,11 +809,12 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          *  @see #render()
          */
-        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isStereoSample:Boolean=false) : SiOPMWavePCMData
         {
-            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave), keyRangeFrom, keyRangeTo);
+            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave, isStereoSample), keyRangeFrom, keyRangeTo);
         }
         
         
@@ -793,7 +837,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param data Vector.&lt;Number&gt; wave data. This type ussualy comes from render().
          *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
-         *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @param channelCount of this data, 1 for monoral, 2 for stereo.
          *  @see #render()
          */
         public function setSamplerData(index:int, data:Vector.<Number>, ignoreNoteOff:Boolean=true, channelCount:int=1) : SiOPMWaveSamplerData
@@ -806,7 +850,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
          *  @param sound Sound instance to set.
          *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
-         *  @param channelCount 1 for monoral, 2 for stereo.
+         *  @param channelCount of extracted data, 1 for monoral, 2 for stereo.
          *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
          */
         public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMWaveSamplerData
@@ -1040,7 +1084,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Create new user controlable track.
+        /** Create new user controlable track. This function only is available after play(). 
          *  @trackID new user controlable track's ID.
          *  @return new user controlable track. This track is NOT disposable.
          */
@@ -1141,6 +1185,21 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 break;
             }
             _listenEvent = NO_LISTEN;
+        }
+        
+        
+        // handler for Sound COMPLETE/IO_ERROR Event 
+        private function _onSoundEvent(e:Event) : void
+        {
+            var sound:Sound = e.target as Sound;
+            sound.removeEventListener(Event.COMPLETE, _onSoundEvent);
+            sound.removeEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
+            
+            var i:int = _loadingSoundList.indexOf(sound);
+            if (i != -1) _loadingSoundList.splice(i, 1);
+            
+            if (e.type == Event.COMPLETE) _completeSoundList.push(sound);
+            else _errorSoundList.push(sound);
         }
         
         
@@ -1384,8 +1443,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _prevFrameTime = t;
             
             // first streaming
-            if (_isFirstStreaming) {
-                _onFirstFrameAfterStartingStream();
+            if (_suspendStreaming) {
+                _onSuspendStream();
             } else {
                 // preserve stop
                 if (_preserveStop) stop();
@@ -1408,17 +1467,18 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        // first frame after starting stream
-        private function _onFirstFrameAfterStartingStream() : void {
-            _isFirstStreaming = false;
-            
+        // suspend starting stream
+        private function _onSuspendStream() : void {
+            // reset suspending
+            _suspendStreaming = _suspendWhileLoading && (_loadingSoundList.length > 0);
+
             // dispatch streaming start event
             var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
             dispatchEvent(event);
             if (event.isDefaultPrevented()) stop();   // canceled
         }
         
-        
+
         // on sampleData
         private function _streaming(e:SampleDataEvent) : void
         {
@@ -1435,7 +1495,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 // set streaming flag
                 _inStreaming = true;
                 
-                if (_isPaused || _isFirstStreaming) {
+                if (_isPaused || _suspendStreaming) {
                     // fill silence
                     _fillzero(e.data);
                 } else {

@@ -129,7 +129,7 @@ package org.si.sound.synthesizers {
             voice.channelParam.operatorParam[0].fixedPitch = note<<6;
             voice.channelParam.operatorParam[0].tl = tl;
             voice.releaseSweep = sw;
-            voice.setLPFEnvelop(cut, res);
+            voice.setFilterEnvelop(0, cut, res);
             voice.name = name;
             _categolyList.push(voice);
             this[key] = voice;

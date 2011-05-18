@@ -802,6 +802,13 @@ package org.si.sion.sequencer {
             _callbackUpdateRegister = _defaultUpdateRegister;
             _residue = 0;
             _priority = 0;
+            _env_exp    = null;
+            _env_tone   = null;
+            _env_note   = _env_zero_table;
+            _env_pitch  = _env_zero_table;
+            _env_filter = null;
+            _env_ma = null;
+            _env_mp = null;
             
             // reset envelop tables
             for (i=0; i<2; i++) {
@@ -853,7 +860,7 @@ package org.si.sion.sequencer {
                 _table._stencilVoices   = null;
             }
             
-            // sounding now, almost executing this
+            // no delay, usually
             if (_trackStartDelay == 0) {
                 return bufferingLength;
             }
@@ -864,7 +871,7 @@ package org.si.sion.sequencer {
                 return 0;
             }
             
-            // start sounding at this buffering
+            // start sound in this frame
             var len:int = bufferingLength - _trackStartDelay;
             channel.nop(_trackStartDelay);
             _trackStartDelay = 0;

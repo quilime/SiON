@@ -8,6 +8,7 @@ package org.si.sion.utils
 {
     import flash.display.Loader;
     import flash.events.Event;
+    import flash.events.IOErrorEvent;
     import flash.utils.ByteArray;
     import flash.media.Sound;
     
@@ -30,8 +31,98 @@ package org.si.sion.utils
             0xFFFFFF03, 0x3f0001FF  // The last byte of "3f" means 44.1kHz/16bit/stereo
         ]);
         static private var _footer:Vector.<uint> = Vector.<uint>([ // little endian
-            0x000f133f, 0x00010000, 0x6f530001, 0x43646e75, 0x7373616c, 0x0f0b4400, 0x40000000, 0x00000000
+            0x000f133f, 0x00010000, 0x6f530001, 0x43646e75, 0x7373616c, 0x0f0b4400, 0x40000000
         ]);
+        
+        
+        static private const _bitRateList:Vector.<int> = Vector.<int>([
+            0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0,0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,0
+        ]);
+        static private const _frequencyList:Vector.<int> = Vector.<int>([44100,48000,32000,0]);
+        
+        /** load Sound class from mp3 data.
+         */
+        static public function loadMP3FromByteArray(bytes:ByteArray, onComplete:Function) : void {
+            var head:uint, version:int, bitrate:int, frequency:int, padding:int, channels:int, frameLength:int;
+            bytes.position = 0;
+            var id:String;
+            if (bytes.readMultiByte(3,"us-ascii") == "ID3") {
+                bytes.position += 3; // slip version and flag
+                bytes.position += ((bytes.readByte()&127)<<21)|((bytes.readByte()&127)<<14)|((bytes.readByte()&127)<<7)|(bytes.readByte()&127);
+            } else {
+                bytes.position -= 3;
+            }
+            var frameCount:int = 0, byteCount:int = 9, headPosition:uint = bytes.position;
+            while (bytes.bytesAvailable) {
+                head = bytes.readUnsignedInt();
+                if ((uint(head & 0xffe60000)) != 0xffe20000) throw new Error("frame data broken"); // check frameSync & layerIII
+                version = [2,-1,1,0][(head>>19) & 3]; // 0=v1, 1=v2, 2=v2.5
+                bitrate = _bitRateList[((head>>12) & 15) + ((version == 0) ? 0 : 16)];
+                frequency = _frequencyList[((head>>10) & 3)] >> version;
+                padding = (head>>9) & 1;
+                channels = (((head>>6) & 3) > 2) ? 1 : 2;
+                frameLength = 144000 * bitrate / frequency + padding - 4;
+                byteCount += frameLength;
+                bytes.position += frameLength;
+            }
+            var src:ByteArray = new ByteArray();
+            src.writeInt(frameCount*1152);
+            src.writeShort(0);
+            src.writeBytes(bytes, headPosition, byteCount);
+            loadPCMFromByteArray(src, onComplete, true, frequency, 16, channels);
+        }
+        
+        /** load Sound class from PCM data.
+         */
+        static public function loadPCMFromByteArray(src:ByteArray, onComplete:Function, compressed:Boolean=false, sampleRate:int=44100, bitRate:int=16, channels:int=2) : void {
+            var size:int = src.length, typeDef:int,
+                bytes:ByteArray = new ByteArray();
+            typeDef  = (compressed) ? 0x20 : 0x30;
+            typeDef |= (channels==2) ? 0x01: 0x00;
+            switch (sampleRate) {
+            case 44100: typeDef |= 0xc; break;
+            case 22050: typeDef |= 0x8; break;
+            case 11025: typeDef |= 0x4; break;
+            case  5512: break;
+            default: throw new Error("sampleRate not valid.");
+            }
+            switch (bitRate) {
+            case 16: typeDef |= 0x2; break;
+            case 8:  break;
+            default: throw new Error("bitRate not valid.");
+            }
+            bytes.endian = "littleEndian";
+            bytes.length = size + 299;
+            bytes.position = 0;
+            _write(_header);
+            bytes.position = 4;
+            bytes.writeUnsignedInt(size + 299);
+            bytes.position = 257;
+            bytes.writeUnsignedInt(size + 7);
+            bytes.position = 263;
+            bytes.writeByte(typeDef);
+            bytes.writeBytes(src);
+            _write(_footer);
+            bytes.writeByte(0);
+            bytes.writeByte(0);
+            bytes.writeByte(0);
+            bytes.position = 0;
+            
+            var loader:Loader = new Loader();
+            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, function(e:Event) : void {
+                var soundClass:Class = loader.contentLoaderInfo.applicationDomain.getDefinition("SoundClass") as Class;
+                onComplete((soundClass) ? (new soundClass()) as Sound : null);
+            });
+            loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, function(e:Event) : void {
+                throw new Error(e.toString());
+            });
+            loader.loadBytes(bytes);
+            
+            function _write(vu:Vector.<uint>) : void {
+                for (var i:int=0; i<vu.length; i++) bytes.writeUnsignedInt(vu[i]);
+            }
+            
+        }
         
         
         /** create Sound class.
@@ -54,17 +145,23 @@ package org.si.sion.utils
             var i:int, imax:int;
             for (i=0; i<imax; i++) { bytes.writeShort(samples[i]*32767); }
             _write(_footer);
+            bytes.writeByte(0);
+            bytes.writeByte(0);
+            bytes.writeByte(0);
+            bytes.position = 0;
             
             var loader:Loader = new Loader();
-            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, _onComplete);
+            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, function(e:Event) : void {
+                trace(loader.content);
+                var soundClass:Class = loader.contentLoaderInfo.applicationDomain.getDefinition("SoundClass") as Class;
+                onComplete((soundClass) ? (new soundClass()) as Sound : null);
+            });
+            loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, function(e:Event) : void {
+                throw new Error(e.toString());
+            });
             loader.loadBytes(bytes);
             
             function _write(vu:Vector.<uint>) : void { for each (var ui:uint in vu) { bytes.writeUnsignedInt(ui); } }
-            
-            function _onComplete(e:Event) : void {
-                var soundClass:Class = loader.contentLoaderInfo.applicationDomain.getDefinition("SoundClass") as Class;
-                onComplete((soundClass) ? (new soundClass()) as Sound : null);
-            }
         }
     }
 }

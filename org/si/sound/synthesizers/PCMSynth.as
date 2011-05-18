@@ -43,10 +43,11 @@ package org.si.sound.synthesizers {
         /** constructor
          *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted inside.
          *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          */
-        function PCMSynth(data:*=null, samplingOctave:int=5)
+        function PCMSynth(data:*=null, samplingOctave:int=5, isStereoSample:Boolean=false)
         {
-            _defaultPCMData = new SiOPMWavePCMData(data, samplingOctave);
+            _defaultPCMData = new SiOPMWavePCMData(data, samplingOctave, isStereoSample);
             _pcmTable = new SiOPMWavePCMTable();
             _pcmTable.clear(_defaultPCMData);
             _voice.waveData = _pcmTable;
@@ -89,16 +90,17 @@ package org.si.sound.synthesizers {
          *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
+         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
          *  @return assigned SiOPMWavePCMData.
          */
-        public function setSample(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        public function setSample(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isStereoSample:Boolean=false) : SiOPMWavePCMData
         {
             var pcmData:SiOPMWavePCMData;
             if (keyRangeFrom==0 && keyRangeTo==127) {
                 _defaultPCMData.initialize(data, samplingOctave);
                 pcmData = _defaultPCMData;
             } else {
-                pcmData = new SiOPMWavePCMData(data, samplingOctave);
+                pcmData = new SiOPMWavePCMData(data, samplingOctave, isStereoSample);
             }
             _voiceUpdateNumber++;
             return _pcmTable.setSample(pcmData, keyRangeFrom, keyRangeTo);

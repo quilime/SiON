@@ -86,6 +86,10 @@ package org.si.sion.sequencer {
                 var prev:SiOPMChannelBase = track.channel;
                 track.channel = SiOPMChannelManager.newChannel(_channelType, prev, bufferIndex);
                 SiOPMChannelManager.deleteChannel(prev);
+            } else {
+                // initialize channel
+                track.channel.initialize(track.channel, bufferIndex);
+                track._resetVolumeOffset();
             }
 
             // initialize
