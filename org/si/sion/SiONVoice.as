@@ -73,8 +73,8 @@ package org.si.sion {
             if (connectionType >= 0) {
                 channelParam.opeCount = 5;
                 channelParam.alg = (connectionType<=2) ? connectionType : 0;
-                channelParam.operatorParam[0].pgType = channelNum;
-                channelParam.operatorParam[1].pgType = ws2;
+                channelParam.operatorParam[0].setPGType(channelNum);
+                channelParam.operatorParam[1].setPGType(ws2);
                 channelParam.operatorParam[1].detune = dt2;
             }
         }
@@ -274,8 +274,8 @@ package org.si.sion {
         {
             channelParam.opeCount = 5;
             channelParam.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
-            channelParam.operatorParam[0].pgType = ws1;
-            channelParam.operatorParam[1].pgType = ws2;
+            channelParam.operatorParam[0].setPGType(ws1);
+            channelParam.operatorParam[1].setPGType(ws2);
 
             if (balance > 64) balance = 64;
             else if (balance < -64) balance = -64;

@@ -71,8 +71,7 @@ package org.si.sound {
         public function get soundData() : Sound { return _soundData; }
         public function set soundData(s:Sound) : void {
             _soundData = s;
-            if (_soundData == null) return;
-            if (_soundData.bytesTotal > 0 && _soundData.bytesLoaded == _soundData.bytesTotal) _setSoundData(_soundData);
+            if (_soundData == null || (_soundData.bytesTotal > 0 && _soundData.bytesLoaded == _soundData.bytesTotal)) _setSoundData(_soundData);
             else _addLoadingJob(_soundData);
         }
         

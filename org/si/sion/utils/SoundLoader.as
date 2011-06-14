@@ -9,42 +9,30 @@
 
 package org.si.sion.utils {
     import flash.events.*;
-    import flash.net.*;
-    import flash.system.*;
     import flash.media.*;
-    import flash.display.*;
-    import flash.utils.ByteArray;
     
     
     /** Sound Loader. */
     public class SoundLoader extends EventDispatcher
     {
-    // constants
-    //------------------------------------------------------------
-        /** Event id for complete all file loadings, this event is dispatched whether errors appear. */
-        static public const COMPLETE_ALL:String = "completeAll";
-        
-        
-        
-        
     // valiables
     //------------------------------------------------------------
-        /** event priority */
-        protected var _eventPriority:int;
         /** loaded sounds */
         protected var _loaded:*;
         /** loading url list */
-        protected var _loadingList:*;
+        protected var _preserveList:Vector.<SoundLoaderFileData>;
         /** total file size */
-        protected var _byteTotal:Number;
+        protected var _bytesTotal:Number;
         /** loaded file size */
-        protected var _byteLoaded:int;
-        /** loading file count */
-        protected var _loadingFileCount:int;
+        protected var _bytesLoaded:int;
         /** error file count */
         protected var _errorFileCount:int;
-        /** loaded pcm count */
-        protected var _loadedPCMCount:int;
+        /** loading file count */
+        protected var _loadingFileCount:int;
+        /** loaded file count */
+        protected var _loadedFileCount:int;
+        /** @private event priority */
+        internal var _eventPriority:int;
         
         
         
@@ -55,16 +43,16 @@ package org.si.sion.utils {
         public function get content() : * { return _loaded; }
 
         /** total file size when complete all loadings. */
-        public function get byteTotal() : Number { return _byteTotal; }
+        public function get bytesTotal() : Number { return _bytesTotal; }
         
         /** file size currently loaded */
-        public function get byteLoaded() : Number { return _byteLoaded; }
+        public function get bytesLoaded() : Number { return _bytesLoaded; }
         
         /** loading file count, this number is decreased when the file is loaded. */
         public function get loadingFileCount() : int { return _loadingFileCount; }
         
-        /** loaded pcm file count */
-        public function get loadedPCMCount() : int { return _loadedPCMCount; }
+        /** loaded file count */
+        public function get loadedFileCount() : int { return _loadedFileCount; }
         
         
         
@@ -76,11 +64,11 @@ package org.si.sion.utils {
         {
             _eventPriority = priority;
             _loaded = {};
-            _loadingList = {};
-            _byteTotal = 0;
-            _byteLoaded = 0;
-            _loadedPCMCount = 0;
+            _preserveList = new Vector.<SoundLoaderFileData>();
+            _bytesTotal = 0;
+            _bytesLoaded = 0;
             _loadingFileCount = 0;
+            _loadedFileCount = 0;
             _errorFileCount = 0;
         }
         
@@ -91,37 +79,37 @@ package org.si.sion.utils {
     //------------------------------------------------------------
         /** set sound or swf file's url 
          *  @param url url of file
-         *  @param id access key of SoundLoder.content
+         *  @param id access key of SoundLoder.content, null to set same as url
+         *  @param type file type, "mp3", "wav", "swf" or "png" is available, null to detect automatically. ("img", "bin", "txt" and "var" are available for non-sound files).
          *  @param checkPolicyFile LoaderContext.checkPolicyFile
+         *  @return false when the id already loaded
          */
-        public function setURL(url:String, id:String=null, checkPolicyFile:Boolean=false) : void
+        public function setURL(url:String, id:String=null, type:String=null, checkPolicyFile:Boolean=false) : Boolean
         {
-            _loadingList[url] = {id:id, checkPolicyFile:checkPolicyFile};
+            var lastDotIndex:int = url.lastIndexOf('.'), lastSlashIndex:int = url.lastIndexOf('/');
+            if (lastSlashIndex == -1) lastSlashIndex = 0;
+            if (lastDotIndex < lastSlashIndex) lastDotIndex = url.length;
+            if (id == null) id = url.substr(lastSlashIndex, lastDotIndex-lastSlashIndex);
+            if (type == null) type = url.substr(lastDotIndex + 1);
+            if (type != "mp3" && type != "swf" && type != "png" && type != "wav" &&
+                type != "img" && type != "bin" && type != "txt" && type != "var") {
+                throw new Error("unknown file type. : " + url);
+            }
+            _preserveList.push(new SoundLoaderFileData(this, id, url, type, checkPolicyFile));
+            return true;
         }
         
         
-        /** load all files specifed by SoundLoder.setURL() */
-        public function loadAll() : void
+        /** load all files specifed by SoundLoder.setURL() 
+         *  @return loading file count, 0 when no loading
+         */
+        public function loadAll() : int
         {
-            if (_loadingFileCount != 0) throw new Error("now loading.");
-            _loadingFileCount = 0;
-            for (var url:String in _loadingList) {
-                var fileData:* = _loadingList[url];
-                if (url.substr(-4,4) == '.swf') { // swf file
-                    var loader:Loader = new Loader();
-                    _addAllListeners(loader.contentLoaderInfo);
-                    loader.load(new URLRequest(url), new LoaderContext(fileData.checkPolicyFile));
-                    fileData["isSWF"] = true;
-                    fileData["loader"] = loader;
-                } else { // sound file ?
-                    var sound:Sound = new Sound();
-                    _addAllListeners(sound);
-                    sound.load(new URLRequest(url), new SoundLoaderContext(1000, fileData.checkPolicyFile));
-                    fileData["isSWF"] = false;
-                    fileData["loader"] = sound;
-                }
-                _loadingFileCount++;
-            }
+            var count:int = _preserveList.length;
+            for (var i:int=0; i<count; i++) _preserveList[i].load();
+            _preserveList.length = 0;
+            _loadingFileCount += count;
+            return count;
         }
         
         
@@ -129,95 +117,45 @@ package org.si.sion.utils {
         
     // default handler
     //------------------------------------------------------------
-        private function _onProgress(e:ProgressEvent) : void
+        /** @private */
+        internal function _onProgress(fileData:SoundLoaderFileData, bytesLoadedDiff:int, bytesTotalDiff:int) : void
         {
-            _updateTotalBytes();
-            dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, _byteLoaded, _byteTotal));
+            _bytesTotal += bytesTotalDiff;
+            _bytesLoaded += bytesLoadedDiff;
+            dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, _bytesLoaded, _bytesTotal));
         }
         
-        
-        private function _onComplete(e:Event) : void
+        /** @private */
+        internal function _onComplete(fileData:SoundLoaderFileData) : void
         {
-            var url:String = e.target.url as String;
-            if (url == null) throw new Error("unknown error. no url ???");
-            var fileData:* = _loadingList[url];
-            if (!fileData) throw new Error("unknown error. no fileData ???");
-            
-            var soundList:*, id:String, propName:String, sound:Sound;
-            if (fileData.id in _loaded) throw new Error("id confriction. " + fileData.id);
-            if (fileData.isSWF) {
-                soundList = fileData.loader.content["soundList"];
-                if (soundList) {
-                    _loaded[fileData.id] = soundList;
-                    for (propName in soundList) {
-                        sound = soundList[propName] as Sound;
-                        if (sound) {
-                            id = fileData.id + "." + propName;
-                            if (id in _loaded) throw new Error("id confriction. " + id);
-                            _loaded[id] = sound;
-                            _loadedPCMCount++;
-                        }
-                    }
-                }
-            } else {
-                _loaded[fileData.id] = fileData.loader as Sound;
-                _loadedPCMCount++;
-            }
-            
-            --_loadingFileCount;
-            _removeAllListeners(e.target as EventDispatcher);
-            _updateTotalBytes();
-            dispatchEvent(new Event(Event.COMPLETE));
-            if (_loadingFileCount == 0) {
-                dispatchEvent(new Event(COMPLETE_ALL));
-                _loadingList = {};
+            _loaded[fileData.dataID] = fileData.data;
+            if (fileData.type == "swf" || fileData.type == "png") _registerSoundList(fileData);
+            else _loadedFileCount++;
+            dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE, this, fileData));
+            if (--_loadingFileCount == 0) {
+                dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE_ALL, this, fileData));
             }
         }
-
-    
-        private function _onError(e:ErrorEvent) : void
+        
+        /** @private */
+        internal function _onError(fileData:SoundLoaderFileData, e:ErrorEvent) : void
         {
-            --_loadingFileCount;
             _errorFileCount++;
-            _removeAllListeners(e.target as EventDispatcher);
-            dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, e.toString()));
-            if (_loadingFileCount == 0) {
-                dispatchEvent(new Event(COMPLETE_ALL));
-                _loadingList = {};
+            dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.ERROR, this, fileData));
+            if (--_loadingFileCount == 0) {
+                dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE_ALL, this, fileData));
             }
         }
         
         
-        private function _addAllListeners(dispather:EventDispatcher) : void 
-        {
-            dispather.addEventListener(Event.COMPLETE, _onComplete, false, _eventPriority);
-            dispather.addEventListener(ProgressEvent.PROGRESS, _onProgress, false, _eventPriority);
-            dispather.addEventListener(IOErrorEvent.IO_ERROR, _onError, false, _eventPriority);
-            if (dispather is LoaderInfo) {
-                dispather.addEventListener(SecurityErrorEvent.SECURITY_ERROR, _onError, false, _eventPriority);
-            }
-        }
-        
-        
-        private function _removeAllListeners(dispather:EventDispatcher) : void 
-        {
-            dispather.removeEventListener(Event.COMPLETE, _onComplete);
-            dispather.removeEventListener(ProgressEvent.PROGRESS, _onProgress);
-            dispather.removeEventListener(IOErrorEvent.IO_ERROR, _onError);
-            if (dispather is LoaderInfo) {
-                dispather.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, _onError);
-            }
-        }
-        
-        
-        private function _updateTotalBytes() : void
-        {
-            _byteTotal = 0;
-            _byteLoaded = 0;
-            for each (var fileData:* in _loadingList) {
-                var loader:* = fileData["loader"];
-                _byteTotal += loader.byteTotal;
-                _byteLoaded += loader.byteLoaded;
+        private function _registerSoundList(fileData:SoundLoaderFileData) : void {
+            var soundList:* = fileData.data, sound:Sound, propName:String;
+            for (propName in soundList) {
+                sound = soundList[propName] as Sound;
+                if (sound) {
+                    _loaded[fileData.dataID + "." + propName] = sound;
+                    _loadedFileCount++;
+                }
             }
         }
     }

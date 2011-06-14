@@ -6,6 +6,7 @@
 
 package org.si.sound.synthesizers {
     import org.si.sion.*;
+    import org.si.sion.module.channels.*;
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sound.SoundObject;
     
@@ -56,9 +57,9 @@ package org.si.sound.synthesizers {
         
         
         /** wave shape of plunk noise. @default 20 (SiOPMTable.PG_NOISE_PINK) */
-        public function get seedWaveShape() : int { return _voice.channelParam.operatorParam[0].ws; }
+        public function get seedWaveShape() : int { return _voice.channelParam.operatorParam[0].pgType; }
         public function set seedWaveShape(ws:int) : void { 
-            _voice.channelParam.operatorParam[0].ws = ws;
+            _voice.channelParam.operatorParam[0].setPGType(ws);
             _voiceUpdateNumber++;
         }
         
@@ -86,8 +87,12 @@ package org.si.sound.synthesizers {
         
         
         /** release time of guitar synthesizer is equal to (1-tension). */
-        override public function get releaseTime() : Number { return tension; }
-        override public function set releaseTime(n:Number) : void { tension = 1-n; }
+        override public function get releaseTime() : Number { return 1-_voice.pmsTension*0.015625; }
+        override public function set releaseTime(n:Number) : void { 
+            _voice.pmsTension = 64 - n*64;
+            if (_voice.pmsTension<0) _voice.pmsTension = 0;
+            else if (_voice.pmsTension>63) _voice.pmsTension = 63;
+        }
         
         
         

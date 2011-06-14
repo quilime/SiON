@@ -32,6 +32,7 @@ package org.si.sion {
     import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
+    import org.si.sion.utils.SoundLoader;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
     import org.si.sion.namespaces._sion_internal;
@@ -593,12 +594,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         /** Listen loading status of flash.media.Sound instance. 
          *  When SiONDriver.pauseWhileLoading is true, SiONDriver starts streaming after all Sound instances passed by this function are loaded.
-         *  @param sound Sound instance to listern 
+         *  @param sound Sound or SoundLoader instance to listern 
          *  @see #pauseWhileLoading()
          *  @see #clearLoadingSoundList()
          */
-        public function listenSoundLoadingStatus(sound:Sound) : void 
+        public function listenSoundLoadingStatus(sound:*) : void 
         {
+            if (!sound is Sound && !sound is SoundLoader) throw errorCannotListenLoading();
             if (_loadingSoundList.indexOf(sound) != -1) return;
             if (_completeSoundList.indexOf(sound) != -1) return;
             if (_errorSoundList.indexOf(sound) != -1) return;
@@ -1634,6 +1636,10 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         
         private function errorNotGoodFMVoice() : Error {
             return new Error("SiONDriver error; Cannot register the voice.");
+        }
+        
+        private function errorCannotListenLoading() : Error {
+            return new Error("SiONDriver error; the class not available for listenSoundLoadingStatus");
         }
     }
 }

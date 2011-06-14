@@ -208,9 +208,6 @@ package org.si.sion.sequencer {
             newMMLEventListener('_nf', _onFilterReleaseEnv);
             newMMLEventListener('!na', _onAmplitudeEnvTSSCP);
             newMMLEventListener('po',  _onPortament);
-
-            // global event
-            newMMLEventListener('%fadeout', _onFadeOut, true);
             
             // processing events
             _registerProcessEvent();
@@ -1004,7 +1001,7 @@ package org.si.sion.sequencer {
             o    = (res[4]) ? ((res[5] == '+') ? Number(res[6]) : -Number(res[6])) : 0;
             
             // res[1];(n..),m {res[2];n, res[3];m} / res[4];n / res[5];|
-            regexp = /(\(([,\-\d\s]+)\)[,\s]*(\d+))|(-?\d+)|(\|)/gm;
+            regexp = /(\(\s*([,\-\d\s]+)\)[,\s]*(\d+))|(-?\d+)|(\|)/gm;
             res    = regexp.exec(dat);
             while (res && index<maxIndex) {
                 if (res[1]) {
@@ -1696,14 +1693,7 @@ package org.si.sion.sequencer {
             _currentTrack._callbackUpdateRegister(_p[0], _p[1]);
             return e.next;
         }
-        
 
-        // @fadeout
-        private function _onFadeOut(e:MMLEvent) : MMLEvent
-        {
-            return e.next;
-        }
-        
         
         
         

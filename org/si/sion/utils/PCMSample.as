@@ -74,8 +74,10 @@ package org.si.sion.utils {
         protected var _sampleRate:int;
         
         
+        /** append position */
+        protected var _appendPosition:int;
         /** extract position */
-        protected var _extractPosition:int;
+        protected var _extractPosition:Number;
         
         
         
@@ -172,6 +174,7 @@ trace("get sample with convert");
             this._waveDataBitRate = 0;
             this._waveDataChannels = 0;
             this._extractPosition = 0;
+            this._appendPosition = this._samples.length;
             this.sampleType = 0;
             this.baseNote = 68;
             this.beatCount = 0;
@@ -207,17 +210,46 @@ trace("get sample with convert");
          *  @param sampleRate sample rate of source.
          *  @param linear exchange sampling rate by linear interpolation, set false to use samples nearest by.
          */
-        public function loadFromVector(src:Vector.<Number>, srcChannels:int=2, srcSampleRate:Number=44100, linear:Boolean=true) : void
+        public function loadFromVector(src:Vector.<Number>, srcChannels:int=2, srcSampleRate:Number=44100, linear:Boolean=true) : PCMSample
         {
             _convertSampleRate(src, srcChannels, srcSampleRate, _samples, _channels, _sampleRate, linear);
+            return this;
         }
         
         
-        /** buffer sample 
-         *  @param 
+        /** append samples
+         *  @param src buffering source. This should be same format as internalSampleRate and internalChannels
+         *  @param sampleCount sample count to append. 0 appends all samples.
+         *  @param srcOffset position (in samples) start appending from.
          */
-        public function buffer(src:Vector.<Number>) : void
+        public function appendSamples(src:Vector.<Number>, sampleCount:int=0, srcOffset:int=0) : PCMSample
         {
+            clearCache();
+            var i:int=srcOffset * _channels, len:int = sampleCount * _channels, ptr:int, ptrMax:int;
+            if ((len == 0) || ((i + len) > src.length)) len = src.length - i;
+            ptrMax = _appendPosition + len;
+            if (_samples.length < ptrMax) _samples.length = ptrMax;
+            for (ptr=_appendPosition; ptr<ptrMax; ptr++, i++) _samples[ptr] = src[i];
+            _appendPosition = ptrMax;
+            return this;
+        }
+        
+        
+        /** append samples from ByteArray float (2ch/44.1kHz), The internal format should be 2ch/44.1kHz.
+         *  @param bytes buffering source. The format should be float vector of 2ch/44.1kHz.
+         *  @param sampleCount sample count to append. 0 appends all samples.
+         */
+        public function appendSamplesFromByteArrayFloat(bytes:ByteArray, sampleCount:int=0) : PCMSample
+        {
+            if (_channels != 2 || _sampleRate != 44100) throw new Error("The internal format should be 2ch/44.1kHz.");
+            clearCache();
+            var len:int = (bytes.length - bytes.position)>>3, ptr:int, ptrMax:int;
+            if (sampleCount != 0 && len > sampleCount) len = sampleCount;
+            ptrMax = _appendPosition + len*2;
+            if (_samples.length < ptrMax) _samples.length = ptrMax;
+            for (ptr=_appendPosition; ptr<ptrMax; ptr++) _samples[ptr] = bytes.readFloat();
+            _appendPosition = ptrMax;
+            return this;
         }
         
         
@@ -244,16 +276,17 @@ trace("get sample with convert");
         
         
         /** clear cache and waveData */
-        public function clearCache() : void
+        public function clearCache() : PCMSample
         {
             _cache.length = 0;
             _cacheSampleRate = 0;
             _cacheChannels = 0;
+            return this;
         }
         
         
         /** clear wave data cache */
-        public function clearWaveDataCache() : void 
+        public function clearWaveDataCache() : PCMSample 
         {
             _waveDataChunks = null;
             _waveData = null;
@@ -261,6 +294,7 @@ trace("get sample with convert");
             _waveDataSampleRate = 0;
             _waveDataBitRate = 0;
             _waveDataChannels = 0;
+            return this;
         }
         
         
@@ -271,7 +305,7 @@ trace("get sample with convert");
         /** load from wave file byteArray.
          *  @param waveFile ByteArray of wave file.
          */
-        public function loadWaveFromByteArray(waveFile:ByteArray) : void
+        public function loadWaveFromByteArray(waveFile:ByteArray) : PCMSample
         {
             var bae:ByteArrayExt = waveFile as ByteArrayExt, 
                 content:ByteArrayExt = new ByteArrayExt(),
@@ -312,6 +346,7 @@ trace("get sample with convert");
                     dispatchEvent(new Event(Event.COMPLETE));
                 }
             }
+            return this;
         }
         
         
@@ -548,6 +583,7 @@ trace("_updateWaveDataFromSamples");
             // initialize
             _waveData.clear();
             _waveData.length = output.length * byteRate;
+            _waveData.position = 0;
             
             // convert
             _v2wfunctions[byteRate-1](output, _waveData);

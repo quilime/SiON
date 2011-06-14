@@ -63,7 +63,7 @@ package org.si.sion.effector {
          *  @param wet wet mixing level(0-1).
          */
         public function setParameters(delayTime:Number=20, feedback:Number=0.2, frequency:Number=4, depth:Number=20, wet:Number=0.5, invertPhase:Boolean=true) : void {
-            if (frequency == 0 || depth == 0) throw new Error("SiEffectStereoChorus; frequency or depth should not be 0.");
+            if (frequency == 0 || depth == 0 || delayTime == 0) throw new Error("SiEffectStereoChorus; frequency, depth or delay should not be 0.");
             var offset:int = int(delayTime * 44.1), tableSize:int, i:int, p:Number, dp:Number;
             if (offset > DELAY_BUFFER_FILTER) offset = DELAY_BUFFER_FILTER;
             _pointerWrite = (_pointerRead + offset) & DELAY_BUFFER_FILTER;

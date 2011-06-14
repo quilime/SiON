@@ -1156,6 +1156,7 @@ package org.si.sion.sequencer {
         /** @private [internal] handler for MMLEvent.REST. */
         internal function _onRestEvent() : void
         {
+            _flagNoKeyOn = false;
         }
         
 

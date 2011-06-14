@@ -7,8 +7,7 @@
 package org.si.sion.utils
 {
     import flash.display.Loader;
-    import flash.events.Event;
-    import flash.events.IOErrorEvent;
+    import flash.events.*;
     import flash.utils.ByteArray;
     import flash.media.Sound;
     
@@ -27,7 +26,7 @@ package org.si.sion.utils
             0x6e657665, 0x05067374, 0x16021601, 0x16011803, 0x07050007, 0x03070102, 0x05020704, 0x03060507, 
             0x00020000, 0x00020000, 0x00020000, 0x02010100, 0x01000408, 0x01000000, 0x04010102, 0x00030001, 
             0x06050101, 0x4730d003, 0x01010000, 0x06070601, 0x49d030d0, 0x00004700, 0x01010202, 0x30d01f05, 
-            0x035d0065, 0x5d300366, 0x30046604, 0x0266025d, 0x66025d30, 0x1d005802, 0x01681d1d, 0xbf000047, 
+            0x035d0065, 0x5d300366, 0x30046604, 0x0266025d, 0x66025d30, 0x1d005802, 0x01681d1d, 0xbf000047,
             0xFFFFFF03, 0x3f0001FF  // The last byte of "3f" means 44.1kHz/16bit/stereo
         ]);
         static private var _footer:Vector.<uint> = Vector.<uint>([ // little endian
@@ -40,7 +39,12 @@ package org.si.sion.utils
         ]);
         static private const _frequencyList:Vector.<int> = Vector.<int>([44100,48000,32000,0]);
         
+        
+        
+        
         /** load Sound class from mp3 data.
+         *  @param src source byteArray.
+         *  @param onComplete callback function when finished to create. the format is function(sound:Sound) : void
          */
         static public function loadMP3FromByteArray(bytes:ByteArray, onComplete:Function) : void {
             var head:uint, version:int, bitrate:int, frequency:int, padding:int, channels:int, frameLength:int;
@@ -52,7 +56,7 @@ package org.si.sion.utils
             } else {
                 bytes.position -= 3;
             }
-            var frameCount:int = 0, byteCount:int = 9, headPosition:uint = bytes.position;
+            var frameCount:int = 0, byteCount:int = 0, headPosition:uint = bytes.position;
             while (bytes.bytesAvailable) {
                 head = bytes.readUnsignedInt();
                 if ((uint(head & 0xffe60000)) != 0xffe20000) throw new Error("frame data broken"); // check frameSync & layerIII
@@ -61,22 +65,30 @@ package org.si.sion.utils
                 frequency = _frequencyList[((head>>10) & 3)] >> version;
                 padding = (head>>9) & 1;
                 channels = (((head>>6) & 3) > 2) ? 1 : 2;
-                frameLength = 144000 * bitrate / frequency + padding - 4;
+                frameLength = ((version == 0) ? 144000 : 72000) * bitrate / frequency + padding;
                 byteCount += frameLength;
-                bytes.position += frameLength;
+                bytes.position += frameLength - 4;
+                frameCount++;
             }
             var src:ByteArray = new ByteArray();
+            src.endian = "littleEndian";
             src.writeInt(frameCount*1152);
             src.writeShort(0);
             src.writeBytes(bytes, headPosition, byteCount);
             loadPCMFromByteArray(src, onComplete, true, frequency, 16, channels);
         }
         
+        
         /** load Sound class from PCM data.
+         *  @param src source byteArray.
+         *  @param onComplete callback function when finished to create. the format is function(sound:Sound) : void
+         *  @param compressed compressed flag, true = mp3, false = raw wave.
+         *  @param sampleRate sampling rate
+         *  @param bitRate bit rate
+         *  @param channels channels 
          */
         static public function loadPCMFromByteArray(src:ByteArray, onComplete:Function, compressed:Boolean=false, sampleRate:int=44100, bitRate:int=16, channels:int=2) : void {
-            var size:int = src.length, typeDef:int,
-                bytes:ByteArray = new ByteArray();
+            var size:int = src.length - ((compressed) ? 4 : 0), typeDef:int;
             typeDef  = (compressed) ? 0x20 : 0x30;
             typeDef |= (channels==2) ? 0x01: 0x00;
             switch (sampleRate) {
@@ -91,14 +103,12 @@ package org.si.sion.utils
             case 8:  break;
             default: throw new Error("bitRate not valid.");
             }
+            var bytes:ByteArray = new ByteArray();
             bytes.endian = "littleEndian";
-            bytes.length = size + 299;
             bytes.position = 0;
             _write(_header);
-            bytes.position = 4;
-            bytes.writeUnsignedInt(size + 299);
             bytes.position = 257;
-            bytes.writeUnsignedInt(size + 7);
+            bytes.writeInt(size + 7);
             bytes.position = 263;
             bytes.writeByte(typeDef);
             bytes.writeBytes(src);
@@ -106,6 +116,8 @@ package org.si.sion.utils
             bytes.writeByte(0);
             bytes.writeByte(0);
             bytes.writeByte(0);
+            bytes.position = 4;
+            bytes.writeInt(bytes.length);
             bytes.position = 0;
             
             var loader:Loader = new Loader();
@@ -127,19 +139,19 @@ package org.si.sion.utils
         
         /** create Sound class.
          *  @param samples The Vector.&lt;Number&gt; wave data creating from. The LRLR type stereo data.
-         *  @param onComplete callback function when finished to create. 
+         *  @param onComplete callback function when finished to create. the format is function(sound:Sound) : void
          */
         static public function create(samples:Vector.<Number>, onComplete:Function) : void {
             var size:int = samples.length * 2; // *2(16bit)
             var bytes:ByteArray = new ByteArray();
             bytes.endian = "littleEndian";
-            bytes.length = size + 299;
+            bytes.length = size + 295;
             bytes.position = 0;
             _write(_header);
             bytes.position = 4;
-            bytes.writeUnsignedInt(size + 299);
+            bytes.writeInt(size + 295);
             bytes.position = 257;
-            bytes.writeUnsignedInt(size + 7);
+            bytes.writeInt(size + 7);
             bytes.position = 264;
             imax = samples.length;
             var i:int, imax:int;
@@ -152,7 +164,6 @@ package org.si.sion.utils
             
             var loader:Loader = new Loader();
             loader.contentLoaderInfo.addEventListener(Event.COMPLETE, function(e:Event) : void {
-                trace(loader.content);
                 var soundClass:Class = loader.contentLoaderInfo.applicationDomain.getDefinition("SoundClass") as Class;
                 onComplete((soundClass) ? (new soundClass()) as Sound : null);
             });

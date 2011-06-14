@@ -14,7 +14,8 @@ package org.si.sound {
     import org.si.sound.synthesizers.*;
     
     
-    /** Pattern sequencer class provides simple one track pattern player. The sequence pattern is represented as Vector.&lt;Note&gt;. @see org.si.sound.patterns.Note 
+    /** Pattern sequencer class provides simple one track pattern player. The sequence pattern is represented as Vector.&lt;Note&gt;.
+@see org.si.sound.patterns.Note 
 @example Simple usage
 <listing version="3.0">
 // create new instance
@@ -22,11 +23,11 @@ var ps:PatternSequencer = new PatternSequencer();
     
 // set sequence pattern by Note vector
 var pat:Vector.&lt;Note&gt; = new Vector.&lt;Note&gt;();
-pat.push(new Note(60, 60, 1));  // note C
-pat.push(new Note(60, 62, 1));  // note D
-pat.push(new Note(60, 64, 2));  // note E with length of 2
+pat.push(new Note(60, 64, 1));  // note C
+pat.push(new Note(62, 64, 1));  // note D
+pat.push(new Note(64, 64, 2));  // note E with length of 2
 pat.push(null);                 // rest; null means no operation
-pat.push(new Note(60, 62, 2));  // note D with length of 2
+pat.push(new Note(62, 64, 2));  // note D with length of 2
 pat.push(new Note().setRest()); // rest; Note.setRest() method set no operation
 
 // PatternSequencer.sequencer is the sound player

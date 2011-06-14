@@ -442,7 +442,7 @@ package org.si.sion.utils {
         
         /** parse inside of #AL&#64;{..}; */
         static public function parseALParam(param:SiOPMChannelParam, dataString:String) : SiOPMChannelParam {
-            return _setALParamByArray(param, _splitDataString(param, dataString, 14, 0, "#AL@"));
+            return _setALParamByArray(param, _splitDataString(param, dataString, 9, 0, "#AL@"));
         }
         
         
@@ -487,7 +487,7 @@ package org.si.sion.utils {
         
         /** set inside of #AL&#64;{..}; */
         static public function setALParam(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam {
-            if (data.length != 14) throw errorToneParameterNotValid("#LA@", 14, 0);
+            if (data.length != 9) throw errorToneParameterNotValid("#AL@", 9, 0);
             return _setALParamByArray(param, data);
         }
         
@@ -731,27 +731,21 @@ package org.si.sion.utils {
         
 
         // #AL@
-        // con[0-2], ws1[0-511], ws2[0-511], balance[-63-+63], vco2pitch[]
-        // ar[0-63], dr[0-63], sl[0-15], rr[0-63], cutoff[0-128], resonanse[0-9], far[0-63], fdr[0-63], peak[0-128]
+        // con[0-2], ws1[0-511], ws2[0-511], balance[-64-+64], vco2pitch[]
+        // ar[0-63], dr[0-63], sl[0-15], rr[0-63]
         static private function _setALParamByArray(param:SiOPMChannelParam, data:Array) : SiOPMChannelParam
         {
             var opp0:SiOPMOperatorParam = param.operatorParam[0],
                 opp1:SiOPMOperatorParam = param.operatorParam[1],
                 tltable:Vector.<int> = SiOPMTable.instance.eg_lv2tlTable,
-                con:int = int(data[0]), 
-                balance:int = int(data[3]), 
-                cutoff:int = int(data[9]), 
-                resonance:int = int(data[10]), 
-                peak:int = int(data[13]);
-            if (con<0 || con>2) throw errorParameterNotValid("#AL@ connection type", String(con));
-            if (balance > 64 || balance < -64) throw errorParameterNotValid("#AL@ balance", String(balance));
-            if (cutoff<0 || cutoff>128) throw errorParameterNotValid("#AL@ cutoff", String(cutoff));
-            if (resonance<0 || resonance>9) throw errorParameterNotValid("#AL@ resonance", String(resonance));
-            if (peak<0 || peak>128) throw errorParameterNotValid("#AL@ peak cutoff", String(peak));
+                connectionType:int = int(data[0]), 
+                balance:int = int(data[3]);
             param.opeCount = 5;
-            param.alg = con;
-            opp0.pgType = (int(data[1])) & 511;
-            opp1.pgType = (int(data[2])) & 511;
+            param.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
+            opp0.setPGType(int(data[1]));
+            opp1.setPGType(int(data[2]));
+            if (balance > 64) balance = 64;
+            else if (balance < -64) balance = -64;
             opp0.tl = tltable[64-balance];
             opp1.tl = tltable[balance+64];
             opp0.detune = 0;
@@ -762,17 +756,6 @@ package org.si.sion.utils {
             opp0.sr = 0;
             opp0.rr = (int(data[8])) & 15;
             opp0.sl = (int(data[7])) & 63;
-            
-            param.cutoff = 0;
-            param.resonance = resonance;
-            param.far = (int(data[11])) & 63;
-            param.fdr1 = (int(data[12])) & 63;
-            param.fdr2 = 0;
-            param.frr = 0;
-            param.fdc1 = peak;
-            param.fdc2 = cutoff;
-            param.fsc = cutoff;
-            param.frc = cutoff;
             
             return param;
         }
@@ -879,8 +862,7 @@ package org.si.sion.utils {
             if (param.opeCount != 5) return null;
             var opp0:SiOPMOperatorParam = param.operatorParam[0],
                 opp1:SiOPMOperatorParam = param.operatorParam[1];
-            return [param.alg, opp0.pgType, opp1.pgType, _balanceAL(opp0.tl, opp1.tl), opp1.detune,
-                    opp0.ar, opp0.dr, opp0.sl, opp0.rr, param.fdc2, param.resonance, param.far, param.fdr1, param.fdc1];
+            return [param.alg, opp0.pgType, opp1.pgType, _balanceAL(opp0.tl, opp1.tl), opp1.detune, opp0.ar, opp0.dr, opp0.sl, opp0.rr];
         }
         
         
@@ -1184,12 +1166,7 @@ package org.si.sion.utils {
             mml += lineEnd + String(opp0.ar) + separator;
             mml += String(opp0.dr) + separator;
             mml += String(opp0.sl) + separator;
-            mml += String(opp0.rr) + separator;
-            mml += String(param.fdc2) + separator;
-            mml += String(param.resonance) + separator;
-            mml += String(param.far) + separator;
-            mml += String(param.fdr1) + separator;
-            mml += String(param.fdc1);
+            mml += String(opp0.rr);
             mml += "}";
             
             return mml;

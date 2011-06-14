@@ -62,8 +62,9 @@ package org.si.sound.synthesizers {
         
         
         /** filter type (0:lowpass, 1:bandpass, 2:highpass) */
-        public function set filterType() : int { return _voice.channelParam.filterType; }
-        public function get filterType(t:int) : void {
+        public function get filterType() : int { return _voice.channelParam.filterType; }
+        public function set filterType(t:int) : void {
+            var i:int, imax:int = _tracks.length;
             _voice.channelParam.filterType = t;
             for (i=0; i<imax; i++) {
                 _tracks[i].channel.filterType = t;
