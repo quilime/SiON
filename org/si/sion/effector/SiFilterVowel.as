@@ -40,12 +40,7 @@ package org.si.sion.effector {
             formant = new Vector.<SiFilterVowelFormant>(FORMANT_COUNT, true);
             for (var i:int=0; i<FORMANT_COUNT; i++) formant[i] = new SiFilterVowelFormant();
             _eventQueue = null;
-            formant[0].update(SiFilterVowelFormant.calcFreqIndex(800),  3, 36);
-            formant[1].update(SiFilterVowelFormant.calcFreqIndex(1300), 2, 24);
-            formant[2].update(SiFilterVowelFormant.calcFreqIndex(2200), 3, 12);
-            formant[3].update(SiFilterVowelFormant.calcFreqIndex(3500), 3, 9);
-            formant[4].update(SiFilterVowelFormant.calcFreqIndex(4500), 3, 6);
-            formant[5].update(SiFilterVowelFormant.calcFreqIndex(5000), 3, 6);
+            setFilterBand();
         }
         
         
@@ -53,13 +48,30 @@ package org.si.sion.effector {
         
     // operations
     //------------------------------------------------------------
-        /** set 1st and 2nd formant */
+        /** set 1st and 2nd formant with delay */
         public function setVowellFormant(outputLevel:Number, formFreq1:Number, gain1:int, formFreq2:Number, gain2:int, delay:int = 0) : void 
         {
             var ifreq1:int = SiFilterVowelFormant.calcFreqIndex(formFreq1),
                 ifreq2:int = SiFilterVowelFormant.calcFreqIndex(formFreq2),
                 e:FormantEvent = new FormantEvent(delay, outputLevel, ifreq1, gain1, ifreq2, gain2);
             _eventQueue = e.insertTo(_eventQueue);
+        }
+        
+        
+        /** set all peaking filter */
+        public function setFilterBand(formFreq1:Number=800,  gain1:int=3, bandwidth1:int=36, 
+                                      formFreq2:Number=1300, gain2:int=3, bandwidth2:int=24, 
+                                      formFreq3:Number=2200, gain3:int=3, bandwidth3:int=12, 
+                                      formFreq4:Number=3500, gain4:int=3, bandwidth4:int=9, 
+                                      formFreq5:Number=4500, gain5:int=3, bandwidth5:int=6, 
+                                      formFreq6:Number=5500, gain6:int=3, bandwidth6:int=6) : void 
+        {
+            formant[0].update(SiFilterVowelFormant.calcFreqIndex(formFreq1), bandwidth1, gain1);
+            formant[1].update(SiFilterVowelFormant.calcFreqIndex(formFreq2), bandwidth2, gain2);
+            formant[2].update(SiFilterVowelFormant.calcFreqIndex(formFreq3), bandwidth3, gain3);
+            formant[3].update(SiFilterVowelFormant.calcFreqIndex(formFreq4), bandwidth4, gain4);
+            formant[4].update(SiFilterVowelFormant.calcFreqIndex(formFreq5), bandwidth5, gain5);
+            formant[5].update(SiFilterVowelFormant.calcFreqIndex(formFreq6), bandwidth6, gain6);
         }
         
         
@@ -88,11 +100,19 @@ package org.si.sion.effector {
         /** @private */
         override public function mmlCallback(args:Vector.<Number>) : void
         {
-            setVowellFormant((!isNaN(args[0])) ? (args[0]*0.01) : 1,
-                             (!isNaN(args[1])) ? args[1] : 800,
-                             (!isNaN(args[2])) ? args[2] : 30,
-                             (!isNaN(args[3])) ? args[3] : 1300,
-                             (!isNaN(args[4])) ? args[4] : 24);
+            outputLevel = (!isNaN(args[0]))  ? (args[0]*0.01) : 1;
+            setFilterBand((!isNaN(args[1]))  ? args[1] : 800,  
+                          (!isNaN(args[2]))  ? args[2] : 30, 3,
+                          (!isNaN(args[3]))  ? args[3] : 1300, 
+                          (!isNaN(args[4]))  ? args[4] : 24, 3, 
+                          (!isNaN(args[5]))  ? args[5] : 2200, 
+                          (!isNaN(args[6]))  ? args[6] : 12, 3, 
+                          (!isNaN(args[7]))  ? args[7] : 3500, 
+                          (!isNaN(args[8]))  ? args[8] : 9, 3, 
+                          (!isNaN(args[9]))  ? args[9] : 4500, 
+                          (!isNaN(args[10])) ? args[10] : 6, 3, 
+                          (!isNaN(args[11])) ? args[11] : 5500, 
+                          (!isNaN(args[12])) ? args[12] : 6, 3);
         }
         
         

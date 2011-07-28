@@ -4,7 +4,7 @@
 //  Distributed under BSD-style license (see org.si.license.txt).
 //----------------------------------------------------------------------------------------------------
 
-package org.si.sion.utils {
+package org.si.sion.utils.soundloader {
     import flash.events.*;
     
     
@@ -14,13 +14,13 @@ package org.si.sion.utils {
     // constants
     //------------------------------------------------------------
         /** Dispatch when complete all file loadings, this event is dispatched whether errors appear.
-         * @eventType completeAll
+         *  @eventType completeAll
          */
         static public const COMPLETE_ALL:String = 'completeAll';
         
         
         /** Dispatch when complete one file loading.
-         * @eventType complete
+         *  @eventType complete
          */
         static public const COMPLETE:String = 'complete';
         
@@ -49,11 +49,11 @@ package org.si.sion.utils {
         /** Sound loader instance. */
         public function get soundLoader():SoundLoader { return _soundLoader; }
         
-        /** file data. */
+        /** file data. null when SoundLoaderEvent.COMPLETE_ALL */
         public function get fileData():SoundLoaderFileData { return _fileData; }
         
-        /** loaded data. */
-        public function get data():* { return _fileData.data; }
+        /** loaded data. null when SoundLoaderEvent.COMPLETE_ALL */
+        public function get data():* { return (_fileData) ? _fileData.data : null; }
         
         
         

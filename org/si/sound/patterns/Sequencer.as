@@ -51,8 +51,8 @@ package org.si.sound.patterns {
         protected var _owner:SoundObject;
         /** @private controlled track */
         protected var _track:SiMMLTrack;
-        /** @private MMLEvent.REST. */
-        protected var _restEvent:MMLEvent;
+        /** @private MMLEvent.INTERNAL_WAIT. */
+        protected var _waitEvent:MMLEvent;
         /** @private check number of synthsizer update */
         protected var _synthesizer_updateNumber:int;
         
@@ -205,7 +205,7 @@ package org.si.sound.patterns {
             seq.initialize();
             seq.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
             seq.appendNewCallback(_onEnterFrame, 0);
-            _restEvent = seq.appendNewEvent(MMLEvent.REST, 0, gridStep);
+            _waitEvent = seq.appendNewEvent(MMLEvent.INTERNAL_WAIT, 0, gridStep);
         }
         
         
@@ -281,7 +281,7 @@ package org.si.sound.patterns {
                     }
                     // update owners track voice when synthesizer is updated
                     if (_synthesizer_updateNumber != _owner.synthesizer._synthesizer_internal::_voiceUpdateNumber) {
-                        _owner.synthesizer._synthesizer_internal::_voice.setTrackVoice(_track);
+                        _owner.synthesizer._synthesizer_internal::_voice.updateTrackVoice(_track);
                         _synthesizer_updateNumber = _owner.synthesizer._synthesizer_internal::_voiceUpdateNumber;
                     } 
                     
@@ -295,10 +295,10 @@ package org.si.sound.patterns {
                 // set length of rest event 
                 if (_gridShiftPattern) {
                     var diff:int = _gridShiftPattern[_frameCounter] - _currentGridShift;
-                    _restEvent.length = gridStep + diff;
+                    _waitEvent.length = gridStep + diff;
                     _currentGridShift += diff;
                 } else {
-                    _restEvent.length = gridStep;
+                    _waitEvent.length = gridStep;
                 }
                 
                 // callback on exit frame

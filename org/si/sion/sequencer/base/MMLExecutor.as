@@ -32,10 +32,12 @@ package org.si.sion.sequencer.base {
         private  var _repeatPoint:MMLEvent;
         // event to process
         private  var _processEvent:MMLEvent;
-        // note event
-        private  var _noteEvent:MMLEvent;
+        // pitchbend event
+        private  var _bendFrom:MMLEvent;
         // pitchbend event
         private  var _bendEvent:MMLEvent;
+        // note event
+        private  var _noteEvent:MMLEvent;
         
         /** @private [internal] current position in tick count. */
         internal var _currentTickCount:int;
@@ -77,8 +79,10 @@ package org.si.sion.sequencer.base {
             _repeatPoint = null;
             _processEvent = MMLParser._allocEvent(MMLEvent.PROCESS, 0);
             _noteEvent    = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
+            _bendFrom     = MMLParser._allocEvent(MMLEvent.NOTE, 0);
             _bendEvent    = MMLParser._allocEvent(MMLEvent.PITCHBEND, 0);
-            _bendEvent.next = MMLParser._allocEvent(MMLEvent.DRIVER_NOTE, 0);
+            _bendFrom.next = _bendEvent;
+            _bendEvent.next = _noteEvent;
             _repeatCounter = null;
             _currentTickCount = 0;
             _residueSampleCount = 0;
@@ -91,7 +95,7 @@ package org.si.sion.sequencer.base {
     // operations
     //--------------------------------------------------
         /** Initialize.
-         *  @param seq Sequence to execute. If its null, set the execution pointer at the head.
+         *  @param seq Sequence to execute. Sets the pointer at the head of this sequence, when this argument is not null.
          */
         public function initialize(seq:MMLSequence) : void
         {
@@ -166,18 +170,20 @@ package org.si.sion.sequencer.base {
         
         /** pitch bending, this function only is avilable after calling singleNote().
          *  @param note Note number bending to.
-         *  @param tickLength length of the note after pitch bending.
-         *  @return success or failure
+         *  @param tickLength length of bending.
+         *  @param success or failure
          */
-        public function bendingTo(note:int, tickLength:int) : Boolean
+        public function bendingFrom(note:int, tickLength:int) : Boolean
         {
-            if (pointer !== _noteEvent) return false;
-            _noteEvent.next = _bendEvent;
-            _bendEvent.length = _noteEvent.length;
-            _noteEvent.length = 0;
-            _bendEvent.next.next = null;
-            _bendEvent.next.data = note;
-            _bendEvent.next.length = tickLength;
+            if (pointer != _noteEvent || tickLength == 0) return false;
+            if (_noteEvent.length != 0) {
+                if (tickLength < _noteEvent.length) tickLength = _noteEvent.length - 1;
+                _noteEvent.length -= tickLength;
+            }
+            _bendFrom.length = 0;
+            _bendFrom.data = note;
+            _bendEvent.length = tickLength;
+            pointer = _bendFrom;
             return true;
         }
         
@@ -198,30 +204,6 @@ package org.si.sion.sequencer.base {
             return e.next;
         }
         
-        
-        
-        
-    // queue mode
-    //--------------------------------------------------
-        /** set queue
-         *  @param eventID event ID
-         *  @param data data
-         *  @param length length
-         */
-        public function setQueue(eventID:int, data:int, length:int) : void
-        {
-            _sequence.appendNewEvent(eventID, data, length);
-        }
-        
-        
-        /** Free all ecexuted queue events */
-        public function freeAllExecutedQueue() : void 
-        {
-            if (pointer == null || _sequence.headEvent.next == _sequence.tailEvent) return;
-            var queueHead:MMLEvent = currentEvent || _sequence.tailEvent, 
-                event:MMLEvent = _sequence.headEvent.next;
-            while (event != queueHead) event = MMLParser._freeEvent(event);
-        }
         
         
         

@@ -101,6 +101,36 @@ package org.si.sion.module {
         }
         
         
+        /** write stereo buffer by 2 pipes */
+        public function writeStereo(pointerL:SLLint, pointerR:SLLint, start:int, len:int, vol:Number, pan:int) : void 
+        {
+            var i:int, n:Number, imax:int = (start + len)<<1;
+            vol *= _i2n;
+            if (channels == 2) {
+                // stereo
+                var volL:Number = _panTable[128-pan] * vol,
+                    volR:Number = _panTable[pan] * vol;
+                for (i=start<<1; i<imax;) {
+                    buffer[i] += Number(pointerL.i) * volL;  i++;
+                    buffer[i] += Number(pointerR.i) * volR;  i++;
+                    pointerL = pointerL.next;
+                    pointerR = pointerR.next;
+                }
+            } else 
+            if (channels == 1) {
+                // monoral
+                vol *= 0.5;
+                for (i=start<<1; i<imax;) {
+                    n = Number(pointerL.i + pointerR.i) * vol;
+                    buffer[i] += n; i++;
+                    buffer[i] += n; i++;
+                    pointerL = pointerL.next;
+                    pointerR = pointerR.next;
+                }
+            }
+        }
+        
+        
         /** write buffer by Vector.&lt;Number&gt; */
         public function writeVectorNumber(pointer:Vector.<Number>, startPointer:int, startBuffer:int, len:int, vol:Number, pan:int, sampleChannelCount:int) : void
         {
@@ -109,7 +139,6 @@ package org.si.sion.module {
             if (channels == 2) {
                 if (sampleChannelCount == 2) {
                     // stereo data to stereo buffer
-                    vol *= 1.4142135623730951;
                     volL = _panTable[128-pan] * vol;
                     volR = _panTable[pan]     * vol;
                     jmax = (startPointer + len)<<1;
@@ -119,8 +148,8 @@ package org.si.sion.module {
                     }
                 } else {
                     // monoral data to stereo buffer
-                    volL = _panTable[128-pan] * vol;
-                    volR = _panTable[pan]     * vol;
+                    volL = _panTable[128-pan] * vol * 0.707;
+                    volR = _panTable[pan]     * vol * 0.707;
                     jmax = startPointer + len;
                     for (j=startPointer, i=startBuffer<<1; j<jmax; j++) {
                         n = pointer[j];
@@ -133,7 +162,7 @@ package org.si.sion.module {
                 if (sampleChannelCount == 2) {
                     // stereo data to monoral buffer
                     jmax = (startPointer + len)<<1;
-                    vol  *= 0.6;
+                    vol  *= 0.5;
                     for (j=startPointer<<1, i=startBuffer<<1; j<jmax;) {
                         n  = pointer[j]; j++;
                         n += pointer[j]; j++;

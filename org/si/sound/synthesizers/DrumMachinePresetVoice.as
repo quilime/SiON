@@ -125,7 +125,7 @@ package org.si.sound.synthesizers {
         // create new 1operator percussive voice
         private function _percuss1op(key:String, name:String, note:int, tl:int, ws:int, ar:int, rr:int, sw:int, cut:int=128, res:int=0) : void {
             var voice:SiONVoice = new SiONVoice(5, ws, ar, rr);
-            voice.gateTime = 0;
+            voice.defaultGateTime = 0;
             voice.channelParam.operatorParam[0].fixedPitch = note<<6;
             voice.channelParam.operatorParam[0].tl = tl;
             voice.releaseSweep = sw;

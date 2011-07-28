@@ -16,7 +16,7 @@ package org.si.sion.module {
     // constant
     //----------------------------------------
         /** length borderline for extracting Sound [ms] */
-        static public const EXTRACT_THRESHOLD:int = 4000;
+        static public var extractThreshold:int = 4000;
         
         
         
@@ -30,17 +30,19 @@ package org.si.sion.module {
         public var waveData:Vector.<Number>;
         /** channel count of this data. */
         public var channelCount:int;
+        /** pan [-64 - 64] */
+        public var pan:int;
         
-        /** wave starting position in sample count. */
+        // wave starting position in sample count.
         private var _startPoint:int;
-        /** wave end position in sample count. */
+        // wave end position in sample count.
         private var _endPoint:int;
-        /** wave looping position in sample count. -1 means no repeat. */
+        // wave looping position in sample count. -1 means no repeat.
         private var _loopPoint:int;
-        
+        // flag to slice after loading
+        private var _sliceAfterLoading:Boolean;
         // flag to ignore note off
         private var _ignoreNoteOff:Boolean;
-        
         
         
         
@@ -54,20 +56,20 @@ package org.si.sion.module {
         }
         
         
-        /** flag t ignore note off */
+        /** flag to ignore note off. set true to ignore note off (one shot voice). this flag is only available for non-loop samples. */
         public function get ignoreNoteOff() : Boolean { return _ignoreNoteOff; }
         public function set ignoreNoteOff(b:Boolean) : void {
             _ignoreNoteOff = (_loopPoint == -1) && b;
         }
         
         
-        /** wave starting position in sample count. */
+        /** wave starting position in sample count. you can set this property by slice(). @see #slice() */
         public function get startPoint() : int { return _startPoint; }
         
-        /** wave end position in sample count. */
+        /** wave end position in sample count. you can set this property by slice(). @see #slice() */
         public function get endPoint()   : int { return _endPoint; }
         
-        /** wave looping position in sample count. -1 means no repeat. */
+        /** wave looping position in sample count. -1 means no repeat. you can set this property by slice(). @see #slice() */
         public function get loopPoint()  : int { return _loopPoint; }
         
         
@@ -76,14 +78,16 @@ package org.si.sion.module {
     // constructor
     //----------------------------------------
         /** constructor 
-         *  @param data wave data, Sound or Vector.&lt;Number&gt;. The Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound is extracted when the length is shorter than SiOPMWaveSamplerData.extractThreshold[msec].
          *  @param ignoreNoteOff flag to ignore note off
-         *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
+         *  @param pan pan of this sample [-64 - 64].
+         *  @param srcChannelCount channel count of source data, this argument is only available when data type is Vector.<Number>.
+         *  @param channelCount channel count of this data, 0 sets same with srcChannelCount
          */
-        function SiOPMWaveSamplerData(data:*=null, ignoreNoteOff:Boolean=true, channelCount:int=2) 
+        function SiOPMWaveSamplerData(data:*=null, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) 
         {
             super(SiMMLTable.MT_SAMPLE);
-            if (data) initialize(data, ignoreNoteOff, channelCount);
+            if (data) initialize(data, ignoreNoteOff, pan, srcChannelCount, channelCount);
         }
         
         
@@ -92,26 +96,26 @@ package org.si.sion.module {
     // oprations
     //----------------------------------------
         /** initialize 
-         *  @param data wave data, Sound or Vector.&lt;Number&gt;. The Sound is extracted when the length is shorter than 4[sec].
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound is extracted when the length is shorter than SiOPMWaveSamplerData.extractThreshold[msec].
          *  @param ignoreNoteOff flag to ignore note off
-         *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
+         *  @param pan pan of this sample.
+         *  @param srcChannelCount channel count of source data, this argument is only available when data type is Vector.<Number>.
+         *  @param channelCount channel count of this data, 0 sets same with srcChannelCount. This argument is ignored when the data is not extracted.
+         *  @see #extractThreshold
          *  @return this instance.
          */
-        public function initialize(data:*, ignoreNoteOff:Boolean=true, channelCount:int=2) : SiOPMWaveSamplerData
+        public function initialize(data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
         {
+            _sliceAfterLoading = false;
+            srcChannelCount = (srcChannelCount == 1) ? 1 : 2;
+            if (channelCount == 0) channelCount = srcChannelCount;
+            this.channelCount = (channelCount == 1) ? 1 : 2;
             if (data is Vector.<Number>) {
                 this.soundData = null;
-                this.waveData = data;
+                this.waveData = _transChannel(data, srcChannelCount, channelCount);
                 isExtracted = true;
             } else if (data is Sound) {
-                this.soundData = data;
-                if (this.soundData.length <= EXTRACT_THRESHOLD) {
-                    this.waveData = SiONUtil.extract(this.soundData, null, channelCount);
-                    isExtracted = true;
-                } else {
-                    this.waveData = null;
-                    isExtracted = false;
-                }
+                _listenSoundLoadingEvents(data as Sound)
             } else if (data == null) {
                 this.soundData = null;
                 this.waveData = null;
@@ -119,31 +123,29 @@ package org.si.sion.module {
             } else {
                 throw new Error("SiOPMWaveSamplerData; not suitable data type");
             }
-            this.channelCount = (channelCount == 1) ? 1 : 2;
             
             this._startPoint = 0;
             this._endPoint   = length;
             this._loopPoint  = -1;
             this.ignoreNoteOff = ignoreNoteOff;
+            this.pan = pan;
             return this;
         }
         
         
         /** Slicer setting. You can cut samples and set repeating.
-         *  @param startPoint slicing point to start data.
+         *  @param startPoint slicing point to start data.The negative value skips head silence.
          *  @param endPoint slicing point to end data. The negative value plays whole data.
-         *  @param loopPoint slicing point to repeat data. -1 means no repeat
+         *  @param loopPoint slicing point to repeat data. The negative value sets no repeat.
          *  @return this instance.
          */
-        public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : SiOPMWaveSamplerData
+        public function slice(startPoint:int=-1, endPoint:int=-1, loopPoint:int=-1) : SiOPMWaveSamplerData
         {
-            if (endPoint < 0) endPoint = length-1;
-            if (endPoint < loopPoint)  loopPoint = -1;
-            if (endPoint < startPoint) endPoint = length-1;
             _startPoint = startPoint;
-            _endPoint   = endPoint;
-            _loopPoint  = loopPoint;
-            if (_loopPoint != -1) _ignoreNoteOff = false;
+            _endPoint = endPoint;
+            _loopPoint = loopPoint;
+            if (!_isSoundLoading) _slice();
+            else _sliceAfterLoading = true;
             return this;
         }
         
@@ -153,27 +155,74 @@ package org.si.sion.module {
          */
         public function getInitialSampleIndex(phase:Number=0) : int
         {
-            return int(startPoint*(1-phase) + endPoint*phase);
+            return int(_startPoint*(1-phase) + _endPoint*phase);
         }
         
         
-        
-        
-    // factory
-    //----------------------------------------
-        public function free() : void
+        // seek head silence
+        private function _seekHeadSilence() : int
         {
-            _freeList.push(this);
+            if (waveData) {
+                var i:int=0, imax:int=waveData.length;
+                for (i=0; i<imax; i+=channelCount) if (waveData[i] > 0.01) break;
+                return i;
+            }
+            return (soundData) ? SiONUtil.getHeadSilence(soundData) : 0;
         }
         
         
-        static private var _freeList:Vector.<SiOPMWaveSamplerData> = new Vector.<SiOPMWaveSamplerData>();
-        
-        static public function alloc(data:*, ignoreNoteOff:Boolean, channelCount:int) : SiOPMWaveSamplerData
+        // seek mp3 end gap
+        private function _seekEndGap() : int
         {
-            var newInstance:SiOPMWaveSamplerData = _freeList.pop() || new SiOPMWaveSamplerData();
-            newInstance.initialize(data, ignoreNoteOff, channelCount);
-            return newInstance;
+            if (waveData) {
+                for (var i:int=waveData.length-channelCount; i>=0; i-=channelCount) if (waveData[i] > 0.01) break;
+                return i;
+            }
+            return (soundData) ? SiONUtil.getEndGap(soundData) : 0;
+        }
+        
+        
+        private function _transChannel(src:Vector.<Number>, srcChannelCount:int, channelCount:int) : Vector.<Number>
+        {
+            var i:int, j:int, imax:int, dst:Vector.<Number>;
+            if (srcChannelCount == channelCount) return src;
+            if (srcChannelCount == 1) { // 1->2
+                imax = src.length;
+                dst = new Vector.<Number>(imax<<1);
+                for (i=0, j=0; i<imax; i++, j+=2) dst[j+1] = dst[j] = src[i];
+            } else { // 2->1
+                imax = src.length>>1;
+                dst = new Vector.<Number>(imax);
+                for (i=0, j=0; i<imax; i++, j+=2) dst[i] = (src[j] + src[j+1]) * 0.5;
+            }
+            return dst;
+        }
+        
+        
+        /** @private */
+        override protected function _onSoundLoadingComplete(sound:Sound) : void 
+        {
+            this.soundData = sound;
+            if (this.soundData.length <= extractThreshold) {
+                this.waveData = SiONUtil.extract(this.soundData, null, channelCount, extractThreshold*45, 0);
+                isExtracted = true;
+            } else {
+                this.waveData = null;
+                isExtracted = false;
+            }
+            if (_sliceAfterLoading) _slice();
+            _sliceAfterLoading = false;
+        }
+        
+        
+        private function _slice() : void
+        {
+            if (_startPoint < 0) _startPoint = _seekHeadSilence();
+            if (_loopPoint < 0) _loopPoint = -1;
+            if (_endPoint < 0) _endPoint = length - 1;
+            if (_endPoint < _loopPoint) _loopPoint = -1;
+            if (_endPoint < _startPoint) _endPoint = length - 1;
+            if (_loopPoint != -1) _ignoreNoteOff = false;
         }
     }
 }

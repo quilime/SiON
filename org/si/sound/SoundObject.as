@@ -35,7 +35,7 @@ package org.si.sound {
     [Event(name="noteOffFrame",    type="org.si.sound.events.SoundObjectEvent")]
     
     
-    /** The SoundObject class is the base class for all objects that can play sounds by operating SiONDriver. 
+    /** The SoundObject class is the base class of all objects that operates sounds by SiONDriver.
      */
     public class SoundObject extends EventDispatcher
     {
@@ -463,7 +463,7 @@ package org.si.sound {
             track.pitchBend  = _pitchBend * 64;
             track.noteShift  = _noteShift;
             track.pitchShift = _pitchShift * 64;
-            if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
+            if (voice && isNaN(voice.defaultGateTime)) track.quantRatio = _gateTime;
             return track;
         }
         
@@ -513,7 +513,7 @@ package org.si.sound {
                 track.noteShift  = _noteShift;
                 track.pitchShift = ps;
                 track.setEventTrigger(_eventTriggerID, _noteTriggerFlags&3, _noteTriggerFlags>>2);
-                if (voice && isNaN(voice.gateTime)) track.quantRatio = _gateTime;
+                if (voice && isNaN(voice.defaultGateTime)) track.quantRatio = _gateTime;
             }
             return list;
         }

@@ -6,27 +6,54 @@
 
 package org.si.sion.sequencer {
     import org.si.utils.SLLint;
+    import org.si.sion.utils.Translator;
     import org.si.sion.namespaces._sion_internal;
     
     
     /** Tabel evnelope data. */
     public class SiMMLEnvelopTable
     {
+    // variables
+    //--------------------------------------------------------------------------------
         /** Head element of single linked list. */
         public var head:SLLint;
         /** Tail element of single linked list. */
         public var tail:SLLint;
         
+        
+        
+        
+        
+    // constructor
+    //--------------------------------------------------------------------------------
         /** constructor. 
-         *  @param src Source table coping from.
+         *  @param table envelop table vector.
+         *  @param loopPoint returning point index of looping. -1 sets no loop.
          */
-        function SiMMLEnvelopTable(src:SiMMLEnvelopTable=null)
+        function SiMMLEnvelopTable(table:Vector.<int>=null, loopPoint:int=-1)
         {
-            head = null;
-            tail = null;
-            if (src) copyFrom(src);
+            if (table) {
+                var loop:SLLint, i:int, imax:int = table.length;
+                head = tail = SLLint.allocList(imax);
+                loop = null;
+                for (i=0; i<imax-1; i++) {
+                    if (loopPoint == i) loop = tail;
+                    tail.i = table[i];
+                    tail = tail.next;
+                }
+                tail.i = table[i];
+                tail.next = loop;
+            } else {
+                head = null;
+                tail = null;
+            }
         }
         
+        
+        
+        
+    // operations
+    //--------------------------------------------------------------------------------
         /** free */
         public function free() : void
         {
@@ -37,6 +64,7 @@ package org.si.sion.sequencer {
                 tail = null;
             }
         }
+        
         
         /** copy */
         public function copyFrom(src:SiMMLEnvelopTable) : SiMMLEnvelopTable
@@ -57,7 +85,27 @@ package org.si.sion.sequencer {
             return this;
         }
         
-        /** @private [sion internal] initializer. */
+        
+        
+        /** parse mml text 
+         *  @param tableNumbers String of table numbers
+         *  @param postfix String of postfix
+         *  @param maxIndex maximum size of envelop table
+         *  @return this instance
+         */
+        public function parseMML(tableNumbers:String, postfix:String, maxIndex:int=65536) : SiMMLEnvelopTable
+        {
+            var res:* = Translator.parseTableNumbers(tableNumbers, postfix, maxIndex);
+            if (res.head) _sion_internal::_initialize(res.head, res.tail);
+            return this;
+        }
+        
+        
+        
+        
+    // internal functions
+    //--------------------------------------------------------------------------------
+        /** @private [sion internal] set by pointers. */
         _sion_internal function _initialize(head_:SLLint, tail_:SLLint) : void
         {
             head = head_;

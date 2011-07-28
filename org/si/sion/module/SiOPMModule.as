@@ -34,6 +34,10 @@ package org.si.sion.module {
         public var outputStream:SiOPMStream;
         /** slot of global mixer */
         public var streamSlot:Vector.<SiOPMStream>;
+        /** pcm module volume @default 4 */
+        public var pcmVolume:Number;
+        /** sampler module volume @default 2 */
+        public var samplerVolume:Number;
         
         private var _bufferLength:int;  // buffer length
         private var _bitRate:int;       // bit rate
@@ -113,6 +117,9 @@ package org.si.sion.module {
                     _pipeBufferPager[i] = SLLint.createRingPager(_pipeBuffer[i], true);
                 }
             }
+            
+            pcmVolume = 4;
+            samplerVolume = 2;
             
             // initialize all channels
             SiOPMChannelManager.initializeAllChannels();

@@ -113,9 +113,10 @@ package org.si.sion.sequencer.base {
             setMMLEventListener(MMLEvent.REPEAT_BREAK, _default_onRepeatBreak,  false);
             setMMLEventListener(MMLEvent.REPEAT_END,   _default_onRepeatEnd,    false);
             setMMLEventListener(MMLEvent.SEQUENCE_TAIL,_default_onSequenceTail, false);
-            setMMLEventListener(MMLEvent.WAIT,         _default_onWait,         true);
+            setMMLEventListener(MMLEvent.GLOBAL_WAIT,  _default_onGlobalWait,   true);
             setMMLEventListener(MMLEvent.TEMPO,        _default_onTempo,        true);
             setMMLEventListener(MMLEvent.TIMER,        _default_onTimer,        true);
+            setMMLEventListener(MMLEvent.INTERNAL_WAIT,_default_onInternalWait, false);
             setMMLEventListener(MMLEvent.INTERNAL_CALL,_default_onInternalCall, false);
             setMMLEventListener(MMLEvent.TABLE_EVENT,  _nop,                    true);
             _newUserDefinedEventID = MMLEvent.USER_DEFINE;
@@ -530,7 +531,7 @@ package org.si.sion.sequencer.base {
                     count = e.length - pos;
                     pos = e.length;
                     e.length = 0;
-                    if (count > 0) seq.appendNewEvent(MMLEvent.WAIT, 0, count);
+                    if (count > 0) seq.appendNewEvent(MMLEvent.GLOBAL_WAIT, 0, count);
                     seq.push(e);
                 }
             }
@@ -562,8 +563,8 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** default operation for MMLEvent.WAIT. */
-        protected function _default_onWait(e:MMLEvent) : MMLEvent
+        /** default operation for MMLEvent.GLOBAL_WAIT. */
+        protected function _default_onGlobalWait(e:MMLEvent) : MMLEvent
         {
             var exec:MMLExecutor = currentExecutor;
             
@@ -696,6 +697,14 @@ package org.si.sion.sequencer.base {
             onTimerInterruption();
             return e.next;
         }
+        
+        
+        /** default operation for MMLEvent.INTERNAL_WAIT. */
+        protected function _default_onInternalWait(e:MMLEvent) : MMLEvent
+        {
+            return currentExecutor._publishProessingEvent(e);
+        }
+        
         
         /** default operation for MMLEvent.INTERNAL_CALL. */
         protected function _default_onInternalCall(e:MMLEvent) : MMLEvent

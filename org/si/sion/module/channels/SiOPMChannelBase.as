@@ -128,6 +128,8 @@ package org.si.sion.module.channels {
         /** Set wave data. */
         public function setWaveData(waveData:SiOPMWaveBase) : void {}
         
+        /** channel number (2nd argument of %) */
+        public function setChannelNumber(channelNum:int) : void {}
         /** algorism (&#64;al) */
         public function setAlgorism(cnt:int, alg:int) : void {}
         /** feedback (&#64;fb) */
@@ -621,11 +623,12 @@ package org.si.sion.module.channels {
         
         
         /** state variable filter */
-        protected function _applySVFilter(pointer:SLLint, len:int) : void
+        protected function _applySVFilter(pointer:SLLint, len:int, variables:Vector.<Number>=null) : void
         {
             var i:int, imax:int, step:int, out:int, cut:Number, fb:Number;
             
             // initialize
+            if (!variables) variables = _filterVriables;
             out = _cutoff + _cutoff_offset;
             if (out<0) out=0 
             else if (out>128) out=128;
@@ -638,10 +641,10 @@ package org.si.sion.module.channels {
             while (len >= step) {
                 // processing
                 for (i=0; i<step; i++) {
-                    _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
-                    _filterVriables[1] += _filterVriables[2] * cut;
-                    _filterVriables[0] += _filterVriables[1] * cut;
-                    pointer.i = int(_filterVriables[_filterType]);
+                    variables[2] = Number(pointer.i) - variables[0] - variables[1] * fb;
+                    variables[1] += variables[2] * cut;
+                    variables[0] += variables[1] * cut;
+                    pointer.i = int(variables[_filterType]);
                     pointer   = pointer.next;
                 }
                 len -= step;
@@ -661,10 +664,10 @@ package org.si.sion.module.channels {
             
             // process remains
             for (i=0; i<len; i++) {
-                _filterVriables[2] = Number(pointer.i) - _filterVriables[0] - _filterVriables[1] * fb;
-                _filterVriables[1] += _filterVriables[2] * cut;
-                _filterVriables[0] += _filterVriables[1] * cut;
-                pointer.i = int(_filterVriables[_filterType]);
+                variables[2] = Number(pointer.i) - variables[0] - variables[1] * fb;
+                variables[1] += variables[2] * cut;
+                variables[0] += variables[1] * cut;
+                pointer.i = int(variables[_filterType]);
                 pointer   = pointer.next;
             }
             

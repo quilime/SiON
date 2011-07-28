@@ -30,8 +30,9 @@ package org.si.sion.module {
         function SiOPMWaveSamplerTable() 
         {
             super(SiMMLTable.MT_SAMPLE);
-            _table = new Vector.<SiOPMWaveSamplerData>(SiOPMTable.NOTE_TABLE_SIZE);
+            _table = new Vector.<SiOPMWaveSamplerData>(SiOPMTable.SAMPLER_DATA_MAX);
             stencil = null;
+            clear();
         }
         
         
@@ -45,7 +46,7 @@ package org.si.sion.module {
          */
         public function clear(sampleData:SiOPMWaveSamplerData = null) : SiOPMWaveSamplerTable
         {
-            for (var i:int=0; i<SiOPMTable.NOTE_TABLE_SIZE; i++) _table[i] = sampleData;
+            for (var i:int=0; i<SiOPMTable.SAMPLER_DATA_MAX; i++) _table[i] = sampleData;
             return this;
         }
         
@@ -58,10 +59,10 @@ package org.si.sion.module {
          */
         public function setSample(sample:SiOPMWaveSamplerData, keyRangeFrom:int=0, keyRangeTo:int=-1) : SiOPMWaveSamplerData
         {
-            if (keyRangeFrom<0) keyRangeFrom = 0;
-            if (keyRangeTo>127) keyRangeTo = 127;
-            if (keyRangeTo==-1) keyRangeTo = keyRangeFrom;
-            if (keyRangeFrom>127 || keyRangeTo<0 || keyRangeTo<keyRangeFrom) throw new Error("SiOPMWavePCMTable error; Invalid key range");
+            if (keyRangeFrom < 0) keyRangeFrom = 0;
+            if (keyRangeTo > 127) keyRangeTo = 127;
+            if (keyRangeTo == -1) keyRangeTo = keyRangeFrom;
+            if (keyRangeFrom > 127 || keyRangeTo < 0 || keyRangeTo < keyRangeFrom) throw new Error("SiOPMWaveSamplerTable error; Invalid key range");
             for (var i:int=keyRangeFrom; i<=keyRangeTo; i++) _table[i] = sample;
             return sample;
         }
@@ -82,7 +83,7 @@ package org.si.sion.module {
         _siopm_module_internal function _free() : void
         {
             for (var i:int=0; i<SiOPMTable.SAMPLER_DATA_MAX; i++) {
-                if (_table[i]) _table[i].free();
+                //if (_table[i]) _table[i].free();
                 _table[i] = null;
             }
         }

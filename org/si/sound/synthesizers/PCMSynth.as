@@ -42,12 +42,12 @@ package org.si.sound.synthesizers {
     //----------------------------------------
         /** constructor
          *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted inside.
-         *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
-         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
+         *  @param samplingNote sampling data's note, this argument allows decimal number.
+         *  @param channelCount channel count of playing PCM.
          */
-        function PCMSynth(data:*=null, samplingOctave:int=5, isStereoSample:Boolean=false)
+        function PCMSynth(data:*=null, samplingNote:Number=68, channelCount:int=2)
         {
-            _defaultPCMData = new SiOPMWavePCMData(data, samplingOctave, isStereoSample);
+            _defaultPCMData = new SiOPMWavePCMData(data, int(samplingNote*64), channelCount, 0);
             _pcmTable = new SiOPMWavePCMTable();
             _pcmTable.clear(_defaultPCMData);
             _voice.waveData = _pcmTable;
@@ -58,49 +58,22 @@ package org.si.sound.synthesizers {
         
     // operation
     //----------------------------------------
-        /** Slicer setting. You can cut samples and set repeating.
-         *  @param startPoint slicing point to start data.
-         *  @param endPoint slicing point to end data, The negative value calculates from the end.
-         *  @param loopPoint slicing point to repeat data, -1 means no repeat
-         */
-        override public function slice(startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
-        {
-            _defaultPCMData.slice(startPoint, endPoint, loopPoint);
-            _voiceUpdateNumber++;
-        }
-        
-        
-        /** Set flash sound instance with key range (this feature is not available in currennt version), this method is simplificaion of setSample(). 
-         *  @param sound Sound instance to assign
-         *  @param keyRangeFrom Assigning key range starts from
-         *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
-         *  @param startPoint slicing point to start data.
-         *  @param endPoint slicing point to end data, The negative value calculates from the end.
-         *  @param loopPoint slicing point to repeat data, -1 means no repeat
-         *  @see setSample
-         */
-        override public function setSound(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
-        {
-            setSample(sound, 5, keyRangeFrom, keyRangeTo);
-        }
-        
-        
         /** Set PCM sample with key range (this feature is not available in currennt version).
          *  @param data wave data, Sound or Vector.&lt;Number&gt; can be set, the Sound is extracted inside.
-         *  @param samplingOctave sampling data's octave (specified octave is as 44.1kHz)
+         *  @param samplingNote sampling data's note, this argument allows decimal number.
          *  @param keyRangeFrom Assigning key range starts from
          *  @param keyRangeTo Assigning key range ends at. -1 to set only at the key of argument "keyRangeFrom".
-         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
+         *  @param channelCount channel count of this data, 1 for monoral, 2 for stereo
          *  @return assigned SiOPMWavePCMData.
          */
-        public function setSample(data:*, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isStereoSample:Boolean=false) : SiOPMWavePCMData
+        public function setSample(data:*, samplingNote:Number=68, keyRangeFrom:int=0, keyRangeTo:int=127, channelCount:int=2) : SiOPMWavePCMData
         {
             var pcmData:SiOPMWavePCMData;
             if (keyRangeFrom==0 && keyRangeTo==127) {
-                _defaultPCMData.initialize(data, samplingOctave);
+                _defaultPCMData.initialize(data, int(samplingNote*64), channelCount, 0);
                 pcmData = _defaultPCMData;
             } else {
-                pcmData = new SiOPMWavePCMData(data, samplingOctave, isStereoSample);
+                pcmData = new SiOPMWavePCMData(data, int(samplingNote*64), channelCount, 0);
             }
             _voiceUpdateNumber++;
             return _pcmTable.setSample(pcmData, keyRangeFrom, keyRangeTo);

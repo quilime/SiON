@@ -621,7 +621,7 @@ var bell2:SiONVoice = voiceList[2];                 // access voice by index
         // create new percussive voice
         private function _percuss(key:String, name:String, ws:int, ar:int, rr:int, sw:int, cut:int=128, res:int=0) : void {
             var voice:SiONVoice = new SiONVoice(5, ws, ar, rr);
-            voice.gateTime = 0;
+            voice.defaultGateTime = 0;
             voice.releaseSweep = sw;
             voice.setFilterEnvelop(0, cut, res);
             voice.name = name;

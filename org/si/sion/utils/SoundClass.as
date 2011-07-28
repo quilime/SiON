@@ -137,8 +137,8 @@ package org.si.sion.utils
         }
         
         
-        /** create Sound class.
-         *  @param samples The Vector.&lt;Number&gt; wave data creating from. The LRLR type stereo data.
+        /** create Sound class from Vector of Number (44.1kHz stereo only).
+         *  @param samples The Vector.&lt;Number&gt; wave data creating from. The LRLR type 44.1kHz stereo data.
          *  @param onComplete callback function when finished to create. the format is function(sound:Sound) : void
          */
         static public function create(samples:Vector.<Number>, onComplete:Function) : void {

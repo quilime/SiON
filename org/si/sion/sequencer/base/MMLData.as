@@ -5,13 +5,7 @@
 //----------------------------------------------------------------------------------------------------
 
 package org.si.sion.sequencer.base {
-    import org.si.sion.module.SiOPMWaveTable;
-    import org.si.sion.module.SiOPMWavePCMTable;
-    import org.si.sion.module.SiOPMWavePCMData;
-    import org.si.sion.module.SiOPMWaveSamplerTable;
-    import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.module.SiOPMTable;
-    import org.si.sion.module._siopm_module_internal;
     
     
     /** MML data class. MMLData > MMLSequenceGroup > MMLSequence > MMLEvent (">" meanse "has a"). */
@@ -27,11 +21,11 @@ package org.si.sion.sequencer.base {
     // constants
     //--------------------------------------------------
         /** specify tcommand argument by BPM */
-        static public const TCOMMAND_BPM:String = "bpm";
-        /** specify tcommand argument by OPM's TIMERB */
-        static public const TCOMMAND_TIMERB:String = "timerb";
+        static public const TCOMMAND_BPM:int = 0;
+        /** specify tcommand argument by OPNA's TIMERB with 48ticks/beat */
+        static public const TCOMMAND_TIMERB:int = 1;
         /** specify tcommand argument by frame count */
-        static public const TCOMMAND_FRAME:String = "frame";
+        static public const TCOMMAND_FRAME:int = 2;
         
         
         
@@ -49,7 +43,7 @@ package org.si.sion.sequencer.base {
         /** Author */
         public var author:String;
         /** mode of t command */
-        public var tcommandMode:String;
+        public var tcommandMode:int;
         /** resolution of t command */
         public var tcommandResolution:Number;
         /** default velocity command shift */
@@ -58,13 +52,6 @@ package org.si.sion.sequencer.base {
         public var defaultVelocityMode:int;
         /** default expression mode */
         public var defaultExpressionMode:int;
-        
-        /** wave tables */
-        protected var waveTables:Vector.<SiOPMWaveTable>;
-        /** pcm data (log-transformed) */
-        protected var pcmData:Vector.<SiOPMWavePCMTable>;
-        /** wave data */
-        protected var sampleTable:SiOPMWaveSamplerTable;
         
         /** @private [sion sequencer internal] default BPM of this data */
         _sion_sequencer_internal var _initialBPM:BeatPerMinutes;
@@ -126,10 +113,6 @@ package org.si.sion.sequencer.base {
             defaultFPS = 60;
             title = "";
             author = "";
-            
-            waveTables  = new Vector.<SiOPMWaveTable>(SiOPMTable.WAVE_TABLE_MAX);
-            pcmData     = new Vector.<SiOPMWavePCMTable>(SiOPMTable.PCM_DATA_MAX);
-            sampleTable = new SiOPMWaveSamplerTable();
             _systemCommands = [];
         }
         
@@ -154,20 +137,6 @@ package org.si.sion.sequencer.base {
             defaultFPS = 60;
             title = "";
             author = "";
-            
-            for (i=0; i<SiOPMTable.WAVE_TABLE_MAX; i++) {
-                if (waveTables[i]) { 
-                    waveTables[i].free();
-                    waveTables[i] = null;
-                }
-            }
-            for (i=0; i<SiOPMTable.PCM_DATA_MAX; i++) {
-                if (pcmData[i]) {
-                    pcmData[i]._siopm_module_internal::_free();
-                    pcmData[i] = null;
-                }
-            }
-            sampleTable._siopm_module_internal::_free();
             _systemCommands.length = 0;
             
             globalSequence.initialize();
@@ -195,31 +164,16 @@ package org.si.sion.sequencer.base {
         }
         
         
-        /** Set wave table data refered by %4.
-         *  @param index wave table number.
-         *  @param data Vector.&lt;Number&gt; wave shape data ranged from -1 to 1.
-         *  @return created data instance
-         */
-        public function setWaveTable(index:int, data:Vector.<Number>) : SiOPMWaveTable
-        {
-            index &= SiOPMTable.WAVE_TABLE_MAX-1;
-            var i:int, imax:int=data.length;
-            var table:Vector.<int> = new Vector.<int>(imax);
-            for (i=0; i<imax; i++) table[i] = SiOPMTable.calcLogTableIndex(data[i]);
-            waveTables[index] = SiOPMWaveTable.alloc(table);
-            return waveTables[index];
-        }
-        
         /** @private calculate bpm from t command paramater */
         _sion_sequencer_internal function _calcBPMfromTcommand(param:int) : Number
         {
-           switch(tcommandMode) {
+            switch(tcommandMode) {
             case TCOMMAND_BPM:
                 return param * tcommandResolution;
             case TCOMMAND_FRAME:
                 return (param) ? (tcommandResolution / param) : 120;
-            default: // TCOMMAND_TIMERB:
-                return param * tcommandResolution;
+            case TCOMMAND_TIMERB:
+                return (param>=0 && param<256) ? (tcommandResolution / (256-param)) : 120;
             }
             return 0;
          }

@@ -20,42 +20,57 @@ package org.si.sion.utils {
         /** logarithmical transformation of Sound data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
          *  @param src The Sound data transforming from. 
          *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
+         *  @param dstChannelCount channel count of destination samples. 0 sets same with srcChannelCount
          *  @param sampleMax The maximum sample count to transforme. The length of transformed data is limited by this value.
          *  @param startPosition Start position to extract. -1 to set extraction continuously.
+         *  @param maximize maximize input sample
          *  @return logarithmical transformed data.
          */
-        static public function logTrans(data:Sound, dst:Vector.<int>=null, sampleMax:int=1048576, startPosition:int=-1) : Vector.<int>
+        static public function logTrans(data:Sound, dst:Vector.<int>=null, dstChannelCount:int=2, sampleMax:int=1048576, startPosition:int=0, maximize:Boolean=true) : Vector.<int>
         {
             var wave:ByteArray = new ByteArray();
             var samples:int = data.extract(wave, sampleMax, startPosition);
-            return logTransByteArray(wave, dst);
+            return logTransByteArray(wave, dst, dstChannelCount, maximize);
         }
         
         
         /** logarithmical transformation of Vector.&lt;Number&gt; wave data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
          *  @param src The Vector.&lt;Number&gt; wave data transforming from. This ussualy comes from SiONDriver.render().
-         *  @param isDataStereo Flag that the wave data is stereo or monoral.
+         *  @param srcChannelCount channel count of source samples.
          *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
+         *  @param dstChannelCount channel count of destination samples. 0 sets same with srcChannelCount
          *  @return logarithmical transformed data.
          */
-        static public function logTransVector(src:Vector.<Number>, isDataStereo:Boolean=true, dst:Vector.<int>=null) : Vector.<int>
+        static public function logTransVector(src:Vector.<Number>, srcChannelCount:int=2, dst:Vector.<int>=null, dstChannelCount:int=0, maximize:Boolean=true) : Vector.<int>
         {
-            var i:int, j:int, imax:int;
+            var i:int, j:int, n:Number, imax:int, logmax:int = SiOPMTable.LOG_TABLE_BOTTOM;
             if (dst == null) dst = new Vector.<int>();
-            if (isDataStereo) {
-                imax=src.length>>1;
-                dst.length = imax;
-                for (i=0; i<imax; i++) {
-                    j = i<<1;
-                    dst[i] = SiOPMTable.calcLogTableIndex(src[j]);
-                }
-            } else {
-                imax=src.length;
+            if (srcChannelCount == dstChannelCount || dstChannelCount == 0) {
+                imax = src.length;
                 dst.length = imax;
                 for (i=0; i<imax; i++) {
                     dst[i] = SiOPMTable.calcLogTableIndex(src[i]);
+                    if (dst[i] < logmax) logmax = dst[i];
+                }
+            } else
+            if (srcChannelCount == 2) { // dstChannelCount = 1
+                imax = src.length>>1;
+                dst.length = imax;
+                for (i=0, j=0; i<imax; i++) {
+                    n =  src[j]; j++;
+                    n += src[j]; j++;
+                    dst[i] = SiOPMTable.calcLogTableIndex(n*0.5);
+                    if (dst[i] < logmax) logmax = dst[i];
+                }
+            } else { // srcChannelCount=1 > dstChannelCount=2
+                imax = src.length;
+                dst.length = imax<<1;
+                for (i=0, j=0; i<imax; i++, j+=2) {
+                    dst[j+1] = dst[j] = SiOPMTable.calcLogTableIndex(src[i]);
+                    if (dst[j] < logmax) logmax = dst[j];
                 }
             }
+            if (maximize && logmax > 1) _amplifyLogData(dst, logmax);
             return dst;
         }
         
@@ -63,20 +78,45 @@ package org.si.sion.utils {
         /** logarithmical transformation of ByteArray wave data. The transformed datas type is Vector.&lt;int&gt;. This data is used for PCM sound module (%7).
          *  @param src The ByteArray wave data transforming from. This is ussualy from Sound.extract().
          *  @param dst The Vector.&lt;int&gt; instance to put result. You can pass null to create new Vector.&lt;int&gt; inside.
+         *  @param dstChannelCount channel count of destination samples. 0 sets same with srcChannelCount
          *  @return logarithmical transformed data.
          */
-        static public function logTransByteArray(src:ByteArray, dst:Vector.<int>=null) : Vector.<int>
+        static public function logTransByteArray(src:ByteArray, dst:Vector.<int>=null, dstChannelCount:int=2, maximize:Boolean=true) : Vector.<int>
         {
-            var i:int, imax:int=src.length>>3;
+            var i:int, imax:int, logmax:int = SiOPMTable.LOG_TABLE_BOTTOM;
+            
             src.position = 0;
-            if (dst == null) dst = new Vector.<int>();
-            dst.length = imax;
-            for (i=0; i<imax; i++) {
-                dst[i] = SiOPMTable.calcLogTableIndex(src.readFloat());
-                src.readFloat();
+            if (dstChannelCount == 2) {
+                imax = src.length >> 2;
+                if (dst == null) dst = new Vector.<int>();
+                dst.length = imax;
+                for (i=0; i<imax; i++) {
+                    dst[i] = SiOPMTable.calcLogTableIndex(src.readFloat());
+                    if (dst[i] < logmax) logmax = dst[i];
+                }
+            } else {
+                imax = src.length >> 3;
+                if (dst == null) dst = new Vector.<int>();
+                dst.length = imax;
+                for (i=0; i<imax; i++) {
+                    dst[i] = SiOPMTable.calcLogTableIndex((src.readFloat()+src.readFloat())*0.5);
+                    if (dst[i] < logmax) logmax = dst[i];
+                }
             }
+            
+            if (maximize && logmax > 1) _amplifyLogData(dst, logmax);
             return dst;
         }
+        
+        
+        // amplift log data
+        static private function _amplifyLogData(src:Vector.<int>, gain:int) : void
+        {
+            var i:int, imax:int = src.length;
+            gain &= ~1;
+            for (i=0; i<imax; i++) src[i] -= gain;
+        }
+        
         
         
         
@@ -97,6 +137,7 @@ package org.si.sion.utils {
             src.extract(wave, length, startPosition);
             if (dst == null) dst = new Vector.<Number>();
             wave.position = 0;
+            
             if (dstChannelCount == 2) {
                 // stereo
                 imax = wave.length >> 2;
@@ -316,19 +357,47 @@ package org.si.sion.utils {
          */
         static public function getHeadSilence(src:Sound, threshold:Number = 0.01) : int
         {
-            var wave:ByteArray = new ByteArray(), i:int, imax:int, extracted:int, n:Number;
+            var wave:ByteArray = new ByteArray(), i:int, imax:int, extracted:int, n:Number, sp:int=0;
             
             threshold *= 2;
             
-            imax = 1024;
-            for (extracted=0; imax==1024; extracted+=1024) {
+            imax = 1152;
+            for (extracted=0; imax==1152; extracted+=1152) {
                 wave.length = 0;
-                imax = src.extract(wave, 1024);
+                imax = src.extract(wave, 1152, sp);
                 wave.position = 0;
                 for (i=0; i<imax; i++) {
                     n = wave.readFloat() + wave.readFloat();
                     if (n >= threshold) return extracted + i;
                 }
+                sp = -1;
+            }
+            
+            return extracted;
+        }
+        
+        
+        /** Get end gap of Sound
+         *  @param src source Sound
+         *  @param threshold threshold level to detect sound.
+         *  @return silent length in sample count.
+         */
+        static public function getEndGap(src:Sound, threshold:Number = 0.01) : int
+        {
+            var wave:ByteArray = new ByteArray(), sample:Vector.<Number> = new Vector.<Number>(4608),
+                i:int, imax:int, extracted:int, n:Number, sp:int;
+            
+            threshold *= 2;
+            sp = int(src.length * 44.1) - 2304;    // 2 blocks margin
+            
+            for (extracted=0; sp<0; extracted+=imax) {
+                imax = src.extract(wave, 4608, sp);
+                for (i=0; i<imax; i++) sample[i] = wave.readFloat() + wave.readFloat();
+                for (i=imax-1; i>=0; --i) {
+                    n = wave.readFloat() + wave.readFloat();
+                    if (n >= threshold) return extracted + i;
+                }
+                sp -= 4608;
             }
             
             return extracted;
@@ -342,6 +411,10 @@ package org.si.sion.utils {
         static public function getPeakDistance(sample:Vector.<Number>) : Number
         {
             var i:int, j:int, k:int, idx:int, n:Number, m:Number, envAccum:Number;
+            
+            // 461.9375 = 59128/128, 59128 = length for 2 beats on bpm=89.5
+            if (!_envelop) _envelop = new Vector.<Number>(462);
+            if (!_xcorr)   _xcorr   = new Vector.<Number>(113);
 
             // calculate envelop
             m = envAccum = 0;
@@ -364,9 +437,8 @@ package org.si.sion.utils {
             // caluclate bpm 2.9024943310657596 = 128/44.1
             return (113 + idx) * 2.9024943310657596;
         }
-        // 461.9375 = 59128/128, 59128 = length for 2 beats on bpm=89.5
-        static private var _envelop:Vector.<Number> = new Vector.<Number>(462);
-        static private var _xcorr:Vector.<Number> = new Vector.<Number>(113);
+        static private var _envelop:Vector.<Number> = null;
+        static private var _xcorr:Vector.<Number> = null;
         
         
         

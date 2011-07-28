@@ -184,7 +184,7 @@ package org.si.sound {
         private function _setSoundData(sound:Sound, keyRangeFrom:int=0, keyRangeTo:int=127, startPoint:int=0, endPoint:int=-1, loopPoint:int=-1) : void
         {
             _isSoundDataAvailable = true;
-            _flashSoundOperator.setSound(sound, keyRangeFrom, keyRangeTo, startPoint, endPoint, loopPoint);
+            _flashSoundOperator.setSample(sound, false, keyRangeFrom, keyRangeTo).slice(startPoint, endPoint, loopPoint);
             if (_createdEventCount  == _completedEventCount && _playingMode == 1) _playSound();
         }
         

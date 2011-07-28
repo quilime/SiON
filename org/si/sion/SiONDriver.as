@@ -22,6 +22,7 @@ package org.si.sion {
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sion.sequencer.SiMMLEnvelopTable;
     import org.si.sion.sequencer.SiMMLTable;
+    import org.si.sion.module.ISiOPMWaveInterface;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.module.SiOPMChannelParam;
@@ -32,7 +33,8 @@ package org.si.sion {
     import org.si.sion.module.SiOPMWaveSamplerData;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
-    import org.si.sion.utils.SoundLoader;
+    import org.si.sion.utils.soundloader.SoundLoader;
+    import org.si.sion.utils.soundloader.SoundLoaderEvent;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
     import org.si.sion.namespaces._sion_internal;
@@ -89,7 +91,7 @@ var driver:SiONDriver = new SiONDriver();
 driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
 </listing>
      */
-    public class SiONDriver extends Sprite
+    public class SiONDriver extends Sprite implements ISiOPMWaveInterface
     {
     // namespace
     //----------------------------------------
@@ -101,7 +103,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
     // constants
     //----------------------------------------
         /** version number */
-        static public const VERSION:String = "0.6.3";
+        static public const VERSION:String = "0.6.4";
         
         
         /** note-on exception mode "ignore", SiON does not consider about track ID's conflict in noteOn() method (default). */
@@ -162,8 +164,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _suspendStreaming:Boolean;      // suspend streaming
         private var _suspendWhileLoading:Boolean;   // suspend starting steam while loading
         private var _loadingSoundList:Array;        // loading sound list
-        private var _completeSoundList:Array;       // complete sound list
-        private var _errorSoundList:Array;          // errored sound list
         private var _isFinishSeqDispatched:Boolean; // FINISH_SEQUENCE event already dispacthed
         //----- operation related
         private var _autoStop:Boolean;          // auto stop when the sequence finished
@@ -186,7 +186,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private var _trackEventQueue:Vector.<SiONTrackEvent>;  // SiONTrackEvents queue
         //----- timer interruption
         private var _timerSequence:MMLSequence;     // global sequence
-        private var _timerIntervalEvent:MMLEvent;   // MMLEvent.WAIT event
+        private var _timerIntervalEvent:MMLEvent;   // MMLEvent.GLOBAL_WAIT event
         private var _timerCallback:Function;        // callback function
         //----- rendering
         private var _renderBuffer:Vector.<Number>;  // rendering buffer
@@ -387,8 +387,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _fader = new Fader();
             _timerSequence = new MMLSequence();
             _loadingSoundList = [];
-            _completeSoundList = [];
-            _errorSoundList = [];
 
             // initialize
             _tempData = null;
@@ -411,7 +409,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _timerSequence.initialize();
             _timerSequence.appendNewEvent(MMLEvent.REPEAT_ALL, 0);
             _timerSequence.appendNewEvent(MMLEvent.TIMER, 0);
-            _timerIntervalEvent = _timerSequence.appendNewEvent(MMLEvent.WAIT, 0, 0);
+            _timerIntervalEvent = _timerSequence.appendNewEvent(MMLEvent.GLOBAL_WAIT, 0, 0);
             
             _backgroundSound = null;
             _backgroundLevel = 1;
@@ -595,21 +593,26 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         /** Listen loading status of flash.media.Sound instance. 
          *  When SiONDriver.pauseWhileLoading is true, SiONDriver starts streaming after all Sound instances passed by this function are loaded.
          *  @param sound Sound or SoundLoader instance to listern 
+         *  @param prior listening priority 
          *  @see #pauseWhileLoading()
          *  @see #clearLoadingSoundList()
          */
-        public function listenSoundLoadingStatus(sound:*) : void 
+        public function listenSoundLoadingStatus(sound:*, prior:int=-99999) : void 
         {
             if (!sound is Sound && !sound is SoundLoader) throw errorCannotListenLoading();
             if (_loadingSoundList.indexOf(sound) != -1) return;
-            if (_completeSoundList.indexOf(sound) != -1) return;
-            if (_errorSoundList.indexOf(sound) != -1) return;
-            if (sound.bytesLoaded == sound.bytesTotal) {
-                _completeSoundList.push(sound);
-            } else {
-                _loadingSoundList.push(sound);
-                sound.addEventListener(Event.COMPLETE, _onSoundEvent);
-                sound.addEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
+            if (sound is Sound) {
+                if (sound.bytesTotal == 0 || sound.bytesLoaded != sound.bytesTotal) {
+                    _loadingSoundList.push(sound);
+                    sound.addEventListener(Event.COMPLETE,        _onSoundEvent, false, prior);
+                    sound.addEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent, false, prior);
+                }
+            } else { // sound is SoundLoader
+                if (sound.loadingFileCount > 0) {
+                    _loadingSoundList.push(sound);
+                    sound.addEventListener(SoundLoaderEvent.COMPLETE_ALL, _onSoundEvent, false, prior);
+                    sound.addEventListener(SoundLoaderEvent.ERROR,        _onSoundEvent, false, prior);
+                }
             }
         }
         
@@ -619,8 +622,6 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function clearSoundLoadingList() : void
         {
             _loadingSoundList.length = 0;
-            _completeSoundList.length = 0;
-            _errorSoundList.length = 0;
         }
         
         
@@ -696,7 +697,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         }
         
         
-        /** Reset signal processor. The effector and sequencer will not reset. If you want to reset all of SiON, call SiONDriver.stop(). */
+        /** Reset signal processor. The effector and sequencer will not reset. If you want to all of effectors and sequencers, call SiONDriver.stop(). */
         public function reset() : void
         {
             sequencer._resetAllTracks();
@@ -799,65 +800,72 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             var len:int, bits:int=-1;
             for (len=table.length; len>0; len>>=1) bits++;
             if (bits<2) return null;
-            var waveTable:Vector.<int> = SiONUtil.logTransVector(table, false);
+            var waveTable:Vector.<int> = SiONUtil.logTransVector(table, 1, null);
             waveTable.length = 1<<bits;
             return SiOPMTable._instance.registerWaveTable(index, waveTable);
         }
         
         
-        /** Set PCM data rederd by %7.
+        /** Set PCM wave data rederd by %7.
          *  @param index PCM data number.
-         *  @param wavelet Vector.&lt;Number&gt; stereo wave data. This type ussualy comes from render().
-         *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
-         *  @param keyRangeFrom Assigning key range starts from
-         *  @param keyRangeTo Assigning key range ends at
-         *  @param isStereoSample stereo flag of sampling data, this argument is only available when data is Vector.<Number>.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound instance is extracted internally, the maximum length to extract is SiOPMWavePCMData.maxSampleLengthFromSound[samples].
+         *  @param samplingNote Sampling wave's original note number, this allows decimal number
+         *  @param keyRangeFrom Assigning key range starts from (not implemented in current version)
+         *  @param keyRangeTo Assigning key range ends at (not implemented in current version)
+         *  @param srcChannelCount channel count of source data, 1 for monoral, 2 for stereo.
+         *  @param channelCount channel count of this data, 1 for monoral, 2 for stereo, 0 sets same with srcChannelCount.
+         *  @see #org.si.sion.module.SiOPMWavePCMData.maxSampleLengthFromSound
          *  @see #render()
          */
-        public function setPCMData(index:int, wavelet:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isStereoSample:Boolean=false) : SiOPMWavePCMData
+        public function setPCMWave(index:int, data:*, samplingNote:Number=68, keyRangeFrom:int=0, keyRangeTo:int=127, srcChannelCount:int=2, channelCount:int=0) : SiOPMWavePCMData
         {
-            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(wavelet, samplingOctave, isStereoSample), keyRangeFrom, keyRangeTo);
+            var pcmTable:SiOPMWavePCMTable = SiOPMTable._instance._getGlobalPCMWaveTable(index & (SiOPMTable.PCM_DATA_MAX-1));
+            return pcmTable.setSample(new SiOPMWavePCMData(data, int(samplingNote*64), srcChannelCount, channelCount), keyRangeFrom, keyRangeTo);
         }
         
         
-        /** Set PCM sound rederd by %7.
-         *  @param index PCM data number.
-         *  @param sound Sound instance to set.
-         *  @param samplingOctave Sampling frequency. The value of 5 means that "o5a" is original frequency.
-         *  @param keyRangeFrom Assigning key range starts from
-         *  @param keyRangeTo Assigning key range ends at
-         *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
-         */
-        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, sampleMax:int=1048576) : SiOPMWavePCMData
-        {
-            //sampleMax;
-            return SiOPMTable._instance.getPCMWaveTable(index).setSample(new SiOPMWavePCMData(sound, samplingOctave), keyRangeFrom, keyRangeTo);
-        }
-        
-        
-        /** Set sampler data refered by %10.
+        /** Set sampler wave data refered by %10.
          *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param data Vector.&lt;Number&gt; wave data. This type ussualy comes from render().
-         *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
-         *  @param channelCount of this data, 1 for monoral, 2 for stereo.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound is extracted when the length is shorter than SiOPMWaveSamplerData.extractThreshold[msec].
+         *  @param ignoreNoteOff True to set ignoring note off.
+         *  @param pan pan of this sample [-64 - 64].
+         *  @param srcChannelCount channel count of source data, 1 for monoral, 2 for stereo.
+         *  @param channelCount channel count of this data, 1 for monoral, 2 for stereo, 0 sets same with srcChannelCount.
+         *  @return created data instance
+         *  @see #org.si.sion.module.SiOPMWaveSamplerData.extractThreshold
          *  @see #render()
          */
-        public function setSamplerData(index:int, data:Vector.<Number>, ignoreNoteOff:Boolean=true, channelCount:int=1) : SiOPMWaveSamplerData
+        public function setSamplerWave(index:int, data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
         {
-            return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, channelCount);
+            return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, pan, srcChannelCount, channelCount);
         }
         
         
-        /** Set sampler sound refered by %10.
-         *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param sound Sound instance to set.
-         *  @param ignoreNoteOff True to set "one shot" sound. The "one shot" sound ignores note off.
-         *  @param channelCount of extracted data, 1 for monoral, 2 for stereo.
-         *  @param sampleMax The maximum sample count to extract. The length of returning vector is limited by this value.
-         */
-        public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2, sampleMax:int=1048576) : SiOPMWaveSamplerData
+        /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setPCMWave instead of this function. @see #setPCMWave(). */
+        public function setPCMData(index:int, data:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isSourceDataStereo:Boolean=false) : SiOPMWavePCMData
         {
-            return SiOPMTable._instance.registerSamplerData(index, sound, ignoreNoteOff, channelCount);
+            return setPCMWave(index, data, samplingOctave*12+8, keyRangeFrom, keyRangeTo, (isSourceDataStereo)?2:1);
+        }
+        
+        
+        /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setPCMWave instead of this function. @see #setPCMWave(). */
+        public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
+        {
+            return setPCMWave(index, sound, samplingOctave*12+8, keyRangeFrom, keyRangeTo, 2, 0);
+        }
+        
+        
+        /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setSamplerWave instead of this function. @see #setSamplerWave(). */
+        public function setSamplerData(index:int, data:Vector.<Number>, ignoreNoteOff:Boolean=false, channelCount:int=1) : SiOPMWaveSamplerData
+        {
+            return setSamplerWave(index, data, ignoreNoteOff, 0, channelCount);
+        }
+        
+        
+        /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setSamplerWave instead of this function. @see #setSamplerWave(). */
+        public function setSamplerSound(index:int, sound:Sound, ignoreNoteOff:Boolean=false, channelCount:int=2) : SiOPMWaveSamplerData
+        {
+            return setSamplerWave(index, sound, ignoreNoteOff, 0, channelCount);
         }
         
         
@@ -868,19 +876,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function setEnvelopTable(index:int, table:Vector.<int>, loopPoint:int=-1) : void
         {
-            var tail:SLLint, head:SLLint, loop:SLLint, i:int, imax:int = table.length;
-            head = tail = SLLint.allocList(imax);
-            loop = null;
-            for (i=0; i<imax-1; i++) {
-                if (loopPoint == i) loop = tail;
-                tail.i = table[i];
-                tail = tail.next;
-            }
-            tail.i = table[i];
-            tail.next = loop;
-            var env:SiMMLEnvelopTable = new SiMMLEnvelopTable();
-            env._initialize(head, tail);
-            SiMMLTable.registerMasterEnvelopTable(index, env);
+            SiMMLTable.registerMasterEnvelopTable(index, new SiMMLEnvelopTable(table, loopPoint));
         }
         
         
@@ -892,6 +888,20 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         {
             if (!voice._isSuitableForFMVoice) throw errorNotGoodFMVoice();
             SiMMLTable.registerMasterVoice(index, voice);
+        }
+        
+        
+        /** Clear all of WaveTables, FM Voices, EnvelopTables, Sampler waves and PCM waves. 
+         *  @see #setWaveTable()
+         *  @see #setVoice()
+         *  @see #setEnvelopTable()
+         *  @see #setSamplerWave()
+         *  @see #setPCMWave()
+         */
+        public function clearAllUserTables() : void
+        {
+            SiOPMTable.instance.resetAllUserTables();
+            SiMMLTable.instance.resetAllUserTables();
         }
         
         
@@ -986,7 +996,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
 
             mmlTrack = mmlTrack || sequencer._newControlableTrack(internalTrackID, isDisposable);
             if (mmlTrack) {
-                if (voice) voice.setTrackVoice(mmlTrack);
+                if (voice) voice.updateTrackVoice(mmlTrack);
                 mmlTrack.keyOn(note, length * sequencer.setting.resolution * 0.0625, delaySamples);
             }
             return mmlTrack;
@@ -1055,7 +1065,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
                 if (seq.isActive) {
                     mmlTrack = sequencer._newControlableTrack(internalTrackID, isDisposable);
                     mmlTrack.sequenceOn(seq, lengthSamples, delaySamples);
-                    if (voice) voice.setTrackVoice(mmlTrack);
+                    if (voice) voice.updateTrackVoice(mmlTrack);
                     tracks.push(mmlTrack);
                 }
                 seq = seq.nextSequence;
@@ -1193,15 +1203,15 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         // handler for Sound COMPLETE/IO_ERROR Event 
         private function _onSoundEvent(e:Event) : void
         {
-            var sound:Sound = e.target as Sound;
-            sound.removeEventListener(Event.COMPLETE, _onSoundEvent);
-            sound.removeEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
-            
-            var i:int = _loadingSoundList.indexOf(sound);
+            if (e.target is Sound) {
+                e.target.removeEventListener(Event.COMPLETE, _onSoundEvent);
+                e.target.removeEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
+            } else { // e.target is SoundLoader
+                e.target.removeEventListener(SoundLoaderEvent.COMPLETE_ALL, _onSoundEvent);
+                e.target.removeEventListener(SoundLoaderEvent.ERROR,        _onSoundEvent);
+            }
+            var i:int = _loadingSoundList.indexOf(e.target);
             if (i != -1) _loadingSoundList.splice(i, 1);
-            
-            if (e.type == Event.COMPLETE) _completeSoundList.push(sound);
-            else _errorSoundList.push(sound);
         }
         
         
@@ -1444,7 +1454,7 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _frameRate = t - _prevFrameTime;
             _prevFrameTime = t;
             
-            // first streaming
+            // _suspendStreaming = true when first streaming
             if (_suspendStreaming) {
                 _onSuspendStream();
             } else {
@@ -1474,10 +1484,12 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             // reset suspending
             _suspendStreaming = _suspendWhileLoading && (_loadingSoundList.length > 0);
 
-            // dispatch streaming start event
-            var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
-            dispatchEvent(event);
-            if (event.isDefaultPrevented()) stop();   // canceled
+            if (!_suspendStreaming) {
+                // dispatch streaming start event
+                var event:SiONEvent = new SiONEvent(SiONEvent.STREAM_START, this, null, true);
+                dispatchEvent(event);
+                if (event.isDefaultPrevented()) stop();   // canceled
+            }
         }
         
 

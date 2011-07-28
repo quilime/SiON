@@ -29,6 +29,9 @@ package org.si.sion.module.channels {
         /** ByteArray to extract */ protected var _extractedByteArray:ByteArray;
         /** sample data */          protected var _extractedSample:Vector.<Number>;
         
+        // pan of current note
+        private var _samplePan:int;
+        
         
         
         
@@ -161,8 +164,9 @@ package org.si.sion.module.channels {
             _isIdling = true;
             _bankNumber = 0;
             _waveNumber = -1;
+            _samplePan = 0;
             
-            _sampleTable = _table.sampleTable;
+            _sampleTable = _table.sampleTables[0];
             _sampleData = null;
             
             _sampleIndex = 0;
@@ -178,6 +182,9 @@ package org.si.sion.module.channels {
                 if (_sampleTable) _sampleData = _sampleTable.getSample(_waveNumber & 127);
                 if (_sampleData && _sampleStartPhase!=255) {
                     _sampleIndex = _sampleData.getInitialSampleIndex(_sampleStartPhase * 0.00390625); // 1/256
+                    _samplePan = _pan + _sampleData.pan;
+                    if (_samplePan < 0) _samplePan = 0;
+                    else if (_samplePan > 128) _samplePan = 128;
                 }
                 _isIdling = (_sampleData == null);
                 _isNoteOn = !_isIdling;
@@ -215,15 +222,15 @@ package org.si.sion.module.channels {
                                 if (_volumes[i]>0) {
                                     stream = _streams[i] || _chip.streamSlot[i];
                                     if (stream) {
-                                        vol = _volumes[i] * _expression;
-                                        stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                                        vol = _volumes[i] * _expression * _chip.samplerVolume;
+                                        stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _samplePan, _sampleData.channelCount);
                                     }
                                 }
                             }
                         } else {
                             stream = _streams[0] || _chip.outputStream;
-                            vol = _volumes[0] * _expression;
-                            stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _pan, _sampleData.channelCount);
+                            vol = _volumes[0] * _expression * _chip.samplerVolume;
+                            stream.writeVectorNumber(_sampleData.waveData, _sampleIndex, _bufferIndex, processed, vol, _samplePan, _sampleData.channelCount);
                         }
                         _sampleIndex += processed;
                         
@@ -263,15 +270,15 @@ package org.si.sion.module.channels {
                             if (_volumes[i]>0) {
                                 stream = _streams[i] || _chip.streamSlot[i];
                                 if (stream) {
-                                    vol = _volumes[i] * _expression;
-                                    stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, 2);
+                                    vol = _volumes[i] * _expression * _chip.samplerVolume;
+                                    stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _samplePan, 2);
                                 }
                             }
                         }
                     } else {
                         stream = _streams[0] || _chip.outputStream;
-                        vol = _volumes[0] * _expression;
-                        stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _pan, 2);
+                        vol = _volumes[0] * _expression * _chip.samplerVolume;
+                        stream.writeVectorNumber(_extractedSample, 0, _bufferIndex, processed, vol, _samplePan, 2);
                     }
                 }
 

@@ -44,14 +44,15 @@ package org.si.sion.module.channels {
         static private const PROC_ANA:int = 4;
         static private const PROC_RNG:int = 5;
         static private const PROC_SYN:int = 6;
-        static private const PROC_PCM:int = 7;
+        static private const PROC_AFM:int = 7;
+        static private const PROC_PCM:int = 8;
 
         
         
         
     // valiables
     //--------------------------------------------------
-        /** eg_out threshold to check idling */ static _sion_internal var idlingThreshold:int = 8192; // = 512*8*2 = volume<1/512
+        /** eg_out threshold to check idling */ static _sion_internal var idlingThreshold:int = 5120; // = 256(resolution)*10(2^10=1024)*2(p/n) = volume<1/1024
         
         // Operators
         /** operators */        public var operator:Vector.<SiOPMOperator>;
@@ -114,8 +115,8 @@ package org.si.sion.module.channels {
         {
             super(chip);
             
-            _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _procpcm_loff], 
-                                [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _procpcm_lon]];
+            _funcProcessList = [[_proc1op_loff, _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _proc2op, _procpcm_loff], 
+                                [_proc1op_lon,  _proc2op, _proc3op, _proc4op, _proc2ana, _procring, _procsync, _proc2op, _procpcm_lon]];
             operator = new Vector.<SiOPMOperator>(4, true);
             operator[0] = _allocFMOperator();
             operator[1] = null;
@@ -317,13 +318,14 @@ package org.si.sion.module.channels {
         override public function setWaveData(waveData:SiOPMWaveBase) : void
         {
             var pcmData:SiOPMWavePCMData = waveData as SiOPMWavePCMData;
-            if (waveData is SiOPMWavePCMTable) pcmData = (waveData as SiOPMWavePCMTable).getSample(0);
+            if (waveData is SiOPMWavePCMTable) pcmData = (waveData as SiOPMWavePCMTable)._siopm_module_internal::_table[60];
             
             if (pcmData && pcmData.wavelet) {
                 _updateOperatorCount(1);
                 _funcProcessType = PROC_PCM;
                 _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
                 activeOperator.setPCMData(pcmData);
+                erst = true;
             } else 
             if (waveData is SiOPMWaveTable) {
                 var waveTable:SiOPMWaveTable = waveData as SiOPMWaveTable;
@@ -334,6 +336,13 @@ package org.si.sion.module.channels {
                     if (operator[3]) operator[3].setWaveTable(waveTable);
                 }
             }
+        }
+        
+        
+        /** set channel number (2nd argument of %) */
+        override public function setChannelNumber(channelNum:int) : void 
+        {
+            _sion_internal::registerMapChannel = channelNum;
         }
         
         
@@ -503,6 +512,7 @@ package org.si.sion.module.channels {
         {
             if (pgType >= SiOPMTable.PG_PCM) {
                 var pcm:SiOPMWavePCMTable = _table.getPCMData(pgType-SiOPMTable.PG_PCM);
+                // the ptType is set by setWaveData()
                 if (pcm) setWaveData(pcm);
             } else {
                 activeOperator.pgType = pgType;
@@ -680,6 +690,7 @@ package org.si.sion.module.channels {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
+                log:Vector.<int> = _table.logTable,
                 phase_filter:int = SiOPMTable.PHASE_FILTER;
 
             // buffering
@@ -712,7 +723,7 @@ package org.si.sion.module.channels {
                 t = ((ope._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope._waveFixedBits;
                 l = ope._waveTable[t];
                 l += ope._eg_out;
-                t = _table.logTable[l];
+                t = log[l];
                 ope._feedPipe.i = t;
                 
                 // output and increment pointers
@@ -735,7 +746,9 @@ package org.si.sion.module.channels {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
+                log:Vector.<int> = _table.logTable,
                 phase_filter:int = SiOPMTable.PHASE_FILTER;
+
             
             // buffering
             var ip:SLLint = _inPipe,
@@ -780,7 +793,7 @@ package org.si.sion.module.channels {
                 t = ((ope._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope._waveFixedBits;
                 l = ope._waveTable[t];
                 l += ope._eg_out + (_am_out>>ope._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope._feedPipe.i = t;
                 
                 // output and increment pointers
@@ -807,6 +820,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1];
             
@@ -856,7 +870,7 @@ package org.si.sion.module.channels {
                 t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
                 l = ope0._waveTable[t];
                 l += ope0._eg_out + (_am_out>>ope0._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope0._feedPipe.i = t;
                 ope0._outPipe.i  = t + ope0._basePipe.i;
 
@@ -884,7 +898,7 @@ package org.si.sion.module.channels {
                 t = ((ope1._phase + (ope1._inPipe.i<<ope1._fmShift)) & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope1._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope1._feedPipe.i = t;
                 ope1._outPipe.i  = t + ope1._basePipe.i;
 
@@ -912,6 +926,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1],
                 ope2:SiOPMOperator = operator[2];
@@ -964,7 +979,7 @@ package org.si.sion.module.channels {
                 t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
                 l = ope0._waveTable[t];
                 l += ope0._eg_out + (_am_out>>ope0._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope0._feedPipe.i = t;
                 ope0._outPipe.i  = t + ope0._basePipe.i;
 
@@ -992,7 +1007,7 @@ package org.si.sion.module.channels {
                 t = ((ope1._phase + (ope1._inPipe.i<<ope1._fmShift)) & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope1._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope1._feedPipe.i = t;
                 ope1._outPipe.i  = t + ope1._basePipe.i;
 
@@ -1020,7 +1035,7 @@ package org.si.sion.module.channels {
                 t = ((ope2._phase + (ope2._inPipe.i<<ope2._fmShift)) & phase_filter) >> ope2._waveFixedBits;
                 l = ope2._waveTable[t];
                 l += ope2._eg_out + (_am_out>>ope2._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope2._feedPipe.i = t;
                 ope2._outPipe.i  = t + ope2._basePipe.i;
 
@@ -1048,6 +1063,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1],
                 ope2:SiOPMOperator = operator[2],
@@ -1102,7 +1118,7 @@ package org.si.sion.module.channels {
                 t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
                 l = ope0._waveTable[t];
                 l += ope0._eg_out + (_am_out>>ope0._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope0._feedPipe.i = t;
                 ope0._outPipe.i  = t + ope0._basePipe.i;
 
@@ -1130,7 +1146,7 @@ package org.si.sion.module.channels {
                 t = ((ope1._phase + (ope1._inPipe.i<<ope1._fmShift)) & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope1._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope1._feedPipe.i = t;
                 ope1._outPipe.i  = t + ope1._basePipe.i;
 
@@ -1158,7 +1174,7 @@ package org.si.sion.module.channels {
                 t = ((ope2._phase + (ope2._inPipe.i<<ope2._fmShift)) & phase_filter) >> ope2._waveFixedBits;
                 l = ope2._waveTable[t];
                 l += ope2._eg_out + (_am_out>>ope2._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope2._feedPipe.i = t;
                 ope2._outPipe.i  = t + ope2._basePipe.i;
                 
@@ -1186,7 +1202,7 @@ package org.si.sion.module.channels {
                 t = ((ope3._phase + (ope3._inPipe.i<<ope3._fmShift)) & phase_filter) >> ope3._waveFixedBits;
                 l = ope3._waveTable[t];
                 l += ope3._eg_out + (_am_out>>ope3._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope3._feedPipe.i = t;
                 ope3._outPipe.i  = t + ope3._basePipe.i;
 
@@ -1213,7 +1229,9 @@ package org.si.sion.module.channels {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
+                log:Vector.<int> = _table.logTable,
                 phase_filter:int = SiOPMTable.PHASE_FILTER;
+
             
             // buffering
             var ip:SLLint = _inPipe,
@@ -1261,7 +1279,7 @@ package org.si.sion.module.channels {
                 }
                 l = ope._waveTable[t];
                 l += ope._eg_out;
-                t = _table.logTable[l];
+                t = log[l];
                 ope._feedPipe.i = t;
                 
                 // output and increment pointers
@@ -1283,7 +1301,9 @@ package org.si.sion.module.channels {
         {
             var t:int, l:int, i:int, n:Number;
             var ope:SiOPMOperator = operator[0],
+                log:Vector.<int> = _table.logTable,
                 phase_filter:int = SiOPMTable.PHASE_FILTER;
+
             
             // buffering
             var ip:SLLint = _inPipe,
@@ -1344,7 +1364,7 @@ package org.si.sion.module.channels {
                 }
                 l = ope._waveTable[t];
                 l += ope._eg_out + (_am_out>>ope._ams);
-                t = _table.logTable[l];
+                t = log[l];
                 ope._feedPipe.i = t;
                 
                 // output and increment pointers
@@ -1370,6 +1390,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, out0:int, out1:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1];
             
@@ -1417,7 +1438,7 @@ package org.si.sion.module.channels {
                 t = ((ope0._phase + (ip.i<<_inputLevel)) & phase_filter) >> ope0._waveFixedBits;
                 l = ope0._waveTable[t];
                 l += ope0._eg_out + (_am_out>>ope0._ams);
-                out0 = _table.logTable[l];
+                out0 = log[l];
 
                 // operator[1] with op0s envelop and ams
                 //----------------------------------------
@@ -1425,7 +1446,7 @@ package org.si.sion.module.channels {
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope0._ams);
-                out1 = _table.logTable[l];
+                out1 = log[l];
 
                 // output and increment pointers
                 //----------------------------------------
@@ -1446,6 +1467,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, out0:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1];
             
@@ -1499,7 +1521,7 @@ package org.si.sion.module.channels {
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l += ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope0._ams);
-                out0 = _table.logTable[l];
+                out0 = log[l];
 
                 // output and increment pointers
                 //----------------------------------------
@@ -1520,6 +1542,7 @@ package org.si.sion.module.channels {
         {
             var i:int, t:int, out0:int, out1:int, l:int, n:Number;
             var phase_filter:int = SiOPMTable.PHASE_FILTER,
+                log:Vector.<int> = _table.logTable,
                 phase_overflow:int = SiOPMTable.PHASE_MAX,
                 ope0:SiOPMOperator = operator[0],
                 ope1:SiOPMOperator = operator[1];
@@ -1574,7 +1597,7 @@ package org.si.sion.module.channels {
                 t = (ope1._phase & phase_filter) >> ope1._waveFixedBits;
                 l = ope1._waveTable[t];
                 l += ope1._eg_out + (_am_out>>ope0._ams);
-                out0 = _table.logTable[l];
+                out0 = log[l];
 
                 // output and increment pointers
                 //----------------------------------------
@@ -1865,7 +1888,7 @@ package org.si.sion.module.channels {
             operator[0]._setPipes(_pipe0, null, true);
             operator[1]._setPipes(_pipe0, null, true);
             
-            _algorism = (alg>=0 && alg<=2) ? alg : 0;
+            _algorism = (alg>=0 && alg<=3) ? alg : 0;
             _funcProcessType = PROC_ANA + _algorism;
             _funcProcess = _funcProcessList[_lfo_on][_funcProcessType];
         }

@@ -29,6 +29,10 @@ package org.si.sion.module.channels {
         static public const EG_OFF    :int = 4;
         
         
+        // waveFixedBits for PCM
+        static private const PCM_waveFixedBits:int = 11;
+        
+        
         
                 
     // valiables
@@ -173,6 +177,8 @@ package org.si.sion.module.channels {
         internal var _feedPipe:SLLint;
         
     // for PCM wave
+        /** @private channel count */
+        internal var _pcm_channels:int;
         /** @private start point */
         internal var _pcm_startPoint:int;
         /** @private end point */
@@ -453,6 +459,7 @@ package org.si.sion.module.channels {
             // reset some other parameters 
             _eg_tl_offset     = 0;  // The _eg_tl_offset is controled by velocity and expression.
             _pitchIndexShift2 = 0;  // The _pitchIndexShift2 is controled by pitch modulation.
+            _pcm_channels   = 0;
             _pcm_startPoint = 0;
             _pcm_endPoint   = 0;
             _pcm_loopPoint  = -1;
@@ -560,14 +567,21 @@ package org.si.sion.module.channels {
         /** Set PCM data. */
         public function setPCMData(pcmData:SiOPMWavePCMData) : void
         {
-            _pgType = SiOPMTable.PG_USER_PCM; // -2
-            _waveTable      = pcmData.wavelet;
-            _waveFixedBits  = pcmData.pseudoFixedBits;
-            _pcm_startPoint = pcmData.startPoint;
-            _pcm_endPoint   = pcmData.endPoint;
-            _pcm_loopPoint  = pcmData.loopPoint;
-            _keyon_phase = _pcm_startPoint << _waveFixedBits;
-            ptType = SiOPMTable.PT_PCM;
+            if (pcmData && pcmData.wavelet) {
+                _pgType = SiOPMTable.PG_USER_PCM; // -2
+                _waveTable      = pcmData.wavelet;
+                _waveFixedBits  = PCM_waveFixedBits;
+                _pcm_channels   = pcmData.channelCount;
+                _pcm_startPoint = pcmData.startPoint;
+                _pcm_endPoint   = pcmData.endPoint;
+                _pcm_loopPoint  = pcmData.loopPoint;
+                _keyon_phase = _pcm_startPoint << PCM_waveFixedBits;
+                ptType = SiOPMTable.PT_PCM;
+            } else {
+                // quick initialization for SiOPMChannelPCM
+                _pcm_endPoint = _pcm_loopPoint = 0;
+                _pcm_loopPoint = -1;
+            }
         }
         
         

@@ -8,6 +8,7 @@ package org.si.sion {
     import flash.media.Sound;
     import org.si.sion.utils.Translator;
     import org.si.sion.sequencer.SiMMLVoice;
+    import org.si.sion.module.ISiOPMWaveInterface;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMChannelParam;
     import org.si.sion.module.SiOPMOperatorParam;
@@ -21,7 +22,7 @@ package org.si.sion {
      *  @see org.si.sion.module.SiOPMChannelParam
      *  @see org.si.sion.module.SiOPMOperatorParam
      */
-    public class SiONVoice extends SiMMLVoice
+    public class SiONVoice extends SiMMLVoice implements ISiOPMWaveInterface
     {
     // constant
     //--------------------------------------------------
@@ -42,9 +43,6 @@ package org.si.sion {
         /** voice name */
         public var name:String;
         
-        /** chip type */
-        public var chipType:String;
-        
         
         
         
@@ -63,9 +61,9 @@ package org.si.sion {
         function SiONVoice(moduleType:int=5, channelNum:int=0, ar:int=63, rr:int=63, dt:int=0, connectionType:int=-1, ws2:int=0, dt2:int=0)
         {
             super();
-            
             name = "";
-            chipType = "";
+            updateTrackParamaters = true;
+            
             setModuleType(moduleType, channelNum);
             channelParam.operatorParam[0].ar = ar;
             channelParam.operatorParam[0].rr = rr;
@@ -89,7 +87,6 @@ package org.si.sion {
         {
             var newVoice:SiONVoice = new SiONVoice();
             newVoice.copyFrom(this);
-            newVoice.chipType = chipType;
             newVoice.name = name;
             return newVoice;
         }
@@ -209,36 +206,82 @@ package org.si.sion {
         /** initializer */
         override public function initialize() : void
         {
-            name = "";
-            chipType = "";
             super.initialize();
+            name = "";
+            updateTrackParamaters = true;
         }
         
         
         /** Set as PCM voice (Sound with pitch shift, LPF envlope).
-         *  @param wave Sound instance to play
-         *  @param samplingOctave sampling data's octave (octave 5 as 44.1kHz)
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound instance is extracted internally.
+         *  @param samplingOctave sampling data's original note
          *  @return PCM data instance as SiOPMWavePCMData
          *  @see org.si.sion.module.SiOPMWavePCMData
          */
-        public function setPCMVoice(wave:Sound, samplingOctave:int=5) : SiOPMWavePCMData
+        public function setPCMVoice(data:*, samplingOctave:int=68, srcChannelCount:int=2, channelCount:int=0) : SiOPMWavePCMData
         {
             moduleType = 7;
-            return (waveData = new SiOPMWavePCMData(wave, samplingOctave)) as SiOPMWavePCMData;
+            return (waveData = new SiOPMWavePCMData(data, samplingOctave*768+512, srcChannelCount, channelCount)) as SiOPMWavePCMData;
         }
         
         
-        /** Set as MP3 voice (Sound without pitch shift, LPF envlope).
-         *  @param wave Sound instance to play
+        /** Set as Sampler voice (Sound without pitch shift, LPF envlope).
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound is extracted when the length is shorter than 4[sec].
          *  @param ignoreNoteOff flag to ignore note off
          *  @param channelCount channel count of streaming, 1 for monoral, 2 for stereo.
          *  @return MP3 data instance as SiOPMWaveSamplerData
          *  @see org.si.sion.module.SiOPMWaveSamplerData
          */
-        public function setMP3Voice(wave:Sound, ignoreNoteOff:Boolean=true, channelCount:int=2) : SiOPMWaveSamplerData
+        public function setMP3Voice(wave:Sound, ignoreNoteOff:Boolean=false, channelCount:int=2) : SiOPMWaveSamplerData
         {
             moduleType = 10;
-            return (waveData = new SiOPMWaveSamplerData(wave, ignoreNoteOff, channelCount)) as SiOPMWaveSamplerData;
+            return (waveData = new SiOPMWaveSamplerData(wave, ignoreNoteOff, 0, 2, channelCount)) as SiOPMWaveSamplerData;
+        }
+        
+        
+        /** Set PCM wave data rederd by %7.
+         *  @param index PCM data number.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound instance is extracted internally, the maximum length to extract is SiOPMWavePCMData.maxSampleLengthFromSound[samples].
+         *  @param samplingNote Sampling wave's original note number, this allows decimal number
+         *  @param keyRangeFrom Assigning key range starts from (not implemented in current version)
+         *  @param keyRangeTo Assigning key range ends at (not implemented in current version)
+         *  @param srcChannelCount channel count of source data, 1 for monoral, 2 for stereo.
+         *  @param channelCount channel count of this data, 1 for monoral, 2 for stereo, 0 sets same with srcChannelCount.
+         *  @see #org.si.sion.module.SiOPMWavePCMData.maxSampleLengthFromSound
+         *  @see #org.si.sion.SiONDriver.render()
+         */
+        public function setPCMWave(index:int, data:*, samplingNote:Number=68, keyRangeFrom:int=0, keyRangeTo:int=127, srcChannelCount:int=2, channelCount:int=0) : SiOPMWavePCMData
+        {
+            if (moduleType != 7 || channelNum != index) waveData = null;
+            moduleType = 7;
+            channelNum = index;
+            var pcmTable:SiOPMWavePCMTable = (waveData as SiOPMWavePCMTable) || new SiOPMWavePCMTable();
+            var pcmData:SiOPMWavePCMData   = new SiOPMWavePCMData(data, int(samplingNote*64), srcChannelCount, channelCount);
+            pcmTable.setSample(pcmData, keyRangeFrom, keyRangeTo);
+            waveData = pcmTable;
+            return pcmData;
+        }
+        
+        
+        /** Set sampler wave data refered by %10.
+         *  @param index note number. 0-127 for bank0, 128-255 for bank1.
+         *  @param data wave data, Sound, Vector.&lt;Number&gt; or Vector.&lt;int&gt; is available. The Sound is extracted when the length is shorter than SiOPMWaveSamplerData.extractThreshold[msec].
+         *  @param ignoreNoteOff True to set ignoring note off.
+         *  @param pan pan of this sample [-64 - 64].
+         *  @param srcChannelCount channel count of source data, 1 for monoral, 2 for stereo.
+         *  @param channelCount channel count of this data, 1 for monoral, 2 for stereo, 0 sets same with srcChannelCount.
+         *  @return created data instance
+         *  @see #org.si.sion.module.SiOPMWaveSamplerData.extractThreshold
+         *  @see #org.si.sion.SiONDriver.render()
+         */
+        public function setSamplerWave(index:int, data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
+        {
+            moduleType = 10;
+            var sampleTable:SiOPMWaveSamplerTable = (waveData as SiOPMWaveSamplerTable) || new SiOPMWaveSamplerTable();
+            var sampleData:SiOPMWaveSamplerData   = new SiOPMWaveSamplerData(data, ignoreNoteOff, pan, srcChannelCount, channelCount);
+            sampleTable.setSample(sampleData, index & (SiOPMTable.NOTE_TABLE_SIZE-1));
+            waveData = sampleTable;
+            return sampleData;
         }
         
         
@@ -263,7 +306,7 @@ package org.si.sion {
         
         
         /** Set as analog like synth voice.
-         *  @param connectionType Connection type, 0=normal, 1=ring, 2=sync.
+         *  @param connectionType Connection type, 0=normal, 1=ring, 2=sync, 3=fm.
          *  @param ws1 Wave shape for osc1.
          *  @param ws2 Wave shape for osc2.
          *  @param balance balance between osc1 and 2 (-64 - 64). -64 for only osc1, 0 for same volume, 64 for only osc2.
@@ -273,7 +316,7 @@ package org.si.sion {
         public function setAnalogLike(connectionType:int, ws1:int=1, ws2:int=1, balance:int=0, vco2pitch:int=0) : SiONVoice
         {
             channelParam.opeCount = 5;
-            channelParam.alg = (connectionType>=0 && connectionType<=2) ? connectionType : 0;
+            channelParam.alg = (connectionType>=0 && connectionType<=3) ? connectionType : 0;
             channelParam.operatorParam[0].setPGType(ws1);
             channelParam.operatorParam[1].setPGType(ws2);
 

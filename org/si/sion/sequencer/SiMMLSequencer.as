@@ -18,6 +18,8 @@ package org.si.sion.sequencer {
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMModule;
     import org.si.sion.module.SiOPMChannelParam;
+    import org.si.sion.module.SiOPMWaveSamplerTable;
+    import org.si.sion.module.SiOPMWavePCMTable;
     import org.si.sion.utils.Translator;
     import org.si.sion.namespaces._sion_internal;
     
@@ -42,6 +44,7 @@ package org.si.sion.sequencer {
         
         
         
+        
     // valiables
     //--------------------------------------------------
         /** SiMMLTrack list */
@@ -57,6 +60,7 @@ package org.si.sion.sequencer {
         private var _callbackTempoChanged:Function = null;  // callback function for tempo change event
         private var _callbackTimer:Function = null;         // callback function for timer interruption
         private var _callbackBeat:Function = null;          // callback function for beat event
+        private var _callbackParseSysCmd:Function = null;   // callback function for parsing system command
         
         private var _module:SiOPMModule;                // Module instance
         private var _connector:MMLExecutorConnector;    // MMLExecutorConnector
@@ -101,6 +105,9 @@ package org.si.sion.sequencer {
         
         /** Is enable to change BPM ? */
         public function get isEnableChangeBPM() : Boolean { return _enableChangeBPM; }
+
+        /** function called back when parse system command. The function type is function(data:SiMMLData, command:*) : Boolean. Return false to append the command to SiONData.systemCommands. */
+        public function set callbackOnParsingSystemCommand(func:Function) : void { _callbackParseSysCmd = func; }
 
         
         /** Current working track */
@@ -608,11 +615,12 @@ package org.si.sion.sequencer {
             var res:* = rex.exec(table);
             var dat:String = String(res[1]);
             var pfx:String = String(res[2]);
-            if (!_parseTableMacro(dat, pfx)) throw _errorParameterNotValid("{..}", dat);
-            SiMMLData(mmlData)._setEnvelopTable(_internalTableIndex, _tempNumberList.next, _tempNumberListLast);
+            var env:SiMMLEnvelopTable = new SiMMLEnvelopTable().parseMML(dat, pfx);
+            if (!env.head) throw _errorParameterNotValid("{..}", dat);
+            SiMMLData(mmlData).setEnvelopTable(_internalTableIndex, env);
             prev.data = _internalTableIndex;
-            _tempNumberList.next = null;
             _internalTableIndex--;
+/**/
         }
         
         
@@ -704,7 +712,7 @@ package org.si.sion.sequencer {
         // Parse system command before parsing mml. returns false when it hasnt parsed.
         private function _parseSystemCommandBefore(cmd:String, prm:String) : Boolean
         {
-            var i:int, param:SiOPMChannelParam
+            var i:int, param:SiOPMChannelParam, env:SiMMLEnvelopTable, commandObject:*;
             
             // separating
             var rex:RegExp = /\s*(\d*)\s*(\{(.*?)\})?(.*)/ms;
@@ -772,20 +780,37 @@ package org.si.sion.sequencer {
 
                 // tables
                 case '#TABLE': {
-                    if (num < 0 || num > 254)        throw _errorParameterNotValid("#TABLE", String(num));
-                    if (!_parseTableMacro(dat, pfx)) throw _errorParameterNotValid("#TABLE", dat);
-                    SiMMLData(mmlData)._setEnvelopTable(num, _tempNumberList.next, _tempNumberListLast);
-                    _tempNumberList.next = null;
+                    if (num < 0 || num > 254) throw _errorParameterNotValid("#TABLE", String(num));
+                    env = new SiMMLEnvelopTable().parseMML(dat, pfx);
+                    if (!env.head) throw _errorParameterNotValid("#TABLE", dat);
+                    SiMMLData(mmlData).setEnvelopTable(num, env);
                     return true;
                 }
                 case '#WAV': {
                     if (num < 0 || num > 255) throw _errorParameterNotValid("#WAV", String(num));
-                    mmlData.setWaveTable(num, _parseWavMacro(dat, pfx));
+                    SiMMLData(mmlData).setWaveTable(num, Translator.parseWAV(dat, pfx));
                     return true;
                 }
                 case '#WAVB': {
                     if (num < 0 || num > 255) throw _errorParameterNotValid("#WAVB", String(num));
-                    mmlData.setWaveTable(num, _parseWavbMacro((noData) ? pfx : dat));
+                    SiMMLData(mmlData).setWaveTable(num, Translator.parseWAVB((noData) ? pfx : dat));
+                    return true;
+                }
+                
+                // pcm voice
+                case '#SAMPLER': {
+                    if (num < 0 || num > 255) throw _errorParameterNotValid("#SAMPLE", String(num));
+                    __setSamplerWave(num, dat);
+                    return true;
+                }
+                case '#PCMWAVE': {
+                    if (num < 0 || num > 255) throw _errorParameterNotValid("#PCMWAVE", String(num));
+                    __setPCMWave(num, dat);
+                    return true;
+                }
+                case '#PCMVOICE': {
+                    if (num < 0 || num > 255) throw _errorParameterNotValid("#PCMVOICE", String(num));
+                    __setPCMVoice(num, dat, pfx);
                     return true;
                 }
                     
@@ -801,11 +826,14 @@ package org.si.sion.sequencer {
                     
                 // user defined system commands ?
                 default:
-                    mmlData.systemCommands.push({command:cmd, number:num, content:dat, postfix:pfx});
+                    commandObject = {command:cmd, number:num, content:dat, postfix:pfx};
+                    if (_callbackParseSysCmd == null || !_callbackParseSysCmd(mmlData as SiMMLData, commandObject)) {
+                        mmlData.systemCommands.push(commandObject);
+                    }
                     return true;
             }
             
-            throw _errorUnknown("@_parseSystemCommandBefore()");
+            throw _errorUnknown("_parseSystemCommandBefore()");
             
             
             function __parseToneParam(func:Function) : void {
@@ -818,17 +846,18 @@ package org.si.sion.sequencer {
         // Parse inside of #TMODE{...}
         private function _parseTCommansSubMML(dat:String) : void
         {
-            var tcmdrex:RegExp = /(unit|timerb|fps)=?([\d.]+)/;
+            var tcmdrex:RegExp = /(unit|timerb|fps)=?([\d.]*)/;
             var res:* = tcmdrex.exec(dat), num:Number;
+            num = Number(res[2]);
+            if (isNaN(num)) num = 0;
             switch(String(res[1])) {
             case "unit":
-                num = Number(res[2]);
                 mmlData.tcommandMode = MMLData.TCOMMAND_BPM;
                 mmlData.tcommandResolution = (num>0) ? 1 / num : 1;
                 break;
             case "timerb":
                 mmlData.tcommandMode = MMLData.TCOMMAND_TIMERB;
-                mmlData.tcommandResolution = num;
+                mmlData.tcommandResolution = ((num>0) ? num : 4000) * 1.220703125;
                 break;
             case "fps":
                 mmlData.tcommandMode = MMLData.TCOMMAND_FRAME;
@@ -840,28 +869,35 @@ package org.si.sion.sequencer {
         // Parse inside of #VMODE{...}
         private function _parseVCommansSubMML(dat:String) : void
         {
-            throw new Error("#VMODE{...} currently not supported");
-            var tcmdrex:RegExp = /(n88|mdx|psg|mck|tss|%x|%v)(\d*)/g;
-            var res:* = tcmdrex.exec(dat), num:Number;
-            switch(String(res[1])) {
-            case "%x":
-                break;
-            case "%v":
-                break;
-            case "n88": case "mdx":
-                mmlData.defaultVelocityMode = SiOPMTable.VM_DR32DB;
-                mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
-                break;
-            case "psg":
-                mmlData.defaultVelocityMode = SiOPMTable.VM_DR48DB;
-                mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
-                break;
-            default: // mck/tss
-                mmlData.defaultVelocityMode = SiOPMTable.VM_LINEAR;
-                mmlData.defaultExpressionMode = SiOPMTable.VM_LINEAR;
-                break;
+            var tcmdrex:RegExp = /(n88|mdx|psg|mck|tss|%[xv])(\d*)(\s*,?\s*(\d?))/g;
+            var res:*, num:Number, i:int;
+            while (res = tcmdrex.exec(dat)) {
+                switch(String(res[1])) {
+                case "%v":
+                    i = int(res[2]);
+                    mmlData.defaultVelocityMode = (i>=0 && i<SiOPMTable.VM_MAX) ? i : 0;
+                    i = (res[4] != "") ? int(res[4]) : 4;
+                    mmlData.defaultVCommandShift = (i>=0 && i<8) ? i : 0;
+                    break;
+                case "%x":
+                    i = int(res[2]);
+                    mmlData.defaultExpressionMode = (i>=0 && i<SiOPMTable.VM_MAX) ? i : 0;
+                    break;
+                case "n88": case "mdx":
+                    mmlData.defaultVelocityMode = SiOPMTable.VM_DR32DB;
+                    mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
+                    break;
+                case "psg":
+                    mmlData.defaultVelocityMode = SiOPMTable.VM_DR48DB;
+                    mmlData.defaultExpressionMode = SiOPMTable.VM_DR48DB;
+                    break;
+                default: // mck/tss
+                    mmlData.defaultVelocityMode = SiOPMTable.VM_LINEAR;
+                    mmlData.defaultExpressionMode = SiOPMTable.VM_LINEAR;
+                    break;
+                }
             }
-        }        
+        }
         
         // Parse system command after parsing mml.
         private function _parseSystemCommandAfter(seqGroup:MMLSequenceGroup, syscmd:MMLSequence) : MMLSequence
@@ -895,58 +931,6 @@ package org.si.sion.sequencer {
         
     // system command parser subs
     //--------------------------------------------------
-        static private var _tempNumberList    :SLLint = SLLint.alloc(0);
-        static private var _tempNumberListLast:SLLint = null;
-        static private var _tempWaveTable:Vector.<Number> = new Vector.<Number>();
-
-        
-        // #TABLE
-        private function _parseTableMacro(dat:String, pfx:String) : Boolean
-        {
-            return (__parseTableNumbers(dat, pfx, 65536).pointer != null);
-        }
-        
-        
-        // #WAV
-        private function _parseWavMacro(dat:String, pfx:String) : Vector.<Number>
-        {
-            var i:int, imax:int, v:Number;
-            
-            var res:* = __parseTableNumbers(dat, pfx, 1024),
-                num:SLLint = res.pointer;
-            for (imax=2; imax<1024; imax<<=1) {
-                if (imax >= res.length) break;
-            }
-            trace(imax, res.length);
-            _tempWaveTable.length = imax;
-            for (i=0; i<imax && num!=null; i++) {
-                v = (num.i + 0.5) * 0.0078125;
-                _tempWaveTable[i] = (v>1) ? 1 : (v<-1) ? -1 : v;
-                num = num.next;
-            }
-            for (; i<imax; i++) { _tempWaveTable[i] = 0; }
-            
-            return _tempWaveTable;
-        }
-        
-        
-        // #WAVB
-        private function _parseWavbMacro(dat:String) : Vector.<Number>
-        {
-            var ub:int, i:int, imax:int;
-            
-            dat = dat.replace(/\s+/gm, '');
-            imax = dat.length >> 1;
-            _tempWaveTable.length = imax;
-            for (i=0; i<imax; i++) {
-                ub = parseInt(dat.substr(i<<1,2), 16);
-                _tempWaveTable[i] = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
-            }
-            
-            return _tempWaveTable;
-        }
-
-        
         // parse initializing sequence, called by __splitDataString()
         private function __parseInitSequence(param:SiOPMChannelParam, mml:String) : void
         {
@@ -974,93 +958,25 @@ package org.si.sion.sequencer {
         }
         
         
-        // parse table numbers
-        private function __parseTableNumbers(dat:String, pfx:String, maxIndex:int) : *
-        {
-            var index:int = 0, i:int, imax:int, j:int, v:int, ti0:int, ti1:int, tr:Number, 
-                t:Number, s:Number, r:Number, o:Number, jmax:int, last:SLLint, rep:SLLint;
-            var regexp:RegExp, res:*, array:Array, itpl:Vector.<int> = new Vector.<int>();
-
-            // clear list
-            if (_tempNumberList.next) {
-                _tempNumberListLast.next = null;
-                SLLint.freeList(_tempNumberList.next);
-                _tempNumberList.next = null;
-                _tempNumberListLast = null;
-            }
-            
-            // initialize
-            last = _tempNumberList;
-            rep = null;
-
-            // magnification
-            regexp = /(\d+)?(\*(-?[\d.]+))?(([+-])([\d.]+))?/;
-            res    = regexp.exec(pfx);
-            jmax = (res[1]) ? int(res[1]) : 1;
-            r    = (res[2]) ? Number(res[3]) : 1;
-            o    = (res[4]) ? ((res[5] == '+') ? Number(res[6]) : -Number(res[6])) : 0;
-            
-            // res[1];(n..),m {res[2];n, res[3];m} / res[4];n / res[5];|
-            regexp = /(\(\s*([,\-\d\s]+)\)[,\s]*(\d+))|(-?\d+)|(\|)/gm;
-            res    = regexp.exec(dat);
-            while (res && index<maxIndex) {
-                if (res[1]) {
-                    // interpolation "(res[2]..),res[3]"
-                    array = String(res[2]).split(/[,\s]+/);
-                    imax = int(res[3]);
-                    if (imax < 2 || array.length < 1) throw _errorParameterNotValid("#WAV", dat);
-                    itpl.length = array.length;
-                    for (i=0; i<itpl.length; i++) { itpl[i] = int(array[i]); }
-                    if (itpl.length > 1) {
-                        t = 0;
-                        s = Number(itpl.length - 1) / imax;
-                        for (i=0; i<imax && index<maxIndex; i++) {
-                            ti0 = int(t);
-                            ti1 = ti0 + 1;
-                            tr  = t - Number(ti0);
-                            v = int(itpl[ti0] * (1-tr) + itpl[ti1] * tr + 0.5);
-                            v = int(v * r + o + 0.5);
-                            for (j=0; j<jmax; j++, index++) {
-                                last.next = SLLint.alloc(v);
-                                last = last.next;
-                            }
-                            t += s;
-                        }
-                    } else {
-                        // repeat
-                        v = int(itpl[0] * r + o + 0.5);
-                        for (i=0; i<imax && index<maxIndex; i++) {
-                            for (j=0; j<jmax; j++, index++) {
-                                last.next = SLLint.alloc(v);
-                                last = last.next;
-                            }
-                        }
-                    }
-                } else
-                if (res[4]) {
-                    // single number
-                    v = int(int(res[4]) * r + o + 0.5);
-                    for (j=0; j<jmax; j++) {
-                        last.next = SLLint.alloc(v);
-                        last = last.next;
-                    }
-                    index++;
-                } else 
-                if (res[5]) {
-                    // repeat point
-                    rep = last;
-                } else {
-                    // unknown error
-                    throw _errorUnknown("@parseWav()");
-                }
-                res = regexp.exec(dat);
-            }
-            
-            //for(var e:SLLint=_tempNumberList.next; e!=null; e=e.next) { trace(e.i); }
-            
-            _tempNumberListLast = last;
-            if (rep) last.next = rep.next;
-            return {'pointer':_tempNumberList.next, 'length':index, 'repeated':(rep!=null)};
+        private function __setSamplerWave(index:int, dat:String) : void {
+            if (SiOPMTable.instance.soundReference == null) return;
+            var bank:int = (index>>SiOPMTable.NOTE_BITS) & (SiOPMTable.SAMPLER_TABLE_MAX-1);
+            index &= (SiOPMTable.NOTE_TABLE_SIZE-1);
+            var table:SiOPMWaveSamplerTable = SiMMLData(mmlData).sampleTables[bank];
+            Translator.parseSamplerWave(table, index, dat, SiOPMTable.instance.soundReference);
+        }
+        
+        
+        private function __setPCMWave(index:int, dat:String) : void {
+            if (SiOPMTable.instance.soundReference == null) return;
+            var table:SiOPMWavePCMTable = SiMMLData(mmlData)._sion_internal::_getPCMVoice(index).waveData as SiOPMWavePCMTable;
+            if (table) Translator.parsePCMWave(table, dat, SiOPMTable.instance.soundReference);
+        }
+        
+        
+        private function __setPCMVoice(index:int, dat:String, pfx:String) : void {
+            var voice:SiMMLVoice = SiMMLData(mmlData)._sion_internal::_getPCMVoice(index);
+            if (voice) Translator.parsePCMVoice(voice, dat, pfx, SiMMLData(mmlData).envelopes);
         }
         
         

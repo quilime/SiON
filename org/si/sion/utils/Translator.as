@@ -11,6 +11,7 @@ package org.si.sion.utils {
     import org.si.sion.sequencer.*;
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
+    import org.si.utils.SLLint;
     
     
     /** Translator */
@@ -28,13 +29,29 @@ package org.si.sion.utils {
     //--------------------------------------------------
         /** Translate ppmckc mml to SiOPM mml.
          *  @param mckcMML ppmckc MML text.
-         *  @param volumeByX true to translate volume control to SiON MMLs 'x' command, false to translate to SiON MMLs 'v' command.
          *  @return translated SiON MML text
          */
-        static public function mckc(mckcMML:String, volumeByX:Boolean=true) : String
+        static public function mckc(mckcMML:String) : String
         {
             // If I have motivation ..., or I wish someone who know mck well would do ...
+            throw new Error("This is not implemented");
             return mckcMML;
+        }
+        
+        
+        
+        
+    // flmml
+    //--------------------------------------------------
+        /** Translate flMML's mml to SiOPM mml.
+         *  @param flMML flMML's MML text.
+         *  @return translated SiON MML text
+         */
+        static public function flmml(flMML:String) : String
+        {
+            // If I have motivation ..., or I wish someone who know mck well would do ...
+            throw new Error("This is not implemented");
+            return flMML;
         }
         
         
@@ -1175,54 +1192,222 @@ package org.si.sion.utils {
         
         
         
+    // extract system command from mml
+    //------------------------------------------------------------
+        /** extract system command from mml 
+         *  @param mml mml text
+         *  @return extracted command list. the mml of "#CMD1{cont}pf;" is converted to the Object as {command:"CMD", number:1, content:"cont", postfix:"pfx"}.
+         */
+        static public function extractSystemCommand(mml:String) : Array 
+        {
+            var comrex:RegExp = new RegExp("/\\*.*?\\*/|//.*?[\\r\\n]+", "gms");
+            var seqrex:RegExp = /(#[A-Z@]+)([^;{]*({.*?})?[^;]*);/gms; //}
+            var prmrex:RegExp = /\s*(\d*)\s*(\{(.*?)\})?(.*)/ms;
+            var res:*, res2:*, cmd:String, num:int, dat:String, pfx:String, cmds:Array=[];
+            
+            // remove comments
+            mml += "\n";
+            mml = mml.replace(comrex, "") + ";";
+            
+            // parse system command
+            while (res = seqrex.exec(mml)) {
+                cmd = String(res[1]);
+                if (res[2] != "") {
+                    prmrex.lastIndex = 0;
+                    res2 = prmrex.exec(res[2]);
+                    num = int(res2[1]);
+                    dat = (res2[2] == undefined) ? "" : String(res2[3]);
+                    pfx = String(res2[4]);
+                } else {
+                    num = 0;
+                    dat = "";
+                    pfx = "";
+                }
+                cmds.push({command:cmd, number:num, content:dat, postfix:pfx});
+            }
+            return cmds;
+        }
+        
+                
+        
+        
+        
     // Voice parameters (filter, lfo, portament, gate time, sweep)
     //------------------------------------------------------------
-        /** parse voice setting mml */
-        static public function parseVoiceSetting(voice:SiMMLVoice, mml:String) : SiMMLVoice {
-                            //1                2    3 4      5 6      7 8      9 10     1112     1314     1516     1718     1920
-            var rex:RegExp = /(@f|ma|mp|po|q|s)(\d*)(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?(,(\d*))?/g;
+        /** parse voice setting mml 
+         *  @param voice voice to update
+         *  @param mml setting mml
+         *  @param envelopes envelope list to pickup envelope
+         *  @return same as argument of 'voice'.
+         */
+        static public function parseVoiceSetting(voice:SiMMLVoice, mml:String, envelopes:Vector.<SiMMLEnvelopTable>=null) : SiMMLVoice {
+            var i:int, j:int;
+            var cmd:String = "(%[fvx]|@[fpqv]|@er|@lfo|kt?|m[ap]|_?@@|_?n[aptf]|po|p|q|s|x|v)";
+            var ags:String = "(-?\\d*)";
+            for (i=0; i<10; i++) ags += "(\\s*,\\s*(-?\\d*))?";
+            var rex:RegExp = new RegExp(cmd+ags, "g");
             var res:* = rex.exec(mml);
             var param:SiOPMChannelParam = voice.channelParam;
             while (res) {
                 switch(res[1]) {
                 case '@f':
-                    param.cutoff    = (res[2])  ? int(res[2])  : 128;
-                    param.resonance = (res[4])  ? int(res[4])  : 0;
-                    param.far       = (res[6])  ? int(res[6])  : 0;
-                    param.fdr1      = (res[8])  ? int(res[8])  : 0;
-                    param.fdr2      = (res[10]) ? int(res[10]) : 0;
-                    param.frr       = (res[12]) ? int(res[12]) : 0;
-                    param.fdc1      = (res[14]) ? int(res[14]) : 128;
-                    param.fdc2      = (res[16]) ? int(res[16]) : 64;
-                    param.fsc       = (res[18]) ? int(res[18]) : 32;
-                    param.frc       = (res[20]) ? int(res[20]) : 128;
+                    param.cutoff    = (res[2] != "")  ? int(res[2])  : 128;
+                    param.resonance = (res[4] != "")  ? int(res[4])  : 0;
+                    param.far       = (res[6] != "")  ? int(res[6])  : 0;
+                    param.fdr1      = (res[8] != "")  ? int(res[8])  : 0;
+                    param.fdr2      = (res[10] != "") ? int(res[10]) : 0;
+                    param.frr       = (res[12] != "") ? int(res[12]) : 0;
+                    param.fdc1      = (res[14] != "") ? int(res[14]) : 128;
+                    param.fdc2      = (res[16] != "") ? int(res[16]) : 64;
+                    param.fsc       = (res[18] != "") ? int(res[18]) : 32;
+                    param.frc       = (res[20] != "") ? int(res[20]) : 128;
                     break;
                 case '@lfo':
-                    param.lfoFrame = (res[2]) ? int(res[2]) : 30;
-                    param.lfoWaveShape = (res[4]) ? int(res[4]) : SiOPMTable.LFO_WAVE_TRIANGLE;
+                    param.lfoFrame = (res[2] != "") ? int(res[2]) : 30;
+                    param.lfoWaveShape = (res[4] != "") ? int(res[4]) : SiOPMTable.LFO_WAVE_TRIANGLE;
                     break;
                 case 'ma':
-                    voice.amDepth    = (res[2]) ? int(res[2]) : 0;
-                    voice.amDepthEnd = (res[4]) ? int(res[4]) : 0;
-                    voice.amDelay    = (res[6]) ? int(res[6]) : 0;
-                    voice.amTerm     = (res[8]) ? int(res[8]) : 0;
+                    voice.amDepth    = (res[2] != "") ? int(res[2]) : 0;
+                    voice.amDepthEnd = (res[4] != "") ? int(res[4]) : 0;
+                    voice.amDelay    = (res[6] != "") ? int(res[6]) : 0;
+                    voice.amTerm     = (res[8] != "") ? int(res[8]) : 0;
                     param.amd = voice.amDepth;
                     break;
                 case 'mp':
-                    voice.pmDepth    = (res[2]) ? int(res[2]) : 0;
-                    voice.pmDepthEnd = (res[4]) ? int(res[4]) : 0;
-                    voice.pmDelay    = (res[6]) ? int(res[6]) : 0;
-                    voice.pmTerm     = (res[8]) ? int(res[8]) : 0;
+                    voice.pmDepth    = (res[2] != "") ? int(res[2]) : 0;
+                    voice.pmDepthEnd = (res[4] != "") ? int(res[4]) : 0;
+                    voice.pmDelay    = (res[6] != "") ? int(res[6]) : 0;
+                    voice.pmTerm     = (res[8] != "") ? int(res[8]) : 0;
                     param.pmd = voice.pmDepth;
                     break;
                 case 'po':
-                    voice.portament = (res[2]) ? int(res[2]) : 30;
+                    voice.portament = (res[2] != "") ? int(res[2]) : 30;
                     break;
                 case 'q':
-                    voice.gateTime = (res[2]) ? (int(res[2])*0.125) : Number.NaN;
+                    voice.defaultGateTime = (res[2] != "") ? (int(res[2])*0.125) : Number.NaN;
                     break;
                 case 's':
-                    voice.releaseSweep = (res[4]) ? int(res[4]) : 0;
+                    //[releaseRate] = (res[2] != "") ? int(res[2]) : 0;
+                    voice.releaseSweep = (res[4] != "") ? int(res[4]) : 0;
+                    break;
+                    
+                case '%f':
+                    voice.channelParam.filterType = (res[2] != "") ? int(res[2]) : 0;
+                    break;
+                case '@er':
+                    for (i=0; i<4; i++) voice.channelParam.operatorParam[i].erst = (res[2] != "1");
+                    break;
+                case 'k':
+                    voice.pitchShift = (res[2] != "") ? int(res[2]) : 0;
+                    break;
+                case 'kt':
+                    voice.noteShift = (res[2] != "") ? int(res[2]) : 0;
+                    break;
+                    
+                case '@v':
+                    voice.channelParam.volumes[0] = (res[2]  != "") ? (int(res[2])*0.0078125)  : 0.5;
+                    voice.channelParam.volumes[1] = (res[4]  != "") ? (int(res[4])*0.0078125)  : 0;
+                    voice.channelParam.volumes[2] = (res[6]  != "") ? (int(res[6])*0.0078125)  : 0;
+                    voice.channelParam.volumes[3] = (res[8]  != "") ? (int(res[8])*0.0078125)  : 0;
+                    voice.channelParam.volumes[4] = (res[10] != "") ? (int(res[10])*0.0078125) : 0;
+                    voice.channelParam.volumes[5] = (res[12] != "") ? (int(res[12])*0.0078125) : 0;
+                    voice.channelParam.volumes[6] = (res[14] != "") ? (int(res[14])*0.0078125) : 0;
+                    voice.channelParam.volumes[7] = (res[16] != "") ? (int(res[16])*0.0078125) : 0;
+                    break;
+                case 'p':
+                    voice.channelParam.pan = (res[2] != "") ? int(res[2])*16 : 64;
+                    break;
+                case '@p':
+                    voice.channelParam.pan = (res[2] != "") ? int(res[2]) : 64;
+                    break;
+                case 'v':
+                    voice.velocity = (res[2] != "") ? (int(res[2])<<voice.vcommandShift) : 256;
+                    break;
+                case 'x':
+                    voice.expression = (res[2] != "") ? int(res[2]) : 128;
+                    break;
+                    
+                case '%v':
+                    voice.velocityMode  = (res[2] != "") ? int(res[2]) : 0;
+                    voice.vcommandShift = (res[4] != "") ? int(res[4]) : 4;
+                    break;
+                case '%x':
+                    voice.expressionMode = (res[2] != "") ? int(res[2]) : 0;
+                    break;
+                case '@q':
+                    voice.defaultGateTicks       = (res[2] != "") ? int(res[2]) : 0;
+                    voice.defaultKeyOnDelayTicks = (res[4] != "") ? int(res[4]) : 0;
+                    break;
+                    
+                case '@@':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOnToneEnvelop = envelopes[i];
+                        voice.noteOnToneEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case 'na':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOnAmplitudeEnvelop = envelopes[i];
+                        voice.noteOnAmplitudeEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case 'np':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOnPitchEnvelop = envelopes[i];
+                        voice.noteOnPitchEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case 'nt':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOnNoteEnvelop = envelopes[i];
+                        voice.noteOnNoteEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case 'nf':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOnFilterEnvelop = envelopes[i];
+                        voice.noteOnFilterEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case '_@@':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOffToneEnvelop = envelopes[i];
+                        voice.noteOffToneEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case '_na':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOffAmplitudeEnvelop = envelopes[i];
+                        voice.noteOffAmplitudeEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case '_np':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOffPitchEnvelop = envelopes[i];
+                        voice.noteOffPitchEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case '_nt':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOffNoteEnvelop = envelopes[i];
+                        voice.noteOffNoteEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
+                    break;
+                case '_nf':
+                    i = int(res[2]);
+                    if (envelopes && i>=0 && i<255) {
+                        voice.noteOffFilterEnvelop = envelopes[i];
+                        voice.noteOffFilterEnvelopStep = (int(res[4])>0) ? int(res[4]) : 1;
+                    }
                     break;
                 }
                 res = rex.exec(mml);
@@ -1230,9 +1415,11 @@ package org.si.sion.utils {
             return voice;
         }
         
-        /** reconstruct voice setting mml */
+        
+        /** reconstruct voice setting mml (except for channel operator parameters and envelopes) */
         static public function mmlVoiceSetting(voice:SiMMLVoice) : String {
-            var mml:String = "", param:SiOPMChannelParam = voice.channelParam;
+            var mml:String = "", param:SiOPMChannelParam = voice.channelParam, i:int;
+            if (voice.channelParam.filterType > 0) mml += "%f" + String(voice.channelParam.filterType);
             if (param.cutoff<128 || param.resonance>0 || param.far>0 || param.frr>0) {
                 mml += "@f" + String(param.cutoff) + "," + String(param.resonance);
                 if (param.far>0 || param.frr>0) {
@@ -1263,11 +1450,279 @@ package org.si.sion.utils {
                     mml += "mp" + String(param.pmd);
                 }
             }
+            if (voice.velocityMode != 0 || voice.vcommandShift != 4) {
+                mml += "%v" + String(voice.velocityMode) + "," + String(voice.vcommandShift);
+            }
+            if (voice.expressionMode != 0) mml += "%x" + String(voice.expressionMode);
             if (voice.portament > 0) mml += "po" + String(voice.portament);
-            if (!isNaN(voice.gateTime)) mml += "q" + String(int(voice.gateTime*8));
+            if (!isNaN(voice.defaultGateTime)) mml += "q" + String(int(voice.defaultGateTime*8));
+            if (voice.defaultGateTicks != 0 || voice.defaultKeyOnDelayTicks != 0) {
+                mml += "@q" + String(voice.defaultGateTicks) + "," + String(voice.defaultKeyOnDelayTicks);
+            }
             if (voice.releaseSweep > 0) mml += "s," + String(voice.releaseSweep);
+            if (voice.channelParam.operatorParam[0].erst) mml += "@er1";
+            if (voice.pitchShift) mml += "k"  + String(voice.pitchShift);
+            if (voice.noteShift)  mml += "kt" + String(voice.noteShift);
+            if (voice.updateVolumes) {
+                var ch:int = (voice.channelParam.volumes[0] == 0.5) ? 0 : 1;
+                for (i=1; i<8; i++) if (voice.channelParam.volumes[i] != 0) ch = i+1;
+                if (i != 0) {
+                    mml += "@v";
+                    if (voice.channelParam.volumes[0] != 0.5) mml += int(voice.channelParam.volumes[0]*128).toString();
+                    for (i=1; i<ch; i++) {
+                        if (voice.channelParam.volumes[i] != 0) mml += "," + int(voice.channelParam.volumes[i]*128).toString();
+                    }
+                }
+                if (voice.channelParam.pan != 64) {
+                    if (voice.channelParam.pan & 15) mml += "@p" + String(voice.channelParam.pan-64);
+                    else mml += "p" + String(voice.channelParam.pan >> 4);
+                }
+                if (voice.velocity   != 256) mml += "v"  + String(voice.velocity >> voice.vcommandShift);
+                if (voice.expression != 128) mml += "@v" + String(voice.expression);
+            }
             
             return mml;
+        }
+        
+        
+        
+        
+    // envelop table
+    //------------------------------------------------------------
+        /** parse mml of envelop and wave table numbers.
+         *  @param tableNumbers String of table numbers
+         *  @param postfix String of postfix
+         *  @param maxIndex maximum size of envelop table
+         *  @return this instance
+         */
+        static public function parseTableNumbers(tableNumbers:String, postfix:String, maxIndex:int=65536) : *
+        {
+            var index:int = 0, i:int, imax:int, j:int, v:int, ti0:int, ti1:int, tr:Number, 
+                t:Number, s:Number, r:Number, o:Number, jmax:int, last:SLLint, rep:SLLint;
+            var regexp:RegExp, res:*, array:Array, itpl:Vector.<int> = new Vector.<int>(), loopStac:Array=[];
+            var tempNumberList:SLLint = SLLint.alloc(0), loopHead:SLLint, loopTail:SLLint, l:SLLint;
+
+            // initialize
+            last = tempNumberList;
+            rep = null;
+
+            // magnification
+            regexp = /(\d+)?(\*(-?[\d.]+))?(([+-])([\d.]+))?/;
+            res    = regexp.exec(postfix);
+            jmax = (res[1]) ? int(res[1]) : 1;
+            r    = (res[2]) ? Number(res[3]) : 1;
+            o    = (res[4]) ? ((res[5] == '+') ? Number(res[6]) : -Number(res[6])) : 0;
+            
+            // res[1];(n..),m {res[2];n.., res[3];m} / res[4];n / res[5];|[] / res[6]; ]n
+            regexp = /(\(\s*([,\-\d\s]+)\)[,\s]*(\d+))|(-?\d+)|(\||\[|\](\d*))/gm;
+            res    = regexp.exec(tableNumbers);
+            while (res && index<maxIndex) {
+                if (res[1]) {
+                    // interpolation "(res[2]..),res[3]"
+                    array = String(res[2]).split(/[,\s]+/);
+                    imax = int(res[3]);
+                    if (imax < 2 || array.length < 1) throw errorParameterNotValid("Table MML", tableNumbers);
+                    itpl.length = array.length;
+                    for (i=0; i<itpl.length; i++) { itpl[i] = int(array[i]); }
+                    if (itpl.length > 1) {
+                        t = 0;
+                        s = Number(itpl.length - 1) / imax;
+                        for (i=0; i<imax && index<maxIndex; i++) {
+                            ti0 = int(t);
+                            ti1 = ti0 + 1;
+                            tr  = t - Number(ti0);
+                            v = int(itpl[ti0] * (1-tr) + itpl[ti1] * tr + 0.5);
+                            v = int(v * r + o + 0.5);
+                            for (j=0; j<jmax; j++, index++) {
+                                last.next = SLLint.alloc(v);
+                                last = last.next;
+                            }
+                            t += s;
+                        }
+                    } else {
+                        // repeat
+                        v = int(itpl[0] * r + o + 0.5);
+                        for (i=0; i<imax && index<maxIndex; i++) {
+                            for (j=0; j<jmax; j++, index++) {
+                                last.next = SLLint.alloc(v);
+                                last = last.next;
+                            }
+                        }
+                    }
+                } else
+                if (res[4]) {
+                    // single number
+                    v = int(int(res[4]) * r + o + 0.5);
+                    for (j=0; j<jmax; j++) {
+                        last.next = SLLint.alloc(v);
+                        last = last.next;
+                    }
+                    index++;
+                } else 
+                if (res[5]) {
+                    switch (res[5]) {
+                    case '|': // repeat point
+                        rep = last;
+                        break;
+                    case '[': // begin loop
+                        loopStac.push(last);
+                        break;
+                    default: // end loop "]n"
+                        if (loopStac.length == 0) errorParameterNotValid("Table MML's Loop", tableNumbers);
+                        loopHead = loopStac.pop().next;
+                        if (!loopHead) errorParameterNotValid("Table MML's Loop", tableNumbers);
+                        loopTail = last;
+                        for (j=int(res[6])||2; j>0; --j) {
+                            for (l=loopHead; l!==loopTail.next; l=l.next) {
+                                last.next = SLLint.alloc(l.i);
+                                last = last.next;
+                            }
+                        }
+                        break;
+                    }
+                } else {
+                    // unknown error
+                    throw errorUnknown("@parseWav()");
+                }
+                res = regexp.exec(tableNumbers);
+            }
+            
+            //for(var e:SLLint=tempNumberList.next; e!=null; e=e.next) { trace(e.i); }
+            
+            if (rep) last.next = rep.next;
+            return {'head':tempNumberList.next, 'tail':last, 'length':index, 'repeated':(rep!=null)};
+        }
+        
+        
+        
+        
+    // wave table mml parser
+    //--------------------------------------------------
+        /** parse #WAV data
+         *  @param tableNumbers number string of #WAV command.
+         *  @param postfix postfix string of #WAV command.
+         *  @return vector of Number in the range of [-1,1]
+         */
+        static public function parseWAV(tableNumbers:String, postfix:String) : Vector.<Number>
+        {
+            var i:int, imax:int, v:Number, wav:Vector.<Number>;
+            
+            var res:* = Translator.parseTableNumbers(tableNumbers, postfix, 1024),
+                num:SLLint = res.head;
+            for (imax=2; imax<1024; imax<<=1) {
+                if (imax >= res.length) break;
+            }
+
+            wav = new Vector.<Number>(imax);
+            for (i=0; i<imax && num!=null; i++) {
+                v = (num.i + 0.5) * 0.0078125;
+                wav[i] = (v>1) ? 1 : (v<-1) ? -1 : v;
+                num = num.next;
+            }
+            for (; i<imax; i++) { wav[i] = 0; }
+            
+            return wav;
+        }
+        
+        
+        /** parse #WAVB data
+         *  @param hex hex string of #WAVB command.
+         *  @return vector of Number in the range of [-1,1]
+         */
+        static public function parseWAVB(hex:String) : Vector.<Number>
+        {
+            var ub:int, i:int, imax:int, wav:Vector.<Number>;
+            hex = hex.replace(/\s+/gm, '');
+            imax = hex.length >> 1;
+            wav = new Vector.<Number>(imax);
+            for (i=0; i<imax; i++) {
+                ub = parseInt(hex.substr(i<<1,2), 16);
+                wav[i] = (ub<128) ? (ub * 0.0078125) : ((ub-256) * 0.0078125);
+            }
+            return wav;
+        }
+        
+        
+        
+        
+    // pcm mml parser
+    //--------------------------------------------------
+        /** parse mml text of sampler wave setting (#SAMPLER system command).
+         *  @param table table to set sampler wave
+         *  @param noteNumber note number to set sample
+         *  @param mml comma separated text of #SAMPLER system command
+         *  @param soundReferTable reference table of Sound instances.
+         *  @return true when success to find wave from soundReferTable.
+         */
+        static public function parseSamplerWave(table:SiOPMWaveSamplerTable, noteNumber:int, mml:String, soundReferTable:*) : Boolean
+        {
+            var args:Array = mml.split(/\s*,\s*/g),
+                waveID:String = String(args[0]), 
+                ignoreNoteOff:Boolean = (args[1] != undefined && args[1] != "") ? Boolean(args[1]) : false, 
+                pan:int               = (args[2] != undefined && args[2] != "") ? int(args[2]) : 0,
+                channelCount:int      = (args[3] != undefined && args[3] != "") ? int(args[3]) : 2,
+                startPoint:int        = (args[4] != undefined && args[4] != "") ? int(args[4]) : -1,
+                endPoint:int          = (args[5] != undefined && args[5] != "") ? int(args[5]) : -1,
+                loopPoint:int         = (args[6] != undefined && args[6] != "") ? int(args[6]) : -1;
+            if (waveID in soundReferTable) {
+                var sample:SiOPMWaveSamplerData = new SiOPMWaveSamplerData(soundReferTable[waveID], ignoreNoteOff, pan, 2, channelCount);
+                sample.slice(startPoint, endPoint, loopPoint);
+                table.setSample(sample, noteNumber);
+                return true;
+            }
+            return false;
+        }
+        
+        
+        /** parse mml text of pcm wave setting (#PCMWAVE system command).
+         *  @param table table to set PCM wave
+         *  @param mml comma separated values of #PCMWAVE system command
+         *  @param soundReferTable reference table of Sound instances.
+         *  @return true when success to find wave from soundReferTable.
+         */
+        static public function parsePCMWave(table:SiOPMWavePCMTable, mml:String, soundReferTable:*) : Boolean
+        {
+            var args:Array = mml.split(/\s*,\s*/g),
+                waveID:String = String(args[0]), 
+                samplingNote:int = (args[1] != undefined && args[1] != "") ? int(args[1]) : 68,
+                keyRangeFrom:int = (args[2] != undefined && args[2] != "") ? int(args[2]) : 0,
+                keyRangeTo:int   = (args[3] != undefined && args[3] != "") ? int(args[3]) : 127,
+                channelCount:int = (args[4] != undefined && args[4] != "") ? int(args[4]) : 2,
+                startPoint:int   = (args[5] != undefined && args[5] != "") ? int(args[5]) : -1,
+                endPoint:int     = (args[6] != undefined && args[6] != "") ? int(args[6]) : -1,
+                loopPoint:int    = (args[7] != undefined && args[7] != "") ? int(args[7]) : -1;
+            if (waveID in soundReferTable) {
+                var sample:SiOPMWavePCMData = new SiOPMWavePCMData(soundReferTable[waveID], int(samplingNote*64), 2, channelCount);
+                sample.slice(startPoint, endPoint, loopPoint);
+                table.setSample(sample, keyRangeFrom, keyRangeTo);
+                return true;
+            }
+            return false;
+        }
+        
+        
+        /** parse mml text of pcm voice setting (#PCMVOICE system command)
+         *  @param voice SiMMLVoice to update parameters
+         *  @param mml comma separated values of #PCMVOICE system command
+         *  @param postfix postfix of #PCMVOICE system command
+         *  @param envelopes envelope list to pickup envelope
+         *  @return true when success to update parameters
+         */
+        static public function parsePCMVoice(voice:SiMMLVoice, mml:String, postfix:String, envelopes:Vector.<SiMMLEnvelopTable>=null) : Boolean
+        {
+            var table:SiOPMWavePCMTable = voice.waveData as SiOPMWavePCMTable;
+            if (!table) return false;
+            var args:Array = mml.split(/\s*,\s*/g),
+                volumeNoteNumber:int  = (args[0] != undefined && args[0] != "") ? args[0] : 64, 
+                volumeKeyRange:Number = (args[1] != undefined && args[1] != "") ? args[1] : 0, 
+                volumeRange:Number    = (args[2] != undefined && args[2] != "") ? args[2] : 0, 
+                panNoteNumber:int     = (args[3] != undefined && args[3] != "") ? args[3] : 64, 
+                panKeyRange:Number    = (args[4] != undefined && args[4] != "") ? args[4] : 0, 
+                panWidth:Number       = (args[5] != undefined && args[5] != "") ? args[5] : 0;
+            table.setKeyScaleVolume(volumeNoteNumber, volumeKeyRange, volumeRange);
+            table.setKeyScalePan(panNoteNumber, panKeyRange, panWidth);
+            parseVoiceSetting(voice, postfix, envelopes);
+            return true;
         }
         
         
@@ -1498,6 +1953,12 @@ package org.si.sion.utils {
         static public function errorTranslation(str:String) : Error
         {
             return new Error("Translator Error : mml error. '" + str + "'");
+        }
+
+        
+        static public function errorUnknown(str:String) : Error
+        {
+            return new Error("Translator error : Unknown. "+str);
         }
     }
 }

@@ -30,7 +30,6 @@ package org.si.sion.sequencer {
         static public const MT_RAMP  :int = 9;  // ramp wave
         static public const MT_SAMPLE:int = 10; // sampler
         static public const MT_KS    :int = 11; // karplus strong
-        static public const MT_ANALOG:int = 12; // analog like
         static public const MT_MAX   :int = 13;
         
         static private const MT_ARRAY_SIZE:int = 11;
@@ -130,7 +129,6 @@ package org.si.sion.sequencer {
             channelModuleSetting[MT_RAMP]   = new SiMMLChannelSetting(MT_RAMP,   SiOPMTable.PG_RAMP,        128, 1, 128); // ramp
             channelModuleSetting[MT_SAMPLE] = new SiMMLChannelSetting(MT_SAMPLE, 0,                         4,   1, 4);   // sampler. this is based on SiOPMChannelSampler
             channelModuleSetting[MT_KS]     = new SiMMLChannelSetting(MT_KS,     0,                         3,   1, 3);   // karplus strong (0-2 to choose seed generator algrism)
-            channelModuleSetting[MT_ANALOG] = new SiMMLChannelSetting(MT_ANALOG, SiOPMTable.PG_SINE,        384, 1, 4);   // analog like
             
             // PSG setting
             ms = channelModuleSetting[MT_PSG];
@@ -140,10 +138,10 @@ package org.si.sion.sequencer {
             ms._ptTypeList[0] = SiOPMTable.PT_PSG;
             ms._ptTypeList[1] = SiOPMTable.PT_PSG_NOISE;
             ms._ptTypeList[2] = SiOPMTable.PT_PSG;
-            ms._channelTone[0] = 0;
-            ms._channelTone[1] = 0;
-            ms._channelTone[2] = 0;
-            ms._channelTone[3] = 1;
+            ms._voiceIndexTable[0] = 0;
+            ms._voiceIndexTable[1] = 0;
+            ms._voiceIndexTable[2] = 0;
+            ms._voiceIndexTable[3] = 1;
             // APU setting
             ms = channelModuleSetting[MT_APU];
             ms._pgTypeList[8]  = SiOPMTable.PG_TRIANGLE_FC;
@@ -153,31 +151,24 @@ package org.si.sion.sequencer {
             for (i=0; i<9;  i++) { ms._ptTypeList[i] = SiOPMTable.PT_PSG; }
             for (i=9; i<12; i++) { ms._ptTypeList[i] = SiOPMTable.PT_APU_NOISE; }
             ms._initIndex      = 1;
-            ms._channelTone[0] = 4;
-            ms._channelTone[1] = 4;
-            ms._channelTone[2] = 8;
-            ms._channelTone[3] = 9;
-            ms._channelTone[4] = 11;
+            ms._voiceIndexTable[0] = 4;
+            ms._voiceIndexTable[1] = 4;
+            ms._voiceIndexTable[2] = 8;
+            ms._voiceIndexTable[3] = 9;
+            ms._voiceIndexTable[4] = 11;
             // FM setting
             channelModuleSetting[MT_FM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_FM;
             channelModuleSetting[MT_FM]._isSuitableForFMVoice = false;
             // PCM setting
-            channelModuleSetting[MT_PCM]._selectToneType = SiMMLChannelSetting.SELECT_TONE_PCM;
+            channelModuleSetting[MT_PCM]._channelType = SiOPMChannelManager.CT_CHANNEL_PCM;
             channelModuleSetting[MT_PCM]._isSuitableForFMVoice = false;
             // Sampler
             //channelModuleSetting[MT_SAMPLE]._selectToneType = SiMMLChannelSetting.SELECT_TONE_NOP;
-            channelModuleSetting[MT_SAMPLE]._channelType    = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
+            channelModuleSetting[MT_SAMPLE]._channelType = SiOPMChannelManager.CT_CHANNEL_SAMPLER;
             channelModuleSetting[MT_SAMPLE]._isSuitableForFMVoice = false;
             // Karplus strong
             channelModuleSetting[MT_KS]._channelType = SiOPMChannelManager.CT_CHANNEL_KS;
             channelModuleSetting[MT_KS]._isSuitableForFMVoice = false;
-            // analog like setting
-            ms = channelModuleSetting[MT_ANALOG];
-            ms._channelTone[0] = 4; // triangle
-            ms._channelTone[1] = 2; // d-saw
-            ms._channelTone[2] = 5; // square
-            ms._channelTone[3] = 6; // w-noise
-            ms._defaultOpeCount = 5; // analog like algorism
 
             // tables
             _masterEnvelops = new Vector.<SiMMLEnvelopTable>(ENV_TABLE_MAX);
@@ -220,6 +211,16 @@ package org.si.sion.sequencer {
         /** @private [internal use] reset all user tables */
         _sion_internal function resetAllUserTables() : void
         {
+            var i:int;
+            for (i=0; i<ENV_TABLE_MAX; i++) {
+                if (_masterEnvelops[i]) {
+                    _masterEnvelops[i].free();
+                    _masterEnvelops[i] = null;
+                }
+            }
+            for (i=0; i<VOICE_MAX; i++) {
+                _masterVoices[i] = null;
+            }
         }
         
         
@@ -277,7 +278,7 @@ package org.si.sion.sequencer {
             
             if (ms._selectToneType == SiMMLChannelSetting.SELECT_TONE_NORMAL) {
                 if (toneNum == -1) {
-                    if (channelNum>=0 && channelNum<ms._channelTone.length) toneNum = ms._channelTone[channelNum];
+                    if (channelNum>=0 && channelNum<ms._voiceIndexTable.length) toneNum = ms._voiceIndexTable[channelNum];
                     else channelNum = ms._initIndex;
                 }
                 if (toneNum <0 || toneNum >=ms._pgTypeList.length) toneNum = ms._initIndex;

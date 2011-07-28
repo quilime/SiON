@@ -117,7 +117,7 @@ package org.si.sound.mdx {
             
             // set voice data
             imax = voices.length;
-            for (i=0; i<imax; i++) data.voices[i] = voices[i];
+            for (i=0; i<imax; i++) data.fmVoices[i] = voices[i];
             
             // set adpcm data
             if (pdxData) {
@@ -318,7 +318,7 @@ package org.si.sound.mdx {
         internal function onTimerB(timerB:int, syncClock:uint) : void
         {
             if (syncClock == 0) return;
-            if (syncClock > _globalPrevClock) _globalSequence.appendNewEvent(MMLEvent.WAIT, 0, (syncClock - _globalPrevClock)*10);
+            if (syncClock > _globalPrevClock) _globalSequence.appendNewEvent(MMLEvent.GLOBAL_WAIT, 0, (syncClock - _globalPrevClock)*10);
             _globalPrevClock = syncClock;
             _currentBPM = 4883/(256-timerB);
             _globalSequence.appendNewEvent(MMLEvent.TEMPO, _currentBPM);

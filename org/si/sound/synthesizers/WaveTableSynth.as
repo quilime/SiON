@@ -140,7 +140,7 @@ package org.si.sound.synthesizers {
         /** update wavelet */
         public function updateWavelet() : void
         {
-            _waveTable.initialize(SiONUtil.logTransVector(_wavelet, false, _waveTable.wavelet));
+            _waveTable.initialize(SiONUtil.logTransVector(_wavelet, 1, _waveTable.wavelet));
             var i:int, imax:int = _tracks.length, ch:SiOPMChannelFM;
             for (i=0; i<imax; i++) {
                 ch = _tracks[i].channel as SiOPMChannelFM;

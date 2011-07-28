@@ -22,7 +22,6 @@ package org.si.sion.sequencer {
         static public const SELECT_TONE_NOP   :int = 0;
         static public const SELECT_TONE_NORMAL:int = 1;
         static public const SELECT_TONE_FM    :int = 2;
-        static public const SELECT_TONE_PCM   :int = 3;
 
         
         
@@ -34,7 +33,7 @@ package org.si.sion.sequencer {
         internal var _pgTypeList:Vector.<int>;
         internal var _ptTypeList:Vector.<int>;
         internal var _initIndex:int;
-        internal var _channelTone:Vector.<int>;
+        internal var _voiceIndexTable:Vector.<int>;
         internal var _channelType:int;
         internal var _isSuitableForFMVoice:Boolean;
         internal var _defaultOpeCount:int;
@@ -55,8 +54,8 @@ package org.si.sion.sequencer {
                 _pgTypeList[i] = idx;
                 _ptTypeList[i] = _table.getWaveTable(idx).defaultPTType;
             }
-            _channelTone = new Vector.<int>(channelCount, true);
-            for (i=0; i<channelCount; i++) { _channelTone[i] = i; }
+            _voiceIndexTable = new Vector.<int>(channelCount, true);
+            for (i=0; i<channelCount; i++) { _voiceIndexTable[i] = i; }
             
             this._initIndex = 0;
             this.type = type;
@@ -93,13 +92,16 @@ package org.si.sion.sequencer {
             }
 
             // initialize
-            // channelTone = chNum except for PSG, APU and analog
-            var channelTone:int = _initIndex; 
-            if (chNum>=0 && chNum<_channelTone.length) channelTone = _channelTone[chNum];
+            // voiceIndex = chNum except for PSG, APU and analog
+            var voiceIndex:int = _initIndex; 
+            if (chNum>=0 && chNum<_voiceIndexTable.length) voiceIndex = _voiceIndexTable[chNum];
             track._channelNumber = (chNum<0) ? 0 : chNum;
+            track.channel.setChannelNumber(chNum);
             track.channel.setAlgorism(_defaultOpeCount, 0);
-            selectTone(track, channelTone);
-            return (chNum == -1) ? -1 : channelTone;
+            selectTone(track, voiceIndex);
+            
+            // return voice index
+            return (chNum == -1) ? -1 : voiceIndex;
         }
         
         
@@ -121,16 +123,16 @@ package org.si.sion.sequencer {
             case SELECT_TONE_FM: // %6
                 if (voiceIndex<0 || voiceIndex>=SiMMLTable.VOICE_MAX) voiceIndex=0;
                 voice = SiMMLTable.instance.getSiMMLVoice(voiceIndex);
-                if (voice) { // this module changes only channel params, not track params.
-                    track.channel.setSiOPMChannelParam(voice.channelParam, false, false);
-                    track._resetVolumeOffset();
-                    return (voice.channelParam.initSequence.isEmpty()) ? null : voice.channelParam.initSequence;
-                }
-                break;
-            case SELECT_TONE_PCM: // %7
-                if (voiceIndex>=0 && voiceIndex<SiOPMTable.PCM_DATA_MAX) {
-                    pcmTable = _table.getPCMData(voiceIndex);
-                    if (pcmTable) track.channel.setWaveData(pcmTable);
+                if (voice) {
+                    if (voice.updateTrackParamaters) {
+                        voice.updateTrackVoice(track);
+                        return null;
+                    } else {
+                        // this module changes only channel params, not track params.
+                        track.channel.setSiOPMChannelParam(voice.channelParam, false, false);
+                        track._resetVolumeOffset();
+                        return (voice.channelParam.initSequence.isEmpty()) ? null : voice.channelParam.initSequence;
+                    }
                 }
                 break;
             default:

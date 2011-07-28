@@ -41,13 +41,14 @@ package org.si.sion.sequencer.base {
         static public const SEQUENCE_TAIL:int = 27;
         static public const SYSTEM_EVENT :int = 28;
         static public const TABLE_EVENT  :int = 29;
-        static public const WAIT         :int = 30;
+        static public const GLOBAL_WAIT  :int = 30;
         static public const TEMPO        :int = 31;
         static public const TIMER        :int = 32;
         static public const REGISTER     :int = 33;
         static public const DEBUG_INFO   :int = 34;
         static public const INTERNAL_CALL:int = 35;
-        static public const DRIVER_NOTE  :int = 36;
+        static public const INTERNAL_WAIT:int = 36;
+        static public const DRIVER_NOTE  :int = 37;
         
         
         /** Event id for the first user defined command. */

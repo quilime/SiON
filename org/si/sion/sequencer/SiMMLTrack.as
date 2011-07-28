@@ -140,7 +140,7 @@ package org.si.sion.sequencer {
         private var _expression:int;     // expression[0-128]
         private var _pitchIndex:int;     // current pitch index
         private var _pitchBend:int;      // pitch bend
-        private var _tone:int;           // tone number
+        private var _voiceIndex:int;     // tone number
         private var _note:int;           // note number
         private var _defaultFPS:int;     // default fps
         /** @private [internal] channel number. */
@@ -153,7 +153,7 @@ package org.si.sion.sequencer {
 
         // envelop settings
         private var _set_env_exp:Vector.<SLLint>;
-        private var _set_env_tone:Vector.<SLLint>;
+        private var _set_env_voice:Vector.<SLLint>;
         private var _set_env_note:Vector.<SLLint>;
         private var _set_env_pitch:Vector.<SLLint>;
         private var _set_env_filter:Vector.<SLLint>;
@@ -161,7 +161,7 @@ package org.si.sion.sequencer {
         private var _pns_or:Vector.<Boolean>;
         
         private var _set_cnt_exp:Vector.<int>;
-        private var _set_cnt_tone:Vector.<int>;
+        private var _set_cnt_voice:Vector.<int>;
         private var _set_cnt_note:Vector.<int>;
         private var _set_cnt_pitch:Vector.<int>;
         private var _set_cnt_filter:Vector.<int>;
@@ -174,13 +174,13 @@ package org.si.sion.sequencer {
         
         // executing envelop
         private var _env_exp:SLLint;
-        private var _env_tone:SLLint;
+        private var _env_voice:SLLint;
         private var _env_note:SLLint;
         private var _env_pitch:SLLint;
         private var _env_filter:SLLint;
         
         private var _cnt_exp:int,    _max_cnt_exp:int;
-        private var _cnt_tone:int,   _max_cnt_tone:int;
+        private var _cnt_voice:int,  _max_cnt_voice:int;
         private var _cnt_note:int,   _max_cnt_note:int;
         private var _cnt_pitch:int,  _max_cnt_pitch:int;
         private var _cnt_filter:int, _max_cnt_filter:int;
@@ -319,7 +319,7 @@ package org.si.sion.sequencer {
         /** Channel number, set by 2nd argument of % command. Usually same as programNumber. @see programNumber */
         public function get channelNumber() : int { return _channelNumber; }
         /** Program number, set by 2nd argument of % command and 1st arg. of &#64; command. Usually same as channelNumber. @see channelNumber */
-        public function get programNumber() : int { return _tone; }
+        public function get programNumber() : int { return _voiceIndex; }
         
         /** output level = &#64;v * v * x. */
         public function get outputLevel() : Number {
@@ -355,14 +355,14 @@ package org.si.sion.sequencer {
             _set_processMode = new Vector.<int>(2, true);
             
             _set_env_exp    = new Vector.<SLLint>(2, true);
-            _set_env_tone   = new Vector.<SLLint>(2, true);
+            _set_env_voice  = new Vector.<SLLint>(2, true);
             _set_env_note   = new Vector.<SLLint>(2, true);
             _set_env_pitch  = new Vector.<SLLint>(2, true);
             _set_env_filter = new Vector.<SLLint>(2, true);
             _pns_or         = new Vector.<Boolean>(2, true);
             _set_exp_offset = new Vector.<Boolean>(2, true);
             _set_cnt_exp    = new Vector.<int>(2, true);
-            _set_cnt_tone   = new Vector.<int>(2, true);
+            _set_cnt_voice  = new Vector.<int>(2, true);
             _set_cnt_note   = new Vector.<int>(2, true);
             _set_cnt_pitch  = new Vector.<int>(2, true);
             _set_cnt_filter = new Vector.<int>(2, true);
@@ -391,7 +391,7 @@ package org.si.sion.sequencer {
         }
         
         
-        /** key on 
+        /** key on. SiONDriver.noteOn() calls this internally.
          *  @param note Note number
          *  @param tickLength note length in tick count.
          *  @param sampleDelay note delay in sample count.
@@ -404,7 +404,7 @@ package org.si.sion.sequencer {
         }
         
         
-        /** Force key off
+        /** Force key off. SiONDriver.noteOff() calls this internally.
          *  @param sampleDelay Delay time (in sample count).
          *  @param stopWithReset Stop with channel resetting.
          */
@@ -478,7 +478,9 @@ package org.si.sion.sequencer {
         
     // interfaces for mml command
     //--------------------------------------------------
-        /** Set note immediately. This function called from keyOn().
+        /** Set note immediately. 
+         *  The calling path : SiONDriver.noteOn() -> SiMMLTrack.keyOn() -> executor.singleNote() ->(waiting for MMLEvent.DRIVER_NOTE)
+         *  -> SiMMLSequencer._onDriverNoteOn() -> SiMMLTrack.setNote() -> SiMMLTrack._mmlKeyOn().
          *  @param note note number.
          *  @param sampleLength length in sample count. 0 sets no key off (=weak slur).
          *  @param slur set as slur.
@@ -497,12 +499,12 @@ package org.si.sion.sequencer {
         
         
         /** Set pitch bending.
-         *  @param noteTo Note number bending to.
-         *  @param tickLength length of the note after pitch bending.
+         *  @param noteFrom Note number bending from.
+         *  @param tickLength length of pitch bending.
          */
-        public function setPitchBend(noteTo:int, tickLength:int=0) : void
+        public function setPitchBend(noteFrom:int, tickLength:int) : void
         {
-            executor.bendingTo(noteTo, tickLength);
+            executor.bendingFrom(noteFrom, tickLength);
         }
         
         
@@ -517,11 +519,11 @@ package org.si.sion.sequencer {
             _channelModuleSetting = _table.channelModuleSetting[type];
             
             // reset operator pgType
-            _tone = _channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
+            _voiceIndex = _channelModuleSetting.initializeTone(this, channelNum, channel.bufferIndex);
             
             // select tone
             if (toneNum != -1) {
-                _tone = toneNum;
+                _voiceIndex = toneNum;
                 _channelModuleSetting.selectTone(this, toneNum);
             }
         }
@@ -639,11 +641,11 @@ package org.si.sion.sequencer {
         public function setToneEnvelop(noteOn:int, table:SiMMLEnvelopTable, step:int) : void
         {
             if (table==null || step==0) {
-                _set_env_tone[noteOn] = null;
+                _set_env_voice[noteOn] = null;
                 _envelopOff(noteOn);
             } else {
-                _set_env_tone[noteOn] = table.head;
-                _set_cnt_tone[noteOn] = step;
+                _set_env_voice[noteOn] = table.head;
+                _set_cnt_voice[noteOn] = step;
                 _envelopOn(noteOn);
             }
         }
@@ -774,7 +776,7 @@ package org.si.sion.sequencer {
             _pitchBend = 0;
             _note = -1;
             channel = null;
-            _tone = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
+            _voiceIndex = _channelModuleSetting.initializeTone(this, 0, bufferIndex);
             var tlTables:Vector.<Vector.<int>> = SiOPMTable.instance.eg_tlTables;
             channel.setVolumeTables(tlTables[_velocityMode], tlTables[_expressionMode]);
             
@@ -803,7 +805,7 @@ package org.si.sion.sequencer {
             _residue = 0;
             _priority = 0;
             _env_exp    = null;
-            _env_tone   = null;
+            _env_voice  = null;
             _env_note   = _env_zero_table;
             _env_pitch  = _env_zero_table;
             _env_filter = null;
@@ -814,14 +816,14 @@ package org.si.sion.sequencer {
             for (i=0; i<2; i++) {
                 _set_processMode[i] = NORMAL;
                 _set_env_exp[i]    = null;
-                _set_env_tone[i]   = null;
+                _set_env_voice[i]  = null;
                 _set_env_note[i]   = _env_zero_table;
                 _set_env_pitch[i]  = _env_zero_table;
                 _set_env_filter[i] = null;
                 _pns_or[i]         = false;
                 _set_exp_offset[i] = false;
                 _set_cnt_exp[i]    = 1;
-                _set_cnt_tone[i]   = 1;
+                _set_cnt_voice[i]  = 1;
                 _set_cnt_note[i]   = 1;
                 _set_cnt_pitch[i]  = 1;
                 _set_cnt_filter[i] = 1;
@@ -853,7 +855,7 @@ package org.si.sion.sequencer {
             // register all tables
             if (_mmlData) _mmlData._registerAllTables();
             else { // clear all stencil tables
-                SiOPMTable._instance.sampleTable.stencil = null;
+                SiOPMTable._instance.sampleTables[0].stencil = null;
                 SiOPMTable._instance._sion_internal::_stencilCustomWaveTables = null;
                 SiOPMTable._instance._sion_internal::_stencilPCMData          = null;
                 _table._stencilEnvelops = null;
@@ -998,10 +1000,10 @@ package org.si.sion.sequencer {
                 }
                 
                 // change tone
-                if (_env_tone && --_cnt_tone == 0) {
-                    _channelModuleSetting.selectTone(this, _env_tone.i);
-                    _env_tone = _env_tone.next;
-                    _cnt_tone = _max_cnt_tone;
+                if (_env_voice && --_cnt_voice == 0) {
+                    _channelModuleSetting.selectTone(this, _env_voice.i);
+                    _env_voice = _env_voice.next;
+                    _cnt_voice = _max_cnt_voice;
                 }
                 
                 // change modulations
@@ -1057,7 +1059,7 @@ package org.si.sion.sequencer {
                 // reset previous envelop
                 if (_processMode == ENVELOP) {
                     channel.offsetVolume(_expression, _velocity);
-                    _channelModuleSetting.selectTone(this, _tone);
+                    _channelModuleSetting.selectTone(this, _voiceIndex);
                     channel.offsetFilter(128);
                 }
                 // previous note off
@@ -1116,18 +1118,18 @@ package org.si.sion.sequencer {
             if (_processMode == ENVELOP) {
                 // set envelop tables
                 _env_exp    = _set_env_exp[keyOn];
-                _env_tone   = _set_env_tone[keyOn];
+                _env_voice  = _set_env_voice[keyOn];
                 _env_note   = _set_env_note[keyOn];
                 _env_pitch  = _set_env_pitch[keyOn];
                 _env_filter = _set_env_filter[keyOn];
                 // set envelop counters
                 _max_cnt_exp    = _set_cnt_exp[keyOn];
-                _max_cnt_tone   = _set_cnt_tone[keyOn];
+                _max_cnt_voice  = _set_cnt_voice[keyOn];
                 _max_cnt_note   = _set_cnt_note[keyOn];
                 _max_cnt_pitch  = _set_cnt_pitch[keyOn];
                 _max_cnt_filter = _set_cnt_filter[keyOn];
                 _cnt_exp    = 1;
-                _cnt_tone   = 1;
+                _cnt_voice  = 1;
                 _cnt_note   = 1;
                 _cnt_pitch  = 1;
                 _cnt_filter = 1;
@@ -1220,7 +1222,7 @@ package org.si.sion.sequencer {
             var ret:MMLSequence = null;
             if (param[0] != int.MIN_VALUE) {
                 ret = _channelModuleSetting.selectTone(this, param[0]);
-                _tone = param[0];
+                _voiceIndex = param[0];
             }
             channel.setParameters(param);
             return ret;
@@ -1278,7 +1280,7 @@ package org.si.sion.sequencer {
                 !_table_env_mp[noteOn]   && 
                 !_set_env_exp[noteOn]    && 
                 !_set_env_filter[noteOn] && 
-                !_set_env_tone[noteOn])
+                !_set_env_voice[noteOn])
             {
                 _set_processMode[noteOn] = NORMAL;
             }
