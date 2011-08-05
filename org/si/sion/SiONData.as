@@ -74,10 +74,32 @@ package org.si.sion {
         public function setSamplerWave(index:int, data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
         {
             var bank:int = (index>>SiOPMTable.NOTE_BITS) & (SiOPMTable.SAMPLER_TABLE_MAX-1);
-            return sampleTables[bank].setSample(new SiOPMWaveSamplerData(data, ignoreNoteOff, pan, srcChannelCount, channelCount), index & (SiOPMTable.NOTE_TABLE_SIZE-1));
+            return samplerTables[bank].setSample(new SiOPMWaveSamplerData(data, ignoreNoteOff, pan, srcChannelCount, channelCount), index & (SiOPMTable.NOTE_TABLE_SIZE-1));
         }
         
 
+        /** Set pcm voice 
+         *  @param index PCM data number.
+         *  @param voice pcm voice to set, ussualy from SiONSoundFont
+         *  @return cloned internal voice data
+         */
+        public function setPCMVoice(index:int, voice:SiONVoice) : void
+        {
+            pcmVoices[index & (pcmVoices.length-1)] = voice;
+        }
+        
+        
+        /** Set sampler table 
+         *  @param bank bank number
+         *  @param table sampler table class, ussualy from SiONSoundFont
+         *  @see SiONSoundFont
+         */
+        public function setSamplerTable(bank:int, table:SiOPMWaveSamplerTable) : void
+        {
+            samplerTables[bank & (samplerTables.length-1)] = table;
+        }
+        
+        
         /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setPCMWave instead of this function. @see #setPCMWave(). */
         public function setPCMData(index:int, data:Vector.<Number>, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127, isSourceDataStereo:Boolean=false) : SiOPMWavePCMData
         {

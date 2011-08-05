@@ -104,11 +104,12 @@ package org.si.sion.module.channels {
     // LFO settings
     //--------------------------------------------------
         /** initialize low frequency oscillator. and stop lfo
-         *  @param waveform LFO waveform. 0=saw, 1=pulse, 2=triangle, 3=noise.
+         *  @param waveform LFO waveform. 0=saw, 1=pulse, 2=triangle, 3=noise. -1 to set customized wave table
+         *  @param customWaveTable customized wave table, the length is 256 and the values are limited in the range of 0-255. This argument is available when waveform=-1.
          */
-        override public function initializeLFO(waveform:int) : void
+        override public function initializeLFO(waveform:int, customWaveTable:Vector.<int>=null) : void
         {
-            super.initializeLFO(waveform);
+            super.initializeLFO(waveform, customWaveTable);
             _lfoSwitch(false);
             _am_depth = 0;
             _pm_depth = 0;

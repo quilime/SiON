@@ -962,7 +962,7 @@ package org.si.sion.sequencer {
             if (SiOPMTable.instance.soundReference == null) return;
             var bank:int = (index>>SiOPMTable.NOTE_BITS) & (SiOPMTable.SAMPLER_TABLE_MAX-1);
             index &= (SiOPMTable.NOTE_TABLE_SIZE-1);
-            var table:SiOPMWaveSamplerTable = SiMMLData(mmlData).sampleTables[bank];
+            var table:SiOPMWaveSamplerTable = SiMMLData(mmlData).samplerTables[bank];
             Translator.parseSamplerWave(table, index, dat, SiOPMTable.instance.soundReference);
         }
         
@@ -1288,7 +1288,13 @@ package org.si.sion.sequencer {
         {
             // get parameters
             e = e.getParameters(_p, 2);
-            _currentTrack.channel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
+            if (_p[1] > 7 && _p[1] < 255) { // custom table
+                var env:SiMMLEnvelopTable = _table.getEnvelopTable(_p[1]);
+                if (env) _currentTrack.channel.initializeLFO(-1, env.toVector(256, 0, 255));
+                else _currentTrack.channel.initializeLFO(SiOPMTable.LFO_WAVE_TRIANGLE);
+            } else {
+                _currentTrack.channel.initializeLFO((_p[1] == int.MIN_VALUE) ? SiOPMTable.LFO_WAVE_TRIANGLE : _p[1]);
+            }
             _currentTrack.channel.setLFOCycleTime((_p[0] == int.MIN_VALUE) ? 333 : _p[0]*1000/60);
             return e.next;
         }

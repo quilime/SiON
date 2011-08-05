@@ -50,6 +50,38 @@ package org.si.sound.smf {
         static public const META_KEY_SIGNATURE:int = 0xff59;
         static public const META_SEQUENCER_SPEC:int = 0xff7f;
         
+        static public const CC_BANK_SELECT_MSB:int = 0;
+        static public const CC_BANK_SELECT_LSB:int = 32;
+        static public const CC_MODULATION:int = 1;
+        static public const CC_PORTAMENTO_TIME:int = 5;
+        static public const CC_DATA_ENTRY_MSB:int = 6;
+        static public const CC_DATA_ENTRY_LSB:int = 38;
+        static public const CC_VOLUME:int = 7;
+        static public const CC_BALANCE:int = 8;
+        static public const CC_PANPOD:int = 10;
+        static public const CC_EXPRESSION:int = 11;
+        static public const CC_SUSTAIN_PEDAL:int = 64;
+        static public const CC_PORTAMENTO:int = 65;
+        static public const CC_SOSTENUTO_PEDAL:int = 66;
+        static public const CC_SOFT_PEDAL:int = 67;
+        static public const CC_RESONANCE:int = 71;
+        static public const CC_RELEASE_TIME:int = 72;
+        static public const CC_ATTACK_TIME:int = 73;
+        static public const CC_CUTOFF_FREQ:int = 74;
+        static public const CC_DECAY_TIME:int = 75;
+        static public const CC_PROTAMENTO_CONTROL:int = 84;
+        static public const CC_REBERV_SEND:int = 91;
+        static public const CC_CHORUS_SEND:int = 93;
+        static public const CC_DELAY_SEND:int = 94;
+        static public const CC_NRPN_LSB:int = 98;
+        static public const CC_NRPN_MSB:int = 99;
+        static public const CC_RPN_LSB:int = 100;
+        static public const CC_RPN_MSB:int = 101;
+        
+        static public const RPN_PITCHBEND_SENCE:int = 0;
+        static public const RPN_FINE_TUNE:int = 1;
+        static public const RPN_COARSE_TUNE:int = 2;
+        
         static private var _noteText:Vector.<String> = Vector.<String>(["c ","c+","d ","d+","e ","f ","f+","g ","g+","a ","a+","b "]);
         
         
@@ -88,26 +120,35 @@ package org.si.sound.smf {
         /** toString */
         public function toString() : String
         {
-            switch(type) {
-            case NOTE_ON:
-                return (velocity > 0) ? _noteText[note % 12] + ":" + velocity : "";
-            case CONTROL_CHANGE:
-                return "CC:" + (value>>16) + " " + (value&0xffff) + " ";
-            case PROGRAM_CHANGE:
-                return "PC:" + value + " ";
-            case SYSTEM_EXCLUSIVE:
-            case SYSTEM_EXCLUSIVE_SHORT:
-                var text:String = "SX:";
-                if (byteArray) {
-                    byteArray.position = 0;
-                    while (byteArray.bytesAvailable>0) {
-                        text += byteArray.readUnsignedByte().toString(16)+" ";
-                    }
+            if (type & 0xff00) {
+                switch(type & 0xf0) {
+                case META_TEMPO:
+                    return "bpm(" + value.toString() + ")";
                 }
-                return text;
+            } else {
+                var ret:String = "ch" + (type & 15).toString() + ":", n:int, v:int;
+                switch(type & 0xf0) {
+                case NOTE_ON:
+                    return ret + "ON(" + note.toString() + ") " + velocity.toString();
+                case NOTE_OFF:
+                    return ret + "OF(" + note.toString() + ") " + velocity.toString();
+                case CONTROL_CHANGE:
+                    return ret + "CC(" + (value>>16).toString() + ") " + (value&0xffff).toString();
+                case PROGRAM_CHANGE:
+                    return ret + "PC(" + value.toString() + ") ";
+                case SYSTEM_EXCLUSIVE:
+                    var text:String = "SX:";
+                    if (byteArray) {
+                        byteArray.position = 0;
+                        while (byteArray.bytesAvailable>0) {
+                            text += byteArray.readUnsignedByte().toString(16)+" ";
+                        }
+                    }
+                    return ret + text;
+                }
             }
 
-            return "";
+            return ret + "#" + type.toString(16) + "(" + value.toString() + ")";
         }
         
         

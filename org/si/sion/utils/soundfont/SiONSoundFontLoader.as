@@ -21,7 +21,7 @@ package org.si.sion.utils.soundfont {
     {
     // variables
     //--------------------------------------------------
-        /** SiONSoundFont instance */
+        /** SiONSoundFont instance. this instance is available after finish loading. */
         public var soundFont:SiONSoundFont;
         
         // loaders
@@ -31,11 +31,30 @@ package org.si.sion.utils.soundfont {
         
         
         
+    // properties
+    //--------------------------------------------------
+        /** loaded size. */
+        public function get bytesLoaded() : Number 
+        {
+            return (_swfloader) ? _swfloader.contentLoaderInfo.bytesLoaded : (_binloader) ? _binloader.bytesLoaded : 0;
+        }
+        
+        
+        /** total size. */
+        public function get bytesTotal() : Number 
+        {
+            return (_swfloader) ? _swfloader.contentLoaderInfo.bytesTotal : (_binloader) ? _binloader.bytesTotal : 0;
+        }
+        
+        
+        
+        
     // constructor
     //--------------------------------------------------
         /** constructor */
         public function SiONSoundFontLoader()
         {
+            soundFont = null;
             _binloader = null;
             _swfloader = null;
         }
@@ -45,22 +64,28 @@ package org.si.sion.utils.soundfont {
         
     // operations
     //--------------------------------------------------
-        /** load sound font from url */
-        public function load(url:String, loadAsBinary:Boolean=true, checkPolicyFile:Boolean=false) : void
+        /** load sound font from url
+         *  @param url requesting url
+         *  @param loadAsBinary load soundfont swf as binary and convert to swf.
+         *  @param checkPolicyFile check policy file. this argument is ignored when loadAsBinary is true.
+         */
+        public function load(url:URLRequest, loadAsBinary:Boolean=true, checkPolicyFile:Boolean=false) : void
         {
             if (loadAsBinary) {
                 _addAllListeners(_binloader = new URLLoader());
                 _binloader.dataFormat = URLLoaderDataFormat.BINARY;
-                _binloader.load(new URLRequest(url));
+                _binloader.load(url);
             } else {
                 _swfloader = new Loader();
                 _addAllListeners(_swfloader.contentLoaderInfo);
-                _swfloader.load(new URLRequest(url), new LoaderContext(checkPolicyFile));
+                _swfloader.load(url, new LoaderContext(checkPolicyFile));
             }
         }
         
         
-        /** load sound font from binary */
+        /** load sound font from binary 
+         *  @param bytes ByteArray to load from.
+         */
         public function loadBytes(bytes:ByteArray) : void {
             _binloader = null;
             _swfloader = new Loader();
@@ -96,8 +121,10 @@ package org.si.sion.utils.soundfont {
         {
             _removeAllListeners();
             if (_binloader) loadBytes(_binloader.data);
-            else _analyze();
-            dispatchEvent(e.clone());
+            else {
+                _analyze();
+                dispatchEvent(e.clone());
+            }
         }
         
         
@@ -112,7 +139,7 @@ package org.si.sion.utils.soundfont {
         private function _analyze() : void
         {
             var container:SiONSoundFontContainer = _swfloader.content as SiONSoundFontContainer;
-            if (container) _onError(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "The sound font file is not valid."));
+            if (!container) _onError(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "The sound font file is not valid."));
             
             // create new sound font instance
             soundFont = new SiONSoundFont(container.sounds);

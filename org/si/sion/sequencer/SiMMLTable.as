@@ -12,7 +12,7 @@ package org.si.sion.sequencer {
     import org.si.sion.namespaces._sion_internal;
     
     
-    /** @private SiMML table */
+    /** table for sequencer */
     public class SiMMLTable
     {
     // constants

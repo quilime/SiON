@@ -13,10 +13,15 @@
 
 package org.si.sound.smf {
     import flash.utils.ByteArray;
+    import flash.net.*;
+    import flash.events.*;
+    import org.si.sion.*;
+    import org.si.sion.sequencer.*;
+    import org.si.sion.sequencer.base.*;
     
     
     /** Standard MIDI File class */
-    public class SMFData
+    public class SMFData extends EventDispatcher
     {
     // variables
     //--------------------------------------------------------------------------------
@@ -31,6 +36,7 @@ package org.si.sound.smf {
         public var signature_d:int = 0;
         public var tracks:Vector.<SMFTrack> = new Vector.<SMFTrack>();
         
+        private var _urlLoader:URLLoader;
         
         
         
@@ -41,7 +47,7 @@ package org.si.sound.smf {
         
         
         /** to string. */
-        public function toString():String
+        override public function toString():String
         {
             var text:String = "";
             text += "format : SMF" + format + "\n";
@@ -61,7 +67,7 @@ package org.si.sound.smf {
     //--------------------------------------------------------------------------------
         function SMFData()
         {
-            
+            clear();
         }
         
         
@@ -84,6 +90,20 @@ package org.si.sound.smf {
             tracks.length = 0;
             
             return this;
+        }
+        
+        
+        /** Load SMF file */
+        public function load(url:URLRequest) : void
+        {
+            var byteArray:ByteArray = new ByteArray();
+            _urlLoader = new URLLoader();
+            _urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
+            _urlLoader.addEventListener(Event.COMPLETE, _onComplete);
+            _urlLoader.addEventListener(ProgressEvent.PROGRESS, _onProgress);
+            _urlLoader.addEventListener(IOErrorEvent.IO_ERROR, _onError);
+            _urlLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, _onError);
+            _urlLoader.load(url);
         }
         
         
@@ -114,12 +134,47 @@ package org.si.sound.smf {
                     break;
                 }
             }
-            
+
             if (text == null) text = "";
             if (title == null) title = "";
             if (author == null) author = "";
             
+            dispatchEvent(new Event(Event.COMPLETE));
+            
             return this;
+        }
+        
+        
+        
+        
+    // internal use
+    //--------------------------------------------------
+        private function _onProgress(e:ProgressEvent) : void
+        {
+            dispatchEvent(e.clone());
+        }
+        
+        
+        private function _onComplete(e:Event) : void
+        {
+            _removeAllListeners();
+            loadBytes(_urlLoader.data);
+        }
+        
+        
+        private function _onError(e:ErrorEvent) : void
+        {
+            _removeAllListeners();
+            dispatchEvent(e.clone());
+        }
+        
+        
+        private function _removeAllListeners() : void
+        {
+            _urlLoader.removeEventListener(Event.COMPLETE, _onComplete);
+            _urlLoader.removeEventListener(ProgressEvent.PROGRESS, _onProgress);
+            _urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, _onError);
+            _urlLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, _onError);
         }
     }
 }

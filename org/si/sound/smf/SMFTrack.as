@@ -45,8 +45,7 @@ package org.si.sound.smf {
             var text:String = totalTime + "\n";
             
             for(var i:int = 0; i < sequence.length; i++) {
-                if(sequence[i].toString() == "") {continue;}
-                text += sequence[i].toString();
+                text += sequence[i].toString() + "\n";
             }
             
             return text;
@@ -68,6 +67,8 @@ package org.si.sound.smf {
             
             _exitLoop = false;
             eventType = -1;
+            bytes.position = 0;
+
             while (bytes.bytesAvailable > 0 && !_exitLoop) {
                 deltaTime = _readVariableLength(bytes);
                 time += deltaTime;
@@ -98,6 +99,7 @@ package org.si.sound.smf {
                         value = bytes.readUnsignedByte() | (bytes.readUnsignedByte()<<8);
                         break;
                     }
+                    
                     sequence.push(new SMFEvent(eventType, value, deltaTime, time));
                 }
             }
@@ -114,7 +116,7 @@ package org.si.sound.smf {
             var event:SMFEvent, value:int, text:String, 
                 metaEventType:int = bytes.readUnsignedByte() | 0xff00,
                 len:uint = _readVariableLength(bytes);
-            
+
             if ((metaEventType & 0x00f0) == 0) {
                 // meta text data
                 event = new SMFEvent(metaEventType, len, deltaTime, time);
@@ -144,6 +146,9 @@ package org.si.sound.smf {
                     bytes.position += 2;
                     sequence.push(event);
                     break;
+                case SMFEvent.META_PORT:
+                    value = bytes.readUnsignedByte();
+                    break;
                 case SMFEvent.META_TRACK_END:  
                     _exitLoop = true;
                     break;
@@ -159,11 +164,12 @@ package org.si.sound.smf {
         // read system exclusive data
         private function _readSystemExclusive(eventType:int, bytes:ByteArray, deltaTime:uint, time:uint) : Boolean
         {
-            if (eventType == SMFEvent.SYSTEM_EXCLUSIVE || eventType == SMFEvent.SYSTEM_EXCLUSIVE_SHORT) return false;
+            if (eventType != SMFEvent.SYSTEM_EXCLUSIVE && eventType != SMFEvent.SYSTEM_EXCLUSIVE_SHORT) return false;
             
             var event:SMFEvent = new SMFEvent(eventType, 0, deltaTime, time);
+            var len:int = _readVariableLength(bytes);
             event.byteArray = new ByteArray();
-            bytes.readBytes(event.byteArray, 0, _readVariableLength(bytes));
+            if (len > 0) bytes.readBytes(event.byteArray, 0, len);
             sequence.push(event);
             return true;
         }

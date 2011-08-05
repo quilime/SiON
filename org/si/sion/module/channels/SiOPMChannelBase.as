@@ -285,12 +285,19 @@ package org.si.sion.module.channels {
         }
         
         
-        /** initialize LFO (&#64;lfo). */
-        public function initializeLFO(waveform:int) : void
+        /** initialize LFO (&#64;lfo). 
+         *  @param waveform waveform number, -1 to set customized wave table
+         *  @param customWaveTable customized wave table, the length is 256 and the values are limited in the range of 0-255. This argument is available when waveform=-1.
+         */
+        public function initializeLFO(waveform:int, customWaveTable:Vector.<int>=null) : void
         {
-            waveform = (0<=waveform && waveform<=7) ? waveform : SiOPMTable.LFO_WAVE_TRIANGLE;
-            _lfo_waveTable = _table.lfo_waveTables[waveform];
-            _lfo_waveShape = waveform;
+            if (waveform == -1 && customWaveTable && customWaveTable.length == 256) {
+                _lfo_waveShape = -1;
+                _lfo_waveTable = customWaveTable;
+            } else {
+                _lfo_waveShape = (0<=waveform && waveform<=SiOPMTable.LFO_WAVE_MAX) ? waveform : SiOPMTable.LFO_WAVE_TRIANGLE;
+                _lfo_waveTable = _table.lfo_waveTables[_lfo_waveShape];
+            }
             _lfo_timer = 1;
             _lfo_timer_step_ = _lfo_timer_step = 0;
             _lfo_phase = 0;

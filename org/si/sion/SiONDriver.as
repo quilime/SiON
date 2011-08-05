@@ -22,6 +22,7 @@ package org.si.sion {
     import org.si.sion.sequencer.SiMMLTrack;
     import org.si.sion.sequencer.SiMMLEnvelopTable;
     import org.si.sion.sequencer.SiMMLTable;
+    import org.si.sion.sequencer.SiMMLVoice;
     import org.si.sion.module.ISiOPMWaveInterface;
     import org.si.sion.module.SiOPMTable;
     import org.si.sion.module.SiOPMModule;
@@ -34,7 +35,6 @@ package org.si.sion {
     import org.si.sion.effector.SiEffectModule;
     import org.si.sion.effector.SiEffectBase;
     import org.si.sion.utils.soundloader.SoundLoader;
-    import org.si.sion.utils.soundloader.SoundLoaderEvent;
     import org.si.sion.utils.SiONUtil;
     import org.si.sion.utils.Fader;
     import org.si.sion.namespaces._sion_internal;
@@ -610,8 +610,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             } else { // sound is SoundLoader
                 if (sound.loadingFileCount > 0) {
                     _loadingSoundList.push(sound);
-                    sound.addEventListener(SoundLoaderEvent.COMPLETE_ALL, _onSoundEvent, false, prior);
-                    sound.addEventListener(SoundLoaderEvent.ERROR,        _onSoundEvent, false, prior);
+                    sound.addEventListener(Event.COMPLETE,   _onSoundEvent, false, prior);
+                    sound.addEventListener(ErrorEvent.ERROR, _onSoundEvent, false, prior);
                 }
             }
         }
@@ -624,6 +624,13 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
             _loadingSoundList.length = 0;
         }
         
+        
+        /** Set Sound Reference Table refered from #SAMPLER and #PCMWAVE commands.
+         */
+        public function setSoudReferenceTable(soundReferenceTable:* = null) : void
+        {
+            SiOPMTable.instance.soundReference = soundReferenceTable || {};
+        }
         
         
         
@@ -819,7 +826,8 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
          */
         public function setPCMWave(index:int, data:*, samplingNote:Number=68, keyRangeFrom:int=0, keyRangeTo:int=127, srcChannelCount:int=2, channelCount:int=0) : SiOPMWavePCMData
         {
-            var pcmTable:SiOPMWavePCMTable = SiOPMTable._instance._getGlobalPCMWaveTable(index & (SiOPMTable.PCM_DATA_MAX-1));
+            var pcmVoice:SiMMLVoice = SiOPMTable._instance._getGlobalPCMVoice(index & (SiOPMTable.PCM_DATA_MAX-1));
+            var pcmTable:SiOPMWavePCMTable = pcmVoice.waveData as SiOPMWavePCMTable;
             return pcmTable.setSample(new SiOPMWavePCMData(data, int(samplingNote*64), srcChannelCount, channelCount), keyRangeFrom, keyRangeTo);
         }
         
@@ -838,6 +846,28 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         public function setSamplerWave(index:int, data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
         {
             return SiOPMTable._instance.registerSamplerData(index, data, ignoreNoteOff, pan, srcChannelCount, channelCount);
+        }
+        
+        
+        /** Set pcm voice 
+         *  @param index PCM data number.
+         *  @param voice pcm voice to set, ussualy from SiONSoundFont
+         *  @see SiONSoundFont
+         */
+        public function setPCMVoice(index:int, voice:SiONVoice) : void
+        {
+            SiOPMTable._instance._setGlobalPCMVoice(index & (SiOPMTable.PCM_DATA_MAX-1), voice);
+        }
+        
+        
+        /** Set sampler table 
+         *  @param bank bank number
+         *  @param table sampler table class, ussualy from SiONSoundFont
+         *  @see SiONSoundFont
+         */
+        public function setSamplerTable(bank:int, table:SiOPMWaveSamplerTable) : void
+        {
+            SiOPMTable._instance.samplerTables[bank & (SiOPMTable.SAMPLER_TABLE_MAX-1)] = table;
         }
         
         
@@ -1204,11 +1234,11 @@ driver.play("t100 l8 [ ccggaag4 ffeeddc4 | [ggffeed4]2 ]2");
         private function _onSoundEvent(e:Event) : void
         {
             if (e.target is Sound) {
-                e.target.removeEventListener(Event.COMPLETE, _onSoundEvent);
+                e.target.removeEventListener(Event.COMPLETE,        _onSoundEvent);
                 e.target.removeEventListener(IOErrorEvent.IO_ERROR, _onSoundEvent);
             } else { // e.target is SoundLoader
-                e.target.removeEventListener(SoundLoaderEvent.COMPLETE_ALL, _onSoundEvent);
-                e.target.removeEventListener(SoundLoaderEvent.ERROR,        _onSoundEvent);
+                e.target.removeEventListener(Event.COMPLETE,   _onSoundEvent);
+                e.target.removeEventListener(ErrorEvent.ERROR, _onSoundEvent);
             }
             var i:int = _loadingSoundList.indexOf(e.target);
             if (i != -1) _loadingSoundList.splice(i, 1);

@@ -337,7 +337,7 @@ package org.si.sion.sequencer {
         }
         
         /** @private [internal] priority number to overwrite when tracks are overflow. */
-        internal function get priority() : int {
+        public function get priority() : int {
             // not-disposable track or sequence playing track always returns highest priority
             if (!_isDisposable || isPlaySequence) return 0;
             return _priority;
@@ -419,6 +419,21 @@ package org.si.sion.sequencer {
                 if (_stopWithReset) channel.reset();
             }
             return this;
+        }
+        
+        
+        /** dispatch EventTrigger 
+         *  @param noteOn noteOn event or noteOff event
+         *  @return returns false when the event is prevented
+         */
+        public function dispatchEventTrigger(noteOn:Boolean) : Boolean
+        {
+            if (noteOn) {
+                if (_callbackBeforeNoteOn  != null) return _callbackBeforeNoteOn(this);
+            } else {
+                if (_callbackBeforeNoteOff != null) return _callbackBeforeNoteOff(this);
+            }
+            return false;
         }
         
         
@@ -855,9 +870,9 @@ package org.si.sion.sequencer {
             // register all tables
             if (_mmlData) _mmlData._registerAllTables();
             else { // clear all stencil tables
-                SiOPMTable._instance.sampleTables[0].stencil = null;
+                SiOPMTable._instance.samplerTables[0].stencil = null;
                 SiOPMTable._instance._sion_internal::_stencilCustomWaveTables = null;
-                SiOPMTable._instance._sion_internal::_stencilPCMData          = null;
+                SiOPMTable._instance._sion_internal::_stencilPCMVoices        = null;
                 _table._stencilEnvelops = null;
                 _table._stencilVoices   = null;
             }
@@ -1079,6 +1094,8 @@ package org.si.sion.sequencer {
                     _sweep_step  = ((_pitchIndex - oldPitch) << FIXED_BITS) / _set_sweep_step[1];
                     _sweep_end   = _pitchIndex << FIXED_BITS;
                     _sweep_pitch = oldPitch << FIXED_BITS;
+                } else {
+                    _sweep_pitch = channel.pitch << FIXED_BITS;
                 }
                 // try to set envelop off
                 _envelopOff(1);

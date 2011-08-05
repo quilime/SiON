@@ -277,11 +277,24 @@ package org.si.sion {
         public function setSamplerWave(index:int, data:*, ignoreNoteOff:Boolean=false, pan:int=0, srcChannelCount:int=2, channelCount:int=0) : SiOPMWaveSamplerData
         {
             moduleType = 10;
-            var sampleTable:SiOPMWaveSamplerTable = (waveData as SiOPMWaveSamplerTable) || new SiOPMWaveSamplerTable();
+            var samplerTable:SiOPMWaveSamplerTable = (waveData as SiOPMWaveSamplerTable) || new SiOPMWaveSamplerTable();
             var sampleData:SiOPMWaveSamplerData   = new SiOPMWaveSamplerData(data, ignoreNoteOff, pan, srcChannelCount, channelCount);
-            sampleTable.setSample(sampleData, index & (SiOPMTable.NOTE_TABLE_SIZE-1));
-            waveData = sampleTable;
+            samplerTable.setSample(sampleData, index & (SiOPMTable.NOTE_TABLE_SIZE-1));
+            waveData = samplerTable;
             return sampleData;
+        }
+        
+        
+        /** Set sampler table 
+         *  @param table sampler table class, ussualy get from SiONSoundFont
+         *  @return this instance
+         *  @see SiONSoundFont
+         */
+        public function setSamplerTable(table:SiOPMWaveSamplerTable) : SiONVoice
+        {
+            moduleType = 10;
+            waveData = table;
+            return this;
         }
         
         

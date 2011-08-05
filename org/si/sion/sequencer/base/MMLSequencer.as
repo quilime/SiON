@@ -494,14 +494,20 @@ package org.si.sion.sequencer.base {
                         e = e.next;
                     } else {
                         // others
+                        prev = e;
                         switch (e.id) {
                         case MMLEvent.REPEAT_BEGIN:  e = _tempExecutor._onRepeatBegin(e);  break;
-                        case MMLEvent.REPEAT_BREAK:  e = _tempExecutor._onRepeatBreak(e);  break;
-                        case MMLEvent.REPEAT_END:    e = _tempExecutor._onRepeatEnd(e);    break;
+                        case MMLEvent.REPEAT_BREAK:
+                            e = _tempExecutor._onRepeatBreak(e);
+                            if (prev.next != e) prev = prev.jump.jump;
+                            break;
+                        case MMLEvent.REPEAT_END:
+                            e = _tempExecutor._onRepeatEnd(e);
+                            if (prev.next != e) prev = prev.jump;
+                            break;
                         case MMLEvent.REPEAT_ALL:    e = _tempExecutor._onRepeatAll(e);    break;
                         case MMLEvent.SEQUENCE_TAIL: e = null;                             break;
                         default:
-                            prev = e;
                             e = e.next;
                             hasNoEvent = true;
                             break;

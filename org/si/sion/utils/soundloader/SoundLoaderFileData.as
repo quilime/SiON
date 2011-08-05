@@ -21,8 +21,17 @@ package org.si.sion.utils.soundloader {
     import org.si.sion.utils.PCMSample;
     
     
+    // Dispatching events
+    /** @eventType flash.events.Event.COMPLETE */
+    [Event(name="complete", type="flash.events.Event")]
+    /** @eventType flash.events.ErrorEvent.ERROR */
+    [Event(name="error",    type="flash.events.ErrorEvent")]
+    /** @eventType  flash.events.ProgressEvent.PROGRESS */
+    [Event(name="progress", type="flash.events.ProgressEvent")]
+    
+    
     /** File Data class for SoundLoader */
-    public class SoundLoaderFileData 
+    public class SoundLoaderFileData extends EventDispatcher
     {
     // valiables
     //----------------------------------------
@@ -41,34 +50,19 @@ package org.si.sion.utils.soundloader {
             "var" : "var",
             "ssf" : "ssf",
             "ssfpng" : "ssfpng",
-            "b2snd" : "b2snd"
+            "b2snd" : "b2snd",
+            "b2img" : "b2img"
         }
         
         
         private var _dataID:String;
         private var _content:*;
-        private var _url:String;
+        private var _urlRequest:URLRequest;
         private var _type:String;
         private var _checkPolicyFile:Boolean;
         private var _bytesLoaded:int, _bytesTotal:int;
         private var _loader:Loader, _sound:Sound, _urlLoader:URLLoader, _fontLoader:SiONSoundFontLoader, _byteArray:ByteArray;
         private var _soundLoader:SoundLoader;
-        
-        // SiON setting data
-        private var _target:ISiOPMWaveInterface;
-        private var _isPCM:Boolean;
-        private var _voiceIndex:int;
-        private var _startPoint:int;
-        private var _endPoint:int;
-        private var _loopPoint:int;
-        private var _channelCount:int;
-        // for PCM module
-        private var _samplingNote:Number;
-        private var _keyRangeFrom:int;
-        private var _keyRangeTo:int;
-        // for Sampler
-        private var _ignoreNoteOff:Boolean;
-        private var _pan:int;
         
         
         
@@ -79,8 +73,8 @@ package org.si.sion.utils.soundloader {
         public function get dataID() : String { return _dataID; }
         /** loaded data */
         public function get data() : * { return _content; }
-        /** url */
-        public function get url() : String { return _url; }
+        /** url string */
+        public function get urlString() : String { return (_urlRequest) ? _urlRequest.url : null; }
         /** data type */
         public function get type() : String { return _type; }
         /** loaded bytes */
@@ -94,11 +88,11 @@ package org.si.sion.utils.soundloader {
     // functions
     //----------------------------------------
         /** @private */
-        function SoundLoaderFileData(soundLoader:SoundLoader, id:String, url:String, byteArray:ByteArray, ext:String, checkPolicyFile:Boolean)
+        function SoundLoaderFileData(soundLoader:SoundLoader, id:String, urlRequest:URLRequest, byteArray:ByteArray, ext:String, checkPolicyFile:Boolean)
         {
             this._dataID = id;
             this._soundLoader = soundLoader;
-            this._url = url;
+            this._urlRequest = urlRequest;
             this._type = _ext2typeTable[ext];
             this._checkPolicyFile = checkPolicyFile;
             this._bytesLoaded = 0;
@@ -108,95 +102,6 @@ package org.si.sion.utils.soundloader {
             this._loader = null;
             this._urlLoader = null;
             this._byteArray = byteArray;
-            this._target = null;
-            this._startPoint = 0;
-            this._endPoint   = -1;
-            this._loopPoint  = -1;
-        }
-        
-        
-        
-        
-    // operation
-    //----------------------------------------
-        /** Set loading target, this function is for sound font type data.
-         *  @param loadingTarget instance to register loaded sound font, SiONDriver, SiONData and SiONVoice are valid object.
-         *  @return this instance, null when the data type is not matched
-         */
-        public function setLoadingTarget(loadingTarget:ISiOPMWaveInterface) : SoundLoaderFileData
-        {
-            if (_type != "ssf" && _type != "ssfpng") {
-                _soundLoader._onError(this);
-                return null;
-            }
-            _target = loadingTarget;
-            return this;
-        }
-        
-        
-        /** Set PCM wave data after loading, this function is for sound type data.
-         *  @param loadingTarget instance to register loaded wave, SiONDriver, SiONData and SiONVoice are valid object.
-         *  @param index PCM data number.
-         *  @param samplingNote Sampling wave's original note number
-         *  @param channelCount channel count of data, 1 for monoral, 2 for stereo.
-         *  @param keyRangeFrom Assigning key range starts from (not implemented in current version)
-         *  @param keyRangeTo Assigning key range ends at (not implemented in current version)
-         *  @param startPoint slicing point to start data. The -1 means skip head silence.
-         *  @param endPoint slicing point to end data, The negative value calculates from the end.
-         *  @param loopPoint slicing point to repeat data, -1 means no repeat, other negative value sets loop tail samples
-         *  @return this instance, null when the data type is not matched
-         *  @see #org.si.sion.module.SiOPMWavePCMData.maxSampleLengthFromSound
-         *  @see #org.si.sion.SiONDriver.render()
-         */
-        public function setPCMWave(loadingTarget:ISiOPMWaveInterface, index:int, samplingNote:Number=68, keyRangeFrom:int=0, keyRangeTo:int=127, channelCount:int=2, startPoint:int=-1, endPoint:int=-1, loopPoint:int=-1) : SoundLoaderFileData
-        {
-            if (_type != "mp3" || _type != "mp3bin" || _type != "b2snd" || _type != "wav") {
-                _soundLoader._onError(this);
-                return null;
-            }
-            _target = loadingTarget;
-            _voiceIndex = index;
-            _isPCM = true;
-            _channelCount = channelCount;
-            _samplingNote = samplingNote;
-            _keyRangeFrom = keyRangeFrom;
-            _keyRangeTo = keyRangeTo;
-            _startPoint = startPoint;
-            _endPoint   = endPoint;
-            _loopPoint  = loopPoint;
-            return this;
-        }
-        
-        
-        /** Set sampler wave data after loading, this function is for sound type data.
-         *  @param loadingTarget instance to register loaded wave, SiONDriver, SiONData and SiONVoice are valid object.
-         *  @param index note number. 0-127 for bank0, 128-255 for bank1.
-         *  @param ignoreNoteOff True to set ignoring note off (one shot).
-         *  @param pan pan of this sample [-64 - 64].
-         *  @param channelCount channel count of data, 1 for monoral, 2 for stereo.
-         *  @param startPoint slicing point to start data. The -1 means skip head silence.
-         *  @param endPoint slicing point to end data, The negative value calculates from the end.
-         *  @param loopPoint slicing point to repeat data, -1 means no repeat
-         *  @return this instance, null when the data type is not matched
-         *  @see #org.si.sion.module.SiOPMWaveSamplerData.extractThreshold
-         *  @see #org.si.sion.SiONDriver.render()
-         */
-        public function setSamplerWave(loadingTarget:ISiOPMWaveInterface, index:int, ignoreNoteOff:Boolean=false, pan:int=0, channelCount:int=2, startPoint:int=-1, endPoint:int=-1, loopPoint:int=-1) : SoundLoaderFileData
-        {
-            if (_type != "mp3" || _type != "mp3bin" || _type != "b2snd" || _type != "wav") {
-                _soundLoader._onError(this);
-                return null;
-            }
-            _target = loadingTarget;
-            _voiceIndex = index;
-            _isPCM = false;
-            _channelCount = channelCount;
-            _ignoreNoteOff = ignoreNoteOff;
-            _pan = pan;
-            _startPoint = startPoint;
-            _endPoint   = endPoint;
-            _loopPoint  = loopPoint;
-            return this;
         }
         
         
@@ -207,45 +112,48 @@ package org.si.sion.utils.soundloader {
         /** @private */
         internal function load() : Boolean
         {
-            if (_content) {
-                _setDataToLoadingTarget();
-                return false;
-            }
+            // already loaded
+            if (_content) return false;
             
             switch (_type) {
             case "mp3":
                 _addAllListeners(_sound = new Sound());
-                _sound.load(new URLRequest(_url), new SoundLoaderContext(1000, _checkPolicyFile));
+                _sound.load(_urlRequest, new SoundLoaderContext(1000, _checkPolicyFile));
                 break;
             case "img":
             case "ssfpng":
                 _loader = new Loader();
                 _addAllListeners(_loader.contentLoaderInfo);
-                _loader.load(new URLRequest(_url), new LoaderContext(_checkPolicyFile));
+                _loader.load(_urlRequest, new LoaderContext(_checkPolicyFile));
                 break;
             case "txt":
                 _addAllListeners(_urlLoader = new URLLoader());
                 _urlLoader.dataFormat = URLLoaderDataFormat.TEXT;
-                _urlLoader.load(new URLRequest(_url));
+                _urlLoader.load(_urlRequest);
                 break;
             case "mp3bin":
             case "bin":
             case "wav":
                 _addAllListeners(_urlLoader = new URLLoader());
                 _urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-                _urlLoader.load(new URLRequest(_url));
+                _urlLoader.load(_urlRequest);
                 break;
             case "var":
                 _addAllListeners(_urlLoader = new URLLoader());
                 _urlLoader.dataFormat = URLLoaderDataFormat.VARIABLES;
-                _urlLoader.load(new URLRequest(_url));
+                _urlLoader.load(_urlRequest);
                 break;
             case "ssf":
                 _addAllListeners(_fontLoader = new SiONSoundFontLoader());
-                _fontLoader.load(_url);
+                _fontLoader.load(_urlRequest);
                 break;
             case "b2snd":
                 SoundClass.loadMP3FromByteArray(_byteArray, __loadMP3FromByteArray_onComplete);
+                break;
+            case "b2img":
+                _loader = new Loader();
+                _addAllListeners(_loader.contentLoaderInfo);
+                _loader.loadBytes(_byteArray);
                 break;
             default:
                 break;
@@ -295,6 +203,7 @@ package org.si.sion.utils.soundloader {
         
         private function _onProgress(e:ProgressEvent) : void
         {
+            dispatchEvent(e.clone());
             _soundLoader._onProgress(this, e.bytesLoaded - _bytesLoaded, e.bytesTotal - _bytesTotal);
             _bytesLoaded = e.bytesLoaded;
             _bytesTotal = e.bytesTotal;
@@ -318,7 +227,6 @@ package org.si.sion.utils.soundloader {
             switch (_type) {
             case "mp3":
                 _content = _sound;
-                _setDataToLoadingTarget();
                 _soundLoader._onComplete(this);
                 break;
             case "wav":
@@ -327,7 +235,6 @@ package org.si.sion.utils.soundloader {
                 pcmSample = new PCMSample().loadWaveFromByteArray(_urlLoader.data); 
                 PCMSample.basicInfoChunkID = currentBICID;
                 _content = pcmSample;
-                _setDataToLoadingTarget();
                 _soundLoader._onComplete(this);
                 break;
             case "mp3bin":
@@ -343,6 +250,7 @@ package org.si.sion.utils.soundloader {
                 
             // for ordinary purpose
             case "img":
+            case "b2img":
                 _content = _loader.content;
                 _soundLoader._onComplete(this);
                 break;
@@ -356,47 +264,6 @@ package org.si.sion.utils.soundloader {
         }
         
         
-        // set data to loading target
-        private function _setDataToLoadingTarget() : void
-        {
-            switch (_type) {
-            case "mp3":
-            case "mp3bin":
-            case "b2snd":
-                _setSoundToLoadingTarget(_content);
-                break;
-            case "wav":
-                _setSoundToLoadingTarget(_content.samples, _content.channels);
-                break;
-            case "ssf":
-            case "ssfpng":
-                _setSoundFontToLoadingTarget(_content as SiONSoundFont);
-                break;
-            }
-        }
-        
-        
-        private function _setSoundToLoadingTarget(data:*, srcChannelCount:int=2) : void 
-        {
-            if (_target) {
-                if (_isPCM) {
-                    var pcm:SiOPMWavePCMData = _target.setPCMWave(_voiceIndex, data, _samplingNote, _keyRangeFrom, _keyRangeTo, srcChannelCount, _channelCount);
-                    pcm.slice(_startPoint, _endPoint, _loopPoint);
-                } else {
-                    var sample:SiOPMWaveSamplerData = _target.setSamplerWave(_voiceIndex, data, _ignoreNoteOff, _pan, srcChannelCount, _channelCount);
-                    sample.slice(_startPoint, _endPoint, _loopPoint);
-                }
-            }
-            _target = null;
-        }
-        
-        
-        private function _setSoundFontToLoadingTarget(ssf:SiONSoundFont) : void 
-        {
-            _target;
-        }
-        
-        
         private function _onError(e:ErrorEvent) : void
         {
             _removeAllListeners();
@@ -407,7 +274,6 @@ package org.si.sion.utils.soundloader {
         private function __loadMP3FromByteArray_onComplete(sound:Sound) : void
         {
             _content = sound;
-            _setDataToLoadingTarget();
             _soundLoader._onComplete(this);
         }
         
@@ -426,14 +292,13 @@ package org.si.sion.utils.soundloader {
         private function __convertB2SF_onComplete(e:Event) : void
         { 
             _content = _fontLoader.soundFont;
-            _setDataToLoadingTarget();
             _soundLoader._onComplete(this);
         }
         
         
         private function __errorCallback(e:ErrorEvent) : void
         {
-            _soundLoader._onError(this);
+            _soundLoader._onError(this, e.toString());
         }
     }
 }

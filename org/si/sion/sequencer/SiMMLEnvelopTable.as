@@ -54,6 +54,28 @@ package org.si.sion.sequencer {
         
     // operations
     //--------------------------------------------------------------------------------
+        /** convert to Vector.<int> */
+        public function toVector(length:int, min:int=-65536, max:int=65536, dst:Vector.<int>=null) : Vector.<int>
+        {
+            if (!dst) dst = new Vector.<int>();
+            dst.length = length;
+            var i:int, n:int, ptr:SLLint=head;
+            for (i=0; i<length; i++) {
+                if (ptr) {
+                    n = ptr.i;
+                    ptr = ptr.next;
+                } else {
+                    n = 0;
+                }
+                if (n < min) n = min;
+                else if (n > max) n = max;
+                dst[i] = n;
+            }
+            return dst;
+        }
+        
+        
+        
         /** free */
         public function free() : void
         {
@@ -66,7 +88,9 @@ package org.si.sion.sequencer {
         }
         
         
-        /** copy */
+        /** copy 
+         *  @return this instance
+         */
         public function copyFrom(src:SiMMLEnvelopTable) : SiMMLEnvelopTable
         {
             free();

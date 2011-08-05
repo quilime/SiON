@@ -125,6 +125,7 @@ package org.si.sion.module {
         static public const LFO_WAVE_SQUARE  :int = 1;
         static public const LFO_WAVE_TRIANGLE:int = 2;
         static public const LFO_WAVE_NOISE   :int = 3;
+        static public const LFO_WAVE_MAX     :int = 8;
         
         
         
@@ -233,7 +234,7 @@ package org.si.sion.module {
         /** PG:Wave tables */
         public var waveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:Sampler table */
-        public var sampleTables:Vector.<SiOPMWaveSamplerTable> = null;
+        public var samplerTables:Vector.<SiOPMWaveSamplerTable> = null;
         /** PG:Custom wave tables */
         private var _customWaveTables:Vector.<SiOPMWaveTable> = null;
         /** PG:Overriding custom wave tables */
@@ -653,7 +654,7 @@ package org.si.sion.module {
             noWaveTable = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_PCM);
             noWaveTableOPM = SiOPMWaveTable.alloc(Vector.<int>([calcLogTableIndex(1)]), PT_OPM);
             waveTables = new Vector.<SiOPMWaveTable>(DEFAULT_PG_MAX);
-            sampleTables = new Vector.<SiOPMWaveSamplerTable>(SAMPLER_TABLE_MAX);
+            samplerTables = new Vector.<SiOPMWaveSamplerTable>(SAMPLER_TABLE_MAX);
             _customWaveTables = new Vector.<SiOPMWaveTable>(WAVE_TABLE_MAX);
             _pcmVoices = new Vector.<SiMMLVoice>(PCM_DATA_MAX);
             
@@ -662,7 +663,7 @@ package org.si.sion.module {
             for (i=0; i<DEFAULT_PG_MAX;    i++) waveTables[i] = noWaveTable;
             for (i=0; i<WAVE_TABLE_MAX;    i++) _customWaveTables[i] = null;
             for (i=0; i<PCM_DATA_MAX;      i++) _pcmVoices[i]        = null;
-            for (i=0; i<SAMPLER_TABLE_MAX; i++) sampleTables[i] = (new SiOPMWaveSamplerTable()).clear();
+            for (i=0; i<SAMPLER_TABLE_MAX; i++) samplerTables[i] = (new SiOPMWaveSamplerTable()).clear();
             
             _stencilCustomWaveTables = null;
             _stencilPCMVoices = null;
@@ -1063,7 +1064,7 @@ package org.si.sion.module {
                 lfo_timerSteps[i] = ((t << (LFO_FIXED_BITS-4)) * clock_ratio / (8 << s)) >> CLOCK_RATIO_BITS; // 4 from fmgen, 8 from x68sound.
             }
             
-            lfo_waveTables = new Array(8);    // [0, 255]
+            lfo_waveTables = new Array(LFO_WAVE_MAX);    // [0, 255]
             
             // LFO_TABLE_SIZE = 256 cannot be changed !!
             // saw wave
@@ -1189,9 +1190,11 @@ package org.si.sion.module {
                     _pcmVoices[i] = null;
                 }
             }
+            /*
             for (i=0; i<SAMPLER_TABLE_MAX; i++) { 
-                sampleTables[i]._siopm_module_internal::_free();
+                samplerTables[i]._siopm_module_internal::_free();
             }
+            */
             _stencilCustomWaveTables = null;
             _stencilPCMVoices = null;
         }
@@ -1219,19 +1222,30 @@ package org.si.sion.module {
         _sion_internal function registerSamplerData(index:int, table:*, ignoreNoteOff:Boolean, pan:int, srcChannelCount:int, channelCount:int) : SiOPMWaveSamplerData
         {
             var bank:int = (index>>NOTE_BITS) & (SAMPLER_TABLE_MAX-1);
-            return sampleTables[bank].setSample(new SiOPMWaveSamplerData(table, ignoreNoteOff, pan, srcChannelCount, channelCount), index & (SAMPLER_DATA_MAX-1));
+            return samplerTables[bank].setSample(new SiOPMWaveSamplerData(table, ignoreNoteOff, pan, srcChannelCount, channelCount), index & (SAMPLER_DATA_MAX-1));
+        }
+        
+        
+        /** @private [internal use] set global PCM wave table. call from SiONDriver.setPCMWave() */
+        _sion_internal function _setGlobalPCMVoice(index:int, voice:SiMMLVoice) : SiMMLVoice
+        {
+            // register PCM data
+            index &= PCM_DATA_MAX-1;
+            if (_pcmVoices[index] == null) _pcmVoices[index] = new SiMMLVoice();
+            _pcmVoices[index].copyFrom(voice);
+            return _pcmVoices[index];
         }
         
         
         /** @private [internal use] get global PCM wave table. call from SiONDriver.setPCMWave() */
-        _sion_internal function _getGlobalPCMWaveTable(index:int) : SiOPMWavePCMTable
+        _sion_internal function _getGlobalPCMVoice(index:int) : SiMMLVoice
         {
             // register PCM data
             index &= PCM_DATA_MAX-1;
             if (_pcmVoices[index] == null) {
                 _pcmVoices[index] = new SiMMLVoice()._newBlankPCMVoice(index);
             }
-            return _pcmVoices[index].waveData as SiOPMWavePCMTable;
+            return _pcmVoices[index];
         }
         
         

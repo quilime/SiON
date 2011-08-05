@@ -21,7 +21,7 @@ package org.si.sion.module.channels {
         
         /** expression */    protected var _expression:Number;
         
-        /** sample table */  protected var _sampleTable:SiOPMWaveSamplerTable;
+        /** sample table */  protected var _samplerTable:SiOPMWaveSamplerTable;
         /** sample table */  protected var _sampleData :SiOPMWaveSamplerData;
         /** sample index */  protected var _sampleIndex:int;
         /** phase reset */   protected var _sampleStartPhase:int;
@@ -125,7 +125,7 @@ package org.si.sion.module.channels {
         
         /** Set wave data. */
         override public function setWaveData(waveData:SiOPMWaveBase) : void {
-            _sampleTable = waveData as SiOPMWaveSamplerTable;
+            _samplerTable = waveData as SiOPMWaveSamplerTable;
             _sampleData  = waveData as SiOPMWaveSamplerData;
         }
         
@@ -166,7 +166,7 @@ package org.si.sion.module.channels {
             _waveNumber = -1;
             _samplePan = 0;
             
-            _sampleTable = _table.sampleTables[0];
+            _samplerTable = _table.samplerTables[0];
             _sampleData = null;
             
             _sampleIndex = 0;
@@ -179,7 +179,7 @@ package org.si.sion.module.channels {
         override public function noteOn() : void
         {
             if (_waveNumber >= 0) {
-                if (_sampleTable) _sampleData = _sampleTable.getSample(_waveNumber & 127);
+                if (_samplerTable) _sampleData = _samplerTable.getSample(_waveNumber & 127);
                 if (_sampleData && _sampleStartPhase!=255) {
                     _sampleIndex = _sampleData.getInitialSampleIndex(_sampleStartPhase * 0.00390625); // 1/256
                     _samplePan = _pan + _sampleData.pan;
@@ -199,7 +199,7 @@ package org.si.sion.module.channels {
                 if (!_sampleData.ignoreNoteOff) {
                     _isNoteOn = false;
                     _isIdling = true;
-                    if (_sampleTable) _sampleData = null;
+                    if (_samplerTable) _sampleData = null;
                 }
             }
         }
@@ -285,7 +285,7 @@ package org.si.sion.module.channels {
                 // note off when processed length less than whole length
                 if (processed < len) {
                     _isIdling = true;
-                    if (_sampleTable) _sampleData = null;
+                    if (_samplerTable) _sampleData = null;
                     //_nop(len - processed);
                 }
             }

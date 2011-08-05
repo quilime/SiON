@@ -42,6 +42,21 @@ package org.si.sion.module {
         }
         
         
+        /** copy 
+         *  @return this instance
+         */
+        public function copyFrom(src:SiOPMWaveTable) : SiOPMWaveTable
+        {
+            var i:int, imax:int = src.wavelet.length;
+            this.wavelet = new Vector.<int>(imax);
+            for (i=0; i<imax; i++) this.wavelet[i] = src.wavelet[i];
+            this.fixedBits = src.fixedBits;
+            this.defaultPTType = src.defaultPTType;
+            
+            return this;
+        }
+        
+        
         /** free. */
         public function free() : void
         {

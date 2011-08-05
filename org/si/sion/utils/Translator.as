@@ -1713,12 +1713,22 @@ package org.si.sion.utils {
             var table:SiOPMWavePCMTable = voice.waveData as SiOPMWavePCMTable;
             if (!table) return false;
             var args:Array = mml.split(/\s*,\s*/g),
-                volumeNoteNumber:int  = (args[0] != undefined && args[0] != "") ? args[0] : 64, 
-                volumeKeyRange:Number = (args[1] != undefined && args[1] != "") ? args[1] : 0, 
-                volumeRange:Number    = (args[2] != undefined && args[2] != "") ? args[2] : 0, 
-                panNoteNumber:int     = (args[3] != undefined && args[3] != "") ? args[3] : 64, 
-                panKeyRange:Number    = (args[4] != undefined && args[4] != "") ? args[4] : 0, 
-                panWidth:Number       = (args[5] != undefined && args[5] != "") ? args[5] : 0;
+                volumeNoteNumber:int  = (args[0]  != undefined && args[0]  != "") ? args[0] : 64, 
+                volumeKeyRange:Number = (args[1]  != undefined && args[1]  != "") ? args[1] : 0, 
+                volumeRange:Number    = (args[2]  != undefined && args[2]  != "") ? args[2] : 0, 
+                panNoteNumber:int     = (args[3]  != undefined && args[3]  != "") ? args[3] : 64, 
+                panKeyRange:Number    = (args[4]  != undefined && args[4]  != "") ? args[4] : 0, 
+                panWidth:Number       = (args[5]  != undefined && args[5]  != "") ? args[5] : 0,
+                dr:int                = (args[7]  != undefined && args[7]  != "") ? args[7] : 0,
+                sr:int                = (args[8]  != undefined && args[8]  != "") ? args[8] : 0,
+                rr:int                = (args[9]  != undefined && args[9]  != "") ? args[9] : 63,
+                sl:int                = (args[10] != undefined && args[10] != "") ? args[10] : 0;
+            var opp:SiOPMOperatorParam = voice.channelParam.operatorParam[0];
+            opp.ar = (args[6]  != undefined && args[6]  != "") ? args[6]  : 63;
+            opp.dr = (args[7]  != undefined && args[7]  != "") ? args[7]  : 0;
+            opp.sr = (args[8]  != undefined && args[8]  != "") ? args[8]  : 0;
+            opp.rr = (args[9]  != undefined && args[9]  != "") ? args[9]  : 63;
+            opp.sl = (args[10] != undefined && args[10] != "") ? args[10] : 0;
             table.setKeyScaleVolume(volumeNoteNumber, volumeKeyRange, volumeRange);
             table.setKeyScalePan(panNoteNumber, panKeyRange, panWidth);
             parseVoiceSetting(voice, postfix, envelopes);

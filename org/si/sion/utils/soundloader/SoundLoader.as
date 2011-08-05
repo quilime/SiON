@@ -9,22 +9,23 @@
 
 package org.si.sion.utils.soundloader {
     import flash.events.*;
+    import flash.net.URLRequest;
     import flash.media.Sound;
     import flash.utils.ByteArray;
     
     
     // Dispatching events
-    /** @eventType org.si.sion.utils.SoundLoaderEvent.COMPLETE_ALL */
-    [Event(name="completeAll",      type="org.si.sion.utils.SoundLoaderEvent")]
-    /** @eventType org.si.sion.utils.SoundLoaderEvent.COMPLETE */
-    [Event(name="complete",         type="org.si.sion.utils.SoundLoaderEvent")]
-    /** @eventType org.si.sion.utils.SoundLoaderEvent.ERROR */
-    [Event(name="soundLoaderError", type="org.si.sion.utils.SoundLoaderEvent")]
+    /** @eventType flash.events.Event.COMPLETE */
+    [Event(name="complete", type="flash.events.Event")]
+    /** @eventType flash.events.ErrorEvent.ERROR */
+    [Event(name="error",    type="flash.events.ErrorEvent")]
+    /** @eventType  flash.events.ProgressEvent.PROGRESS */
+    [Event(name="progress", type="flash.events.ProgressEvent")]
+    
     
     
     /** Sound Loader.</br> 
      *  SoundLoader.setURL() to set loading url, SoundLoader.loadAll() to load all files and SoundLoader.hash to access all loaded files.</br>
-     *  @see SoundLoaderEvent
      *  @see #setURL()
      *  @see #loadAll()
      *  @see #hash
@@ -135,44 +136,58 @@ package org.si.sion.utils.soundloader {
         
     // operation
     //------------------------------------------------------------
-        /** set sound or swf file's url 
-         *  @param url url of file
+        /** set loading file's urls.
+         *  @param url requesting url
          *  @param id access key of SoundLoder.hash. null to set same as file name (without path, with extension).
          *  @param type file type, "mp3", "wav", "ssf", "ssfpng" or "mp3bin" is available, null to detect automatically by file extension. ("swf", "png", "gif", "jpg", "img", "bin", "txt" and "var" are available for non-sound files).
          *  @param checkPolicyFile LoaderContext.checkPolicyFile
          *  @return SoundLoaderFileData instance. SoundLoaderFileData is information class of loading file.
          */
-        public function setURL(url:String, id:String=null, type:String=null, checkPolicyFile:Boolean=false) : SoundLoaderFileData
+        public function setURL(urlRequest:URLRequest, id:String=null, type:String=null, checkPolicyFile:Boolean=false) : SoundLoaderFileData
         {
-            var lastDotIndex:int = url.lastIndexOf('.'), lastSlashIndex:int = url.lastIndexOf('/'), fileData:SoundLoaderFileData;
+            var urlString:String = urlRequest.url;
+            var lastDotIndex:int = urlString.lastIndexOf('.'), lastSlashIndex:int = urlString.lastIndexOf('/'), fileData:SoundLoaderFileData;
             if (lastSlashIndex == -1) lastSlashIndex = 0;
-            if (lastDotIndex < lastSlashIndex) lastDotIndex = url.length;
-            if (id == null) id = url.substr(lastSlashIndex);
-            if (_rememberHistory && id in _loadedFileData && _loadedFileData[id].url == url) {
+            if (lastDotIndex < lastSlashIndex) lastDotIndex = urlString.length;
+            if (id == null) id = urlString.substr(lastSlashIndex);
+            if (_rememberHistory && id in _loadedFileData && _loadedFileData[id].urlString == urlString) {
                 fileData = _loadedFileData[id];
             } else {
-                if (type == null) type = url.substr(lastDotIndex + 1);
+                if (type == null) type = urlString.substr(lastDotIndex + 1);
                 if (_loadImgFileAsSoundFont) {
                     if (type == 'swf') type = 'ssf';
                     else if (type == 'png') type = 'ssfpng';
                 }
                 if (_loadMP3FileAsBinary && type == 'mp3') type = 'mp3bin';
-                if (!(type in SoundLoaderFileData._ext2typeTable)) throw new Error("unknown file type. : " + url);
-                fileData = new SoundLoaderFileData(this, id, url, null, type, checkPolicyFile);
+                if (!(type in SoundLoaderFileData._ext2typeTable)) throw new Error("unknown file type. : " + urlString);
+                fileData = new SoundLoaderFileData(this, id, urlRequest, null, type, checkPolicyFile);
             }
             _preserveList.push(fileData);
             return fileData;
         }
         
         
-        /** set ByteArray convert to Sound
+        /** ByteArray convert to Sound
          *  @param byteArray ByteArray to convert
          *  @param id access key of SoundLoder.hash
          *  @return SoundLoaderFileData instance. SoundLoaderFileData is information class of loading file.
          */
         public function setByteArraySound(byteArray:ByteArray, id:String) : SoundLoaderFileData
         {
-            var fileData:SoundLoaderFileData = new SoundLoaderFileData(this, id, "", byteArray, "b2snd", false);
+            var fileData:SoundLoaderFileData = new SoundLoaderFileData(this, id, null, byteArray, "b2snd", false);
+            _preserveList.push(fileData);
+            return fileData;
+        }
+        
+        
+        /** ByteArray convert to Loader (image and swf)
+         *  @param byteArray ByteArray to convert
+         *  @param id access key of SoundLoder.hash
+         *  @return SoundLoaderFileData instance. SoundLoaderFileData is information class of loading file.
+         */
+        public function setByteArrayImage(byteArray:ByteArray, id:String) : SoundLoaderFileData
+        {
+            var fileData:SoundLoaderFileData = new SoundLoaderFileData(this, id, null, byteArray, "b2img", false);
             _preserveList.push(fileData);
             return fileData;
         }
@@ -186,9 +201,15 @@ package org.si.sion.utils.soundloader {
             var count:int = 0;
             for (var i:int=0; i<_preserveList.length; i++) {
                 if (_preserveList[i].load()) count++;
+                else _preserveList[i].dispatchEvent(new Event(Event.COMPLETE, false, false));
             }
-            _preserveList.length = 0;
-            _loadingFileCount += count;
+            
+            if (_loadingFileCount + count > 0) {
+                _preserveList.length = 0;
+                _loadingFileCount += count;
+            } else {
+                dispatchEvent(new Event(Event.COMPLETE, false, false));
+            }
             return count;
         }
         
@@ -209,25 +230,27 @@ package org.si.sion.utils.soundloader {
         internal function _onComplete(fileData:SoundLoaderFileData) : void
         {
             if (fileData.dataID) {
+                if (!(fileData.dataID in _loaded)) _loadedFileCount++;
                 _loadedFileData[fileData.dataID] = fileData;
                 _loaded[fileData.dataID] = fileData.data;
             }
-            _loadedFileCount++;
-            dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE, this, fileData));
+            fileData.dispatchEvent(new Event(Event.COMPLETE, false, false));
             if (--_loadingFileCount == 0) {
                 _bytesLoaded = _bytesTotal;
-                dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE_ALL, this, fileData));
+                dispatchEvent(new Event(Event.COMPLETE, false, false));
             }
         }
         
         /** @private */
-        internal function _onError(fileData:SoundLoaderFileData) : void
+        internal function _onError(fileData:SoundLoaderFileData, message:String) : void
         {
+            var errorMessage:String =  "SoundLoader Error on " + fileData.dataID + " : " + message;
             _errorFileCount++;
-            dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.ERROR, this, fileData));
+            fileData.dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, errorMessage));
+            dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, errorMessage));
             if (--_loadingFileCount == 0) {
                 _bytesLoaded = _bytesTotal;
-                dispatchEvent(new SoundLoaderEvent(SoundLoaderEvent.COMPLETE_ALL, this, fileData));
+                dispatchEvent(new Event(Event.COMPLETE, false, false));
             }
         }
     }

@@ -35,7 +35,7 @@ package org.si.sion.sequencer {
         public var pcmVoices:Vector.<SiMMLVoice>;
         
         /** wave data */
-        public var sampleTables:Vector.<SiOPMWaveSamplerTable>;
+        public var samplerTables:Vector.<SiOPMWaveSamplerTable>;
         
         
         
@@ -50,9 +50,9 @@ package org.si.sion.sequencer {
             waveTables   = new Vector.<SiOPMWaveTable>(SiOPMTable.WAVE_TABLE_MAX);
             fmVoices     = new Vector.<SiMMLVoice>(SiMMLTable.VOICE_MAX);
             pcmVoices    = new Vector.<SiMMLVoice>(SiOPMTable.PCM_DATA_MAX);
-            sampleTables = new Vector.<SiOPMWaveSamplerTable>(SiOPMTable.SAMPLER_TABLE_MAX);
+            samplerTables = new Vector.<SiOPMWaveSamplerTable>(SiOPMTable.SAMPLER_TABLE_MAX);
             for (var i:int=0; i<SiOPMTable.SAMPLER_TABLE_MAX; i++) {
-                sampleTables[i] = new SiOPMWaveSamplerTable();
+                samplerTables[i] = new SiOPMWaveSamplerTable();
             }
         }
         
@@ -83,7 +83,7 @@ package org.si.sion.sequencer {
                 }
             }
             for (i=0; i<SiOPMTable.SAMPLER_TABLE_MAX; i++) {
-                sampleTables[i]._siopm_module_internal::_free();
+                samplerTables[i]._siopm_module_internal::_free();
             }
         }
         
@@ -157,8 +157,8 @@ package org.si.sion.sequencer {
         internal function _registerAllTables() : void
         {
             /**/ // currently bank2,3 are not avairable
-            SiOPMTable._instance.sampleTables[0].stencil = sampleTables[0];
-            SiOPMTable._instance.sampleTables[1].stencil = sampleTables[1];
+            SiOPMTable._instance.samplerTables[0].stencil = samplerTables[0];
+            SiOPMTable._instance.samplerTables[1].stencil = samplerTables[1];
             SiOPMTable._instance._sion_internal::_stencilCustomWaveTables = waveTables;
             SiOPMTable._instance._sion_internal::_stencilPCMVoices        = pcmVoices;
             SiMMLTable._instance._stencilEnvelops = envelopes;
