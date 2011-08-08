@@ -1456,7 +1456,7 @@ package org.si.sion.utils {
             if (voice.expressionMode != 0) mml += "%x" + String(voice.expressionMode);
             if (voice.portament > 0) mml += "po" + String(voice.portament);
             if (!isNaN(voice.defaultGateTime)) mml += "q" + String(int(voice.defaultGateTime*8));
-            if (voice.defaultGateTicks != 0 || voice.defaultKeyOnDelayTicks != 0) {
+            if (voice.defaultGateTicks > 0 || voice.defaultKeyOnDelayTicks > 0) {
                 mml += "@q" + String(voice.defaultGateTicks) + "," + String(voice.defaultKeyOnDelayTicks);
             }
             if (voice.releaseSweep > 0) mml += "s," + String(voice.releaseSweep);

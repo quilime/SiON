@@ -40,6 +40,13 @@ package org.si.sion.sequencer {
         
         
         
+    // properties
+    //----------------------------------------
+        /** [NOT RECOMMENDED] This property is for the compatibility of previous versions, please use fmVoices instead of this. @see #fmVoices */
+        public function get voices() : Vector.<SiMMLVoice> { return fmVoices; }
+        
+        
+        
         
     // constructor
     //----------------------------------------

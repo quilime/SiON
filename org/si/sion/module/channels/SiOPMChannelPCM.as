@@ -409,7 +409,7 @@ package org.si.sion.module.channels {
             _isNoteOn = false;
             _sion_internal::registerMapType = 0
             _sion_internal::registerMapChannel = 0;
-            _outPipe2 = _chip.getPipe(3, 0);
+            _outPipe2 = _chip.getPipe(3, _bufferIndex);
             _filterVriables2[0] = _filterVriables2[1] = _filterVriables2[2] = 0;
             _samplePitchShift = 0;
             _sampleVolume = 1;
@@ -470,6 +470,16 @@ package org.si.sion.module.channels {
                 _proc(len, operator, false, true);
             }
             _bufferIndex += len;
+        }
+        
+        
+
+        /** No process (default functor of _funcProcess). */
+        override protected function _nop(len:int) : void
+        {
+            // rotate output buffer
+            _outPipe  = _chip.getPipe(4, (_bufferIndex + len) & (_chip.bufferLength-1));
+            _outPipe2 = _chip.getPipe(3, (_bufferIndex + len) & (_chip.bufferLength-1));
         }
         
         

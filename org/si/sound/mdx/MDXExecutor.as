@@ -95,12 +95,9 @@ package org.si.sound.mdx {
                 
                 if (mdxtrack.channelNumber < 8) {
                     mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 6); // use FM voice
-                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 32);
                     mmlseq.appendNewEvent(MMLEvent.QUANT_RATIO, 8);
                 } else {
                     mmlseq.appendNewEvent(MMLEvent.MOD_TYPE, 7); // use PCM voice
-                    mmlseq.appendNewEvent(MMLEvent.FINE_VOLUME, 128);
-                    mmlseq.appendNewEvent(MMLEvent.VOLUME, 22);
                     mmlseq.appendNewEvent(MMLEvent.QUANT_RATIO, 8);
                     mmlseq.appendNewEvent(eventIDPShift, 40);
                 }
@@ -294,7 +291,7 @@ package org.si.sound.mdx {
 
             function _vol() : void {
                 if (mdxtrack.channelNumber < 8) mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? _tlTable[volume] : _volTable[volume]);
-                else mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? (127-volume) : _volTable[volume]);
+                else                            mmlseq.appendNewEvent(eventIDExp, (fineVolumeFlag) ? (127-volume) : _volTable[volume]);
             }
             
             function _mod(eventID:int, data:int, ws:int, fq:int) : void {

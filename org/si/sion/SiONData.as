@@ -110,7 +110,7 @@ package org.si.sion {
         /** [NOT RECOMMENDED] This function is for a compatibility with previous versions, please use setPCMWave instead of this function. @see #setPCMWave(). */
         public function setPCMSound(index:int, sound:Sound, samplingOctave:int=5, keyRangeFrom:int=0, keyRangeTo:int=127) : SiOPMWavePCMData
         {
-            return setPCMWave(index, sound, samplingOctave*12+8, keyRangeFrom, keyRangeTo, 2, 0);
+            return setPCMWave(index, sound, samplingOctave*12+8, keyRangeFrom, keyRangeTo, 1, 0);
         }
         
         
