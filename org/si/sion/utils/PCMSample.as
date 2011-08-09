@@ -87,17 +87,17 @@ package org.si.sion.utils {
         /** samples in Vector.<Number> with properties of sampleRate and channels. */
         public function get samples() : Vector.<Number> { 
             if (_outputSampleRate == _sampleRate && _outputChannels == _channels) {
-trace("get sample from raw sample");
+//trace("get sample from raw sample");
                 return _samples;
             }
             if (_outputSampleRate == _cacheSampleRate && _outputChannels == _cacheChannels) {
-trace("get sample from cache");
+//trace("get sample from cache");
                 return _cache;
             }
             _cacheChannels = _outputChannels;
             _cacheSampleRate = _outputSampleRate;
             _convertSampleRate(_samples, _channels, _sampleRate, _cache, _cacheChannels, _cacheSampleRate, true);
-trace("get sample with convert");
+//trace("get sample with convert");
             return _cache;
         }
         
@@ -426,7 +426,7 @@ trace("get sample with convert");
             if (dstStep == 1) linear = false;
             
             dst.length = int(src.length * dstch * dstsr / (srcch * srcsr));
-trace("convertSampleRate:", srcch, srcsr, src.length, dstch, dstsr, dst.length);
+//trace("convertSampleRate:", srcch, srcsr, src.length, dstch, dstsr, dst.length);
             
             flag  = (srcch == 2) ? 1 : 0;
             flag |= (dstch == 2) ? 2 : 0;
@@ -534,7 +534,7 @@ trace("convertSampleRate:", srcch, srcsr, src.length, dstch, dstsr, dst.length);
         
         // update samples from wave data
         private function _updateSampleFromWaveData() : void {
-trace("_updateSampleFromWaveData");
+//trace("_updateSampleFromWaveData");
             var byteRate:int = _waveDataBitRate>>3;
             if (_waveDataChannels == _channels && _waveDataSampleRate == _sampleRate) {
                 _samples.length = _waveData.length / byteRate;
@@ -572,7 +572,7 @@ trace("_updateSampleFromWaveData");
         // convert raw data to samples
         private function _updateWaveDataFromSamples() : void 
         {
-trace("_updateWaveDataFromSamples");
+//trace("_updateWaveDataFromSamples");
             var byteRate:int = _outputBitRate >> 3,
                 output:Vector.<Number> = this.samples;
             _waveData = _waveData || new ByteArrayExt();

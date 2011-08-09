@@ -106,6 +106,7 @@ package org.si.sion.module {
         {
             var i:int, n:Number, imax:int = (start + len)<<1;
             vol *= _i2n;
+
             if (channels == 2) {
                 // stereo
                 var volL:Number = _panTable[128-pan] * vol,

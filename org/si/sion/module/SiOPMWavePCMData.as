@@ -89,6 +89,7 @@ package org.si.sion.module {
             _sliceAfterLoading = false;
             srcChannelCount = (srcChannelCount == 1) ? 1 : 2;
             if (channelCount == 0) channelCount = srcChannelCount;
+            this.channelCount = (channelCount == 1) ? 1 : 2;
             if (data is Sound) {
                 _listenSoundLoadingEvents(data as Sound);
             } else if (data is Vector.<Number>) {
@@ -101,7 +102,6 @@ package org.si.sion.module {
                 throw new Error("SiOPMWavePCMData; not suitable data type");
             }
             this.samplingPitch = samplingPitch;
-            this.channelCount = (channelCount == 1) ? 1 : 2;
 
             _startPoint = 0;
             _endPoint   = this.sampleCount - 1;

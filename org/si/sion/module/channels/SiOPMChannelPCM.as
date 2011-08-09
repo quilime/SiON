@@ -409,7 +409,7 @@ package org.si.sion.module.channels {
             _isNoteOn = false;
             _sion_internal::registerMapType = 0
             _sion_internal::registerMapChannel = 0;
-            _outPipe2 = _chip.getPipe(3, _bufferIndex);
+            _outPipe2 = _chip.getPipe(3, bufferIndex);
             _filterVriables2[0] = _filterVriables2[1] = _filterVriables2[2] = 0;
             _samplePitchShift = 0;
             _sampleVolume = 1;
@@ -544,7 +544,10 @@ package org.si.sion.module.channels {
                             if (ope._pcm_loopPoint == -1) {
                                 ope._eg_shiftState(SiOPMOperator.EG_OFF);
                                 ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
-                                for (;i<len; i++) op = op.next;
+                                for (;i<len; i++) {
+                                    op.i = 0;
+                                    op = op.next;
+                                }
                                 break;
                             } else {
                                 t -=  ope._pcm_endPoint - ope._pcm_loopPoint;
@@ -621,6 +624,8 @@ package org.si.sion.module.channels {
                                 ope._eg_shiftState(SiOPMOperator.EG_OFF);
                                 ope._eg_out = (ope._eg_levelTable[ope._eg_level] + ope._eg_total_level)<<3;
                                 for (;i<len; i++) {
+                                    op.i = 0;
+                                    op2.i = 0;
                                     op  = op.next;
                                     op2 = op2.next;
                                 }
@@ -680,7 +685,7 @@ package org.si.sion.module.channels {
             if (pan < 0) pan = 0;
             else if (pan > 128) pan = 128;
             
-            if (_filterOn) _applySVFilter(_outPipe, len);
+            if (_filterOn) _applySVFilter(input, len);
             if (_hasEffectSend) {
                 for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
                     if (_volumes[i]>0) {
@@ -703,8 +708,8 @@ package org.si.sion.module.channels {
             else if (pan > 128) pan = 128;
             
             if (_filterOn) {
-                _applySVFilter(_outPipe,  len, _filterVriables);
-                _applySVFilter(_outPipe2, len, _filterVriables2);
+                _applySVFilter(inputL, len, _filterVriables);
+                _applySVFilter(inputR, len, _filterVriables2);
             }
             if (_hasEffectSend) {
                 for (i=0; i<SiOPMModule.STREAM_SEND_SIZE; i++) {
