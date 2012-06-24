@@ -467,7 +467,7 @@ package org.si.sion.module {
             jmax = PITCH_TABLE_SIZE;
             dp   = 1/imax;
             
-            // sampling count tables
+            // wave length table
             pitchWaveLength = new Vector.<Number>(PITCH_TABLE_SIZE, true);
             n = rate / 8.175798915643707;  // = 5393.968278209282@44.1kHz sampling count @ MIDI note number = 0 
             for (i=0, p=0; i<imax; i++, p+=dp) { 
